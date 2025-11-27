@@ -46,12 +46,12 @@ export default function WelcomeScreen() {
 
   const handleApply = () => {
     // TODO: Navigate to apply/registration screen
-    router.push('/(auth)');
+    router.push('/(application)');
   };
 
   const handleLogin = () => {
     // TODO: Navigate to login screen
-    router.push('/(auth)');
+    router.push('/login');
   };
 
   return (
@@ -59,7 +59,7 @@ export default function WelcomeScreen() {
       colors={['#070A12', '#1E2A3B', 'rgba(242, 204, 102, 0.3)']}
       start={{ x: 0, y: 0 }}
       end={{ x: 0.5, y: 1 }}
-      locations={[-0.0077, 0.4895, 0.9867]}
+      locations={[0.0058, 0.4534, 0.9011]}
       style={styles.container}
     >
       <View style={styles.content}>

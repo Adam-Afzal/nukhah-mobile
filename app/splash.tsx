@@ -1,6 +1,8 @@
+// app/splash.tsx
+import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -52,15 +54,30 @@ const LoadingDots = () => (
 
 export default function SplashScreen() {
   const router = useRouter();
+  const [isNavigating, setIsNavigating] = useState(false);
 
   useEffect(() => {
-    // Navigate to welcome screen after 2.5 seconds
-    const timer = setTimeout(() => {
-      router.replace('/welcome');
-    }, 2500);
+    const handleNavigation = async () => {
+      // Wait at least 2.5 seconds for splash animation
+      await new Promise(resolve => setTimeout(resolve, 2500));
 
-    return () => clearTimeout(timer);
-  }, [router]);
+      // Check auth state
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (isNavigating) return; // Prevent double navigation
+      setIsNavigating(true);
+
+      if (session) {
+        // User is logged in → Go to auth routes (will handle further routing)
+        router.replace('/(auth)');
+      } else {
+        // User is NOT logged in → Go to welcome
+        router.replace('/welcome');
+      }
+    };
+
+    handleNavigation();
+  }, []);
 
   return (
     <LinearGradient

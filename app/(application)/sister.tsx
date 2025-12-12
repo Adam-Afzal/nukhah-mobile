@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
-
 const locationItems = COUNTRIES.flatMap(country => 
   country.majorCities.map(city => ({
     label: `${city}, ${country.name}`,
@@ -40,6 +39,9 @@ type FormData = {
   last_name: string;
   email: string;
   phone_number: string;
+  birth_day: string;
+  birth_month: string;
+  birth_year: string;
   
   // Religious
   where_is_allah: string;
@@ -72,16 +74,16 @@ type FormData = {
   // Influencers & Polygyny
   listens_to_hijabi_influencers: boolean;
   open_to_polygyny: boolean;
-  ethnicity: string;
-  preferred_ethnicity: string[]; // Add this as an array
-  password: string
+  ethnicity: string[];
+  preferred_ethnicity: string[];
+  password: string;
 };
 
 export default function SisterApplication() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 5;
-  const { mutate: submitApplication, isPending } = useSisterApplication()
+  const { mutate: submitApplication, isPending } = useSisterApplication();
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
   const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
   const [ethnicityPickerVisible, setEthnicityPickerVisible] = useState(false);
@@ -91,6 +93,9 @@ export default function SisterApplication() {
     last_name: '',
     email: '',
     phone_number: '',
+    birth_day: '',
+    birth_month: '',
+    birth_year: '',
     where_is_allah: '',
     knowledge_source: '',
     aqeedah: '',
@@ -107,7 +112,7 @@ export default function SisterApplication() {
     personal_covering: '',
     listens_to_hijabi_influencers: false,
     open_to_polygyny: false,
-    ethnicity: '',
+    ethnicity: [],
     preferred_ethnicity: [],
     password: ''
   });
@@ -119,11 +124,36 @@ export default function SisterApplication() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
+  // Calculate age from date of birth
+  const calculateAge = (day: string, month: string, year: string) => {
+    if (!day || !month || !year) return null;
+    
+    const birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Format date for display
+  const formatDate = (day: string, month: string, year: string) => {
+    if (!day || !month || !year) return '';
+    
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
   const updateField = (field: keyof FormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  
   const validateStep1 = () => {
     const newErrors: Record<string, string> = {};
     
@@ -177,6 +207,36 @@ export default function SisterApplication() {
     }
     if (!formData.phone_number.trim()) newErrors.phone_number = 'Required';
     
+    // Date of birth validation
+    if (!formData.birth_day.trim()) {
+      newErrors.birth_day = 'Required';
+    } else if (parseInt(formData.birth_day) < 1 || parseInt(formData.birth_day) > 31) {
+      newErrors.birth_day = 'Invalid day';
+    }
+    
+    if (!formData.birth_month.trim()) {
+      newErrors.birth_month = 'Required';
+    } else if (parseInt(formData.birth_month) < 1 || parseInt(formData.birth_month) > 12) {
+      newErrors.birth_month = 'Invalid month';
+    }
+    
+    if (!formData.birth_year.trim()) {
+      newErrors.birth_year = 'Required';
+    } else if (parseInt(formData.birth_year) < 1924 || parseInt(formData.birth_year) > new Date().getFullYear()) {
+      newErrors.birth_year = 'Invalid year';
+    }
+    
+    // Validate age if all fields are filled
+    if (formData.birth_day && formData.birth_month && formData.birth_year && 
+        !newErrors.birth_day && !newErrors.birth_month && !newErrors.birth_year) {
+      const age = calculateAge(formData.birth_day, formData.birth_month, formData.birth_year);
+      if (age !== null && age < 18) {
+        newErrors.birth_year = 'You must be at least 18 years old';
+      } else if (age !== null && age > 100) {
+        newErrors.birth_year = 'Please enter a valid date of birth';
+      }
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -194,7 +254,6 @@ export default function SisterApplication() {
     return Object.keys(newErrors).length === 0;
   };
 
-
   const handleNext = () => {
     let isValid = false;
     
@@ -211,8 +270,8 @@ export default function SisterApplication() {
       case 4:
         isValid = validateStep4();
         break;
-        case 5:
-            isValid = validateStep5();
+      case 5:
+        isValid = validateStep5();
     }
     
     if (isValid) {
@@ -234,12 +293,16 @@ export default function SisterApplication() {
     }
   };
 
-  const handleSubmit = async() => {
+  const handleSubmit = async () => {
+    // Format date as YYYY-MM-DD
+    const date_of_birth = `${formData.birth_year}-${formData.birth_month.padStart(2, '0')}-${formData.birth_day.padStart(2, '0')}`;
+    
     submitApplication({
-        ...formData,
-        password: formData.password
-      })
-  }
+      ...formData,
+      date_of_birth,
+      password: formData.password
+    } as any);
+  };
 
   const renderStep1 = () => (
     <View style={styles.form}>
@@ -345,121 +408,121 @@ export default function SisterApplication() {
         />
         {errors.physical_fitness && <Text style={styles.errorText}>{errors.physical_fitness}</Text>}
       </View>
-    {/* Location */}
-    <View style={styles.inputGroup}>
-  <Text style={styles.label}>Where do you live? *</Text>
-  <TouchableOpacity
-    style={styles.pickerTrigger}
-    onPress={() => setLocationPickerVisible(true)}
-  >
-    <Text style={formData.current_location ? styles.pickerTriggerText : styles.pickerPlaceholder}>
-      {formData.current_location || 'Select your location'}
-    </Text>
-    <Text style={styles.pickerArrow}>›</Text>
-  </TouchableOpacity>
-</View>
 
-<View style={styles.inputGroup}>
-  <Text style={styles.label}>Ethnicity</Text>
-  <TouchableOpacity
-    style={styles.pickerTrigger}
-    onPress={() => setEthnicityPickerVisible(true)}
-  >
-    <Text style={formData.ethnicity ? styles.pickerTriggerText : styles.pickerPlaceholder}>
-      {formData.ethnicity || 'Select your ethnicity'}
-    </Text>
-    <Text style={styles.pickerArrow}>›</Text>
-  </TouchableOpacity>
-</View>
+      {/* Location */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Where do you live? *</Text>
+        <TouchableOpacity
+          style={styles.pickerTrigger}
+          onPress={() => setLocationPickerVisible(true)}
+        >
+          <Text style={formData.current_location ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+            {formData.current_location || 'Select your location'}
+          </Text>
+          <Text style={styles.pickerArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
 
-{/* Preferred Ethnicity - Multi-select */}
-<View style={styles.inputGroup}>
-  <Text style={styles.label}>Preferred Ethnicity</Text>
-  <Text style={styles.hint}>Select "Any" or choose specific ethnicities</Text>
-  
-  {/* "Any" option as a separate button */}
-  <TouchableOpacity
-    style={[
-      styles.radioOption,
-      formData.preferred_ethnicity.includes('Any') && styles.radioOptionSelected,
-    ]}
-    onPress={() => {
-      // If "Any" is selected, clear all others and set only "Any"
-      setFormData(prev => ({
-        ...prev,
-        preferred_ethnicity: prev.preferred_ethnicity.includes('Any') ? [] : ['Any']
-      }));
-    }}
-  >
-    <View style={styles.radio}>
-      {formData.preferred_ethnicity.includes('Any') && <View style={styles.radioInner} />}
-    </View>
-    <Text style={styles.radioText}>Any Ethnicity</Text>
-  </TouchableOpacity>
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Ethnicity</Text>
+        <TouchableOpacity
+          style={styles.pickerTrigger}
+          onPress={() => setEthnicityPickerVisible(true)}
+        >
+          <Text style={formData.ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+            {formData.ethnicity.length > 0 ? formData.ethnicity[0] : 'Select your ethnicity'}
+          </Text>
+          <Text style={styles.pickerArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
 
-  {/* Only show the picker if "Any" is NOT selected */}
-  {!formData.preferred_ethnicity.includes('Any') && (
-    <TouchableOpacity
-      style={styles.pickerTrigger}
-      onPress={() => setPreferredEthnicityPickerVisible(true)}
-    >
-      <Text style={formData.preferred_ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
-        {formData.preferred_ethnicity.length > 0 
-          ? `${formData.preferred_ethnicity.length} selected: ${formData.preferred_ethnicity.slice(0, 2).join(', ')}${formData.preferred_ethnicity.length > 2 ? '...' : ''}`
-          : 'Select specific ethnicities'}
-      </Text>
-      <Text style={styles.pickerArrow}>›</Text>
-    </TouchableOpacity>
-  )}
-  
-  {formData.preferred_ethnicity.includes('Any') && (
-    <Text style={styles.hint}>✓ Open to all ethnicities</Text>
-  )}
-</View>
-{/* Location Picker Modal */}
-<SearchablePicker
-     visible={locationPickerVisible}
-     onClose={() => setLocationPickerVisible(false)}
-     onSelect={(value) => updateField('current_location', value)}
-     items={locationItems}
-     title="Select Location"
-     placeholder="Search city or country..."
-     selectedValue={formData.current_location}
-   />
+      {/* Preferred Ethnicity - Multi-select */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Preferred Ethnicity</Text>
+        <Text style={styles.hint}>Select "Any" or choose specific ethnicities</Text>
+        
+        {/* "Any" option as a separate button */}
+        <TouchableOpacity
+          style={[
+            styles.radioOption,
+            formData.preferred_ethnicity.includes('Any') && styles.radioOptionSelected,
+          ]}
+          onPress={() => {
+            setFormData(prev => ({
+              ...prev,
+              preferred_ethnicity: prev.preferred_ethnicity.includes('Any') ? [] : ['Any']
+            }));
+          }}
+        >
+          <View style={styles.radio}>
+            {formData.preferred_ethnicity.includes('Any') && <View style={styles.radioInner} />}
+          </View>
+          <Text style={styles.radioText}>Any Ethnicity</Text>
+        </TouchableOpacity>
 
-   {/* Ethnicity Picker Modal */}
-   <SearchablePicker
-     visible={ethnicityPickerVisible}
-     onClose={() => setEthnicityPickerVisible(false)}
-     onSelect={(value) => updateField('ethnicity', value)}
-     items={ethnicityItems}
-     title="Select Ethnicity"
-     placeholder="Search ethnicity..."
-     selectedValue={formData.ethnicity}
-   />
+        {/* Only show the picker if "Any" is NOT selected */}
+        {!formData.preferred_ethnicity.includes('Any') && (
+          <TouchableOpacity
+            style={styles.pickerTrigger}
+            onPress={() => setPreferredEthnicityPickerVisible(true)}
+          >
+            <Text style={formData.preferred_ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+              {formData.preferred_ethnicity.length > 0 
+                ? `${formData.preferred_ethnicity.length} selected: ${formData.preferred_ethnicity.slice(0, 2).join(', ')}${formData.preferred_ethnicity.length > 2 ? '...' : ''}`
+                : 'Select specific ethnicities'}
+            </Text>
+            <Text style={styles.pickerArrow}>›</Text>
+          </TouchableOpacity>
+        )}
+        
+        {formData.preferred_ethnicity.includes('Any') && (
+          <Text style={styles.hint}>✓ Open to all ethnicities</Text>
+        )}
+      </View>
+
+      {/* Location Picker Modal */}
+      <SearchablePicker
+        visible={locationPickerVisible}
+        onClose={() => setLocationPickerVisible(false)}
+        onSelect={(value) => updateField('current_location', value)}
+        items={locationItems}
+        title="Select Location"
+        placeholder="Search city or country..."
+        selectedValue={formData.current_location}
+      />
+
+      {/* Ethnicity Picker Modal */}
+      <SearchablePicker
+        visible={ethnicityPickerVisible}
+        onClose={() => setEthnicityPickerVisible(false)}
+        onSelect={(value) => updateField('ethnicity', [value])}
+        items={ethnicityItems}
+        title="Select Ethnicity"
+        placeholder="Search ethnicity..."
+        selectedValue={Array.isArray(formData.ethnicity) ? formData.ethnicity[0] : formData.ethnicity}
+      />
 
       {/* Preferred Ethnicity Picker Modal - Multi-select */}
-<SearchablePicker
-  visible={preferredEthnicityPickerVisible}
-  onClose={() => setPreferredEthnicityPickerVisible(false)}
-  onSelect={(value) => {
-    // Toggle selection for multi-select
-    setFormData(prev => {
-      const isSelected = prev.preferred_ethnicity.includes(value);
-      return {
-        ...prev,
-        preferred_ethnicity: isSelected
-          ? prev.preferred_ethnicity.filter(e => e !== value)
-          : [...prev.preferred_ethnicity, value]
-      };
-    });
-  }}
-  items={ethnicityItems}
-  title="Select Preferred Ethnicities"
-  placeholder="Search ethnicity..."
-  selectedValue={formData.preferred_ethnicity}
-  multiSelect={true}
-/>
+      <SearchablePicker
+        visible={preferredEthnicityPickerVisible}
+        onClose={() => setPreferredEthnicityPickerVisible(false)}
+        onSelect={(value) => {
+          setFormData(prev => {
+            const isSelected = prev.preferred_ethnicity.includes(value);
+            return {
+              ...prev,
+              preferred_ethnicity: isSelected
+                ? prev.preferred_ethnicity.filter(e => e !== value)
+                : [...prev.preferred_ethnicity, value]
+            };
+          });
+        }}
+        items={ethnicityItems}
+        title="Select Preferred Ethnicities"
+        placeholder="Search ethnicity..."
+        selectedValue={formData.preferred_ethnicity}
+        multiSelect={true}
+      />
 
       {/* Preferred Region */}
       <View style={styles.inputGroup}>
@@ -671,7 +734,6 @@ export default function SisterApplication() {
     </View>
   );
 
-
   const renderStep4 = () => (
     <View style={styles.form}>
       <Text style={styles.stepTitle}>Basic Information</Text>
@@ -706,6 +768,71 @@ export default function SisterApplication() {
           autoCapitalize="words"
         />
         {errors.last_name && <Text style={styles.errorText}>{errors.last_name}</Text>}
+      </View>
+
+      {/* Date of Birth - Three Input Fields */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Date of Birth *</Text>
+        <Text style={styles.hint}>You must be at least 18 years old</Text>
+        <View style={styles.dateInputRow}>
+          <View style={styles.dateInputWrapper}>
+            <TextInput
+              style={[styles.dateInput, errors.birth_day && styles.inputError]}
+              placeholder="DD"
+              placeholderTextColor="#7B8799"
+              value={formData.birth_day}
+              onChangeText={(text) => {
+                const cleaned = text.replace(/[^0-9]/g, '').slice(0, 2);
+                setFormData({ ...formData, birth_day: cleaned });
+                if (errors.birth_day) setErrors({ ...errors, birth_day: '' });
+              }}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+            {errors.birth_day && <Text style={styles.errorTextSmall}>{errors.birth_day}</Text>}
+          </View>
+          
+          <View style={styles.dateInputWrapper}>
+            <TextInput
+              style={[styles.dateInput, errors.birth_month && styles.inputError]}
+              placeholder="MM"
+              placeholderTextColor="#7B8799"
+              value={formData.birth_month}
+              onChangeText={(text) => {
+                const cleaned = text.replace(/[^0-9]/g, '').slice(0, 2);
+                setFormData({ ...formData, birth_month: cleaned });
+                if (errors.birth_month) setErrors({ ...errors, birth_month: '' });
+              }}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+            {errors.birth_month && <Text style={styles.errorTextSmall}>{errors.birth_month}</Text>}
+          </View>
+          
+          <View style={styles.dateInputWrapper}>
+            <TextInput
+              style={[styles.dateInput, errors.birth_year && styles.inputError]}
+              placeholder="YYYY"
+              placeholderTextColor="#7B8799"
+              value={formData.birth_year}
+              onChangeText={(text) => {
+                const cleaned = text.replace(/[^0-9]/g, '').slice(0, 4);
+                setFormData({ ...formData, birth_year: cleaned });
+                if (errors.birth_year) setErrors({ ...errors, birth_year: '' });
+              }}
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+            {errors.birth_year && <Text style={styles.errorTextSmall}>{errors.birth_year}</Text>}
+          </View>
+        </View>
+        {formData.birth_day && formData.birth_month && formData.birth_year && 
+         !errors.birth_day && !errors.birth_month && !errors.birth_year && (
+          <Text style={styles.ageDisplay}>
+            {formatDate(formData.birth_day, formData.birth_month, formData.birth_year)} 
+            ({calculateAge(formData.birth_day, formData.birth_month, formData.birth_year)} years old)
+          </Text>
+        )}
       </View>
 
       <View style={styles.inputGroup}>
@@ -1063,5 +1190,39 @@ const styles = StyleSheet.create({
   pickerArrow: {
     fontSize: 24,
     color: '#7B8799',
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  dateInputWrapper: {
+    flex: 1,
+    gap: 4,
+  },
+  dateInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  errorTextSmall: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: '#E03A3A',
+    textAlign: 'center',
+  },
+  ageDisplay: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#F7E099',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

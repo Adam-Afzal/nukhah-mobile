@@ -19,7 +19,10 @@ interface BrotherApplicationData {
   preferred_region: string;
   annual_income: string;
   polygyny_justice_knowledge: string;
+  ethnicity: string[],
+  preferred_ethnicity: string[],
   password: string;
+  date_of_birth: string
 }
 
 interface SubmitResponse {

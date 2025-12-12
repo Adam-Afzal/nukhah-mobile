@@ -1,14 +1,15 @@
 // app/(auth)/settings.tsx
 import { supabase } from '@/lib/supabase';
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
@@ -56,9 +57,11 @@ const NotificationsIcon = ({ active, count }: { active: boolean; count?: number 
         strokeWidth={2}
       />
     </Svg>
-    {count && count > 0 && (
+    {(count !== undefined && count > 0) && (
       <View style={styles.notificationBadge}>
-        <Text style={styles.notificationCount}>{count > 99 ? '99+' : count}</Text>
+        <Text style={styles.notificationCount}>
+          {count > 99 ? '99+' : String(count)}
+        </Text>
       </View>
     )}
   </View>
@@ -101,6 +104,43 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [username, setUsername] = useState('Mercy-317K'); // TODO: Load from profile
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { unreadCount } = useUnreadNotifications();
+
+  const handleEditProfile = () => {
+    // TODO: Create edit profile screen
+    Alert.alert(
+      'Edit Profile',
+      'This feature is coming soon. You will be able to edit your profile information here.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleSpouseCriteria = () => {
+    // TODO: Create spouse criteria screen
+    Alert.alert(
+      'Spouse Criteria',
+      'This feature is coming soon. You will be able to define and update your spouse criteria here.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleVerificationStatus = () => {
+    // TODO: Create verification screen
+    Alert.alert(
+      'Verification Status',
+      'This feature is coming soon. You will be able to complete profile verification here.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleManageMembership = () => {
+    // TODO: Create membership management screen
+    Alert.alert(
+      'Manage Membership',
+      'This feature is coming soon. You will be able to manage your subscription and payment details here.',
+      [{ text: 'OK' }]
+    );
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -145,7 +185,11 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: () => {
             // TODO: Implement account deletion
-            console.log('Delete account');
+            Alert.alert(
+              'Confirm Deletion',
+              'Are you absolutely sure? Type "DELETE" to confirm.',
+              [{ text: 'Cancel', style: 'cancel' }]
+            );
           },
         },
       ],
@@ -165,7 +209,7 @@ export default function SettingsScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>M</Text>
+              <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
             </View>
           </View>
           <Text style={styles.username}>{username}</Text>
@@ -176,7 +220,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>ACCOUNT</Text>
           
           <View style={styles.card}>
-            <TouchableOpacity style={styles.settingItem} onPress={() => {}}>
+            <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
               <View style={styles.iconContainer}>
                 <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
                   <Rect width={32} height={32} rx={8} fill="#F8F1DA" />
@@ -201,7 +245,7 @@ export default function SettingsScreen() {
 
             <View style={styles.divider} />
 
-            <TouchableOpacity style={styles.settingItem} onPress={() => {}}>
+            <TouchableOpacity style={styles.settingItem} onPress={handleSpouseCriteria}>
               <View style={styles.iconContainer}>
                 <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
                   <Rect width={32} height={32} rx={8} fill="#F8F1DA" />
@@ -230,7 +274,7 @@ export default function SettingsScreen() {
 
             <View style={styles.divider} />
 
-            <TouchableOpacity style={styles.settingItem} onPress={() => {}}>
+            <TouchableOpacity style={styles.settingItem} onPress={handleVerificationStatus}>
               <View style={styles.iconContainer}>
                 <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
                   <Rect width={32} height={32} rx={8} fill="#F8F1DA" />
@@ -257,7 +301,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>SUBSCRIPTION</Text>
           
           <View style={styles.card}>
-            <TouchableOpacity style={styles.settingItem} onPress={() => {}}>
+            <TouchableOpacity style={styles.settingItem} onPress={handleManageMembership}>
               <View style={styles.iconContainer}>
                 <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
                   <Rect width={32} height={32} rx={8} fill="#F8F1DA" />
@@ -358,7 +402,10 @@ export default function SettingsScreen() {
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => router.push('/(auth)/interests')}
+          >
             <InterestsIcon active={false} />
             <Text style={styles.navLabelInactive}>Interests</Text>
           </TouchableOpacity>
@@ -371,8 +418,11 @@ export default function SettingsScreen() {
             <Text style={styles.navLabelInactive}>Search</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
-            <NotificationsIcon active={false} count={12} />
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => router.push('/(auth)/notifications')}
+          >
+            <NotificationsIcon active={false} count={unreadCount} />
             <Text style={styles.navLabelInactive}>Notifications</Text>
           </TouchableOpacity>
 

@@ -1,17 +1,22 @@
 // app/(auth)/index.tsx
-import { getCountryByName, getEthnicityByName } from '@/lib/locationData';
+import { findMatchesForBrother, findMatchesForSister } from '@/lib/embeddingService';
+import { ETHNICITIES, getCountryByName, getEthnicityByName } from '@/lib/locationData';
 import { supabase } from '@/lib/supabase';
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 type Tab = 'discover' | 'for-you' | 'featured';
 
@@ -26,6 +31,22 @@ interface Profile {
   physical_fitness?: string;
   polygyny_willingness?: boolean;
   polygyny_acceptance?: boolean;
+  prayer_consistency?: string;
+  memorization_quran?: string;
+  hijab_commitment?: string;
+  date_of_birth?: string;
+  similarity_score?: number;
+}
+
+interface Filters {
+  searchText: string;
+  location: string;
+  ethnicity: string[];
+  build: string[];
+  fitnessLevel: string[];
+  covering: string;
+  polygyny: 'any' | 'open' | 'monogamy';
+  maritalStatus: string[];
 }
 
 // Navigation Icons
@@ -80,14 +101,15 @@ const NotificationsIcon = ({ active, count }: { active: boolean; count?: number 
         strokeLinejoin="round"
       />
     </Svg>
-    {count && count > 0 && (
+    {(count !== undefined && count > 0) && (
       <View style={styles.notificationBadge}>
-        <Text style={styles.notificationCount}>{count > 99 ? '99+' : count}</Text>
+        <Text style={styles.notificationCount}>
+          {count > 99 ? '99+' : String(count)}
+        </Text>
       </View>
     )}
   </View>
 );
-
 const SettingsIcon = ({ active }: { active: boolean }) => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
     <Circle
@@ -158,22 +180,49 @@ const SettingsIcon = ({ active }: { active: boolean }) => (
   </Svg>
 );
 
+const FilterIcon = () => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+    <Line x1={3} y1={6} x2={21} y2={6} stroke="#070A12" strokeWidth={2} strokeLinecap="round" />
+    <Line x1={3} y1={12} x2={21} y2={12} stroke="#070A12" strokeWidth={2} strokeLinecap="round" />
+    <Line x1={3} y1={18} x2={21} y2={18} stroke="#070A12" strokeWidth={2} strokeLinecap="round" />
+  </Svg>
+);
+
 export default function SearchScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('featured');
+  const [activeTab, setActiveTab] = useState<Tab>('for-you');
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [accountType, setAccountType] = useState<'brother' | 'sister' | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const { unreadCount } = useUnreadNotifications();
+  
+  const [filters, setFilters] = useState<Filters>({
+    searchText: '',
+    location: '',
+    ethnicity: [],
+    build: [],
+    fitnessLevel: [],
+    covering: '',
+    polygyny: 'any',
+    maritalStatus: [],
+  });
 
   useEffect(() => {
     loadUserAccountType();
   }, []);
 
   useEffect(() => {
-    if (accountType) {
+    if (accountType && currentUserId) {
       loadProfiles();
     }
-  }, [activeTab, accountType]);
+  }, [activeTab, accountType, currentUserId]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [profiles, filters]);
 
   const loadUserAccountType = async () => {
     try {
@@ -188,6 +237,7 @@ export default function SearchScreen() {
 
       if (brotherProfile) {
         setAccountType('brother');
+        setCurrentUserId(brotherProfile.id);
         return;
       }
 
@@ -199,14 +249,92 @@ export default function SearchScreen() {
 
       if (sisterProfile) {
         setAccountType('sister');
+        setCurrentUserId(sisterProfile.id);
       }
     } catch (error) {
       console.error('Error loading account type:', error);
     }
   };
 
+  const calculateAge = (dateOfBirth: string | undefined): number | null => {
+    if (!dateOfBirth) return null;
+    
+    const today = new Date();
+    const birthDate = new Date(dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
   const loadProfiles = async () => {
     setIsLoading(true);
+    try {
+      if (activeTab === 'for-you') {
+        await loadAIMatches();
+      } else {
+        await loadRegularProfiles();
+      }
+    } catch (error) {
+      console.error('Error loading profiles:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadAIMatches = async () => {
+    if (!currentUserId || !accountType) {
+      console.log('Missing data:', { currentUserId, accountType });
+      return;
+    }
+
+    try {
+      const matchData = accountType === 'brother'
+        ? await findMatchesForBrother(currentUserId, 50)
+        : await findMatchesForSister(currentUserId, 50);
+
+      if (!matchData || matchData.length === 0) {
+        console.log('No match data returned');
+        setProfiles([]);
+        return;
+      }
+
+      // RPC function returns: { id: uuid, similarity_score: float, username: text, location: text }
+      const profileIds = matchData.map((m: any) => m.id);
+
+      const targetTable = accountType === 'brother' ? 'sister' : 'brother';
+      const polygynyField = targetTable === 'sister' ? 'polygyny_acceptance' : 'polygyny_willingness';
+      const coveringField = targetTable === 'sister' ? 'hijab_commitment' : 'beard_commitment';
+      
+      const { data: profileDetails, error } = await supabase
+        .from(targetTable)
+        .select(`id, username, slug, location, ethnicity, marital_status, build, physical_fitness, ${polygynyField}, ${coveringField}, prayer_consistency, memorization_quran, date_of_birth`)
+        .in('id', profileIds);
+
+      if (error) throw error;
+
+      const enrichedProfiles = profileDetails?.map((profile: any) => {
+        const match = matchData.find((m: any) => m.id === profile.id);
+        return {
+          ...profile,
+          similarity_score: match?.similarity_score || 0,
+        };
+      }) || [];
+
+      enrichedProfiles.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
+
+      setProfiles(enrichedProfiles);
+    } catch (error) {
+      console.error('Error loading AI matches:', error);
+      setProfiles([]);
+    }
+  };
+
+  const loadRegularProfiles = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -216,11 +344,12 @@ export default function SearchScreen() {
 
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
       const polygynyField = targetTable === 'sister' ? 'polygyny_acceptance' : 'polygyny_willingness';
+      const coveringField = targetTable === 'sister' ? 'hijab_commitment' : 'beard_commitment';
       
       let query = supabase
         .from(targetTable)
-        .select(`id, username, slug, location, ethnicity, marital_status, build, physical_fitness, ${polygynyField}`)
-        .limit(20);
+        .select(`id, username, slug, location, ethnicity, marital_status, build, physical_fitness, ${polygynyField}, ${coveringField}, date_of_birth`)
+        .limit(50);
 
       const { data, error } = await query;
 
@@ -232,8 +361,106 @@ export default function SearchScreen() {
       setProfiles(data || []);
     } catch (error) {
       console.error('Error loading profiles:', error);
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...profiles];
+
+    // Search text filter
+    if (filters.searchText) {
+      const search = filters.searchText.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.username.toLowerCase().includes(search) ||
+        p.location.toLowerCase().includes(search)
+      );
+    }
+
+    // Location filter
+    if (filters.location) {
+      filtered = filtered.filter(p => 
+        p.location.toLowerCase().includes(filters.location.toLowerCase())
+      );
+    }
+
+    // Ethnicity filter
+    if (filters.ethnicity.length > 0) {
+      filtered = filtered.filter(p => {
+        const profileEthnicity = Array.isArray(p.ethnicity) ? p.ethnicity : [p.ethnicity];
+        return profileEthnicity.some(e => filters.ethnicity.includes(e));
+      });
+    }
+
+    // Build filter
+    if (filters.build.length > 0) {
+      filtered = filtered.filter(p => p.build && filters.build.includes(p.build));
+    }
+
+    // Fitness level filter
+    if (filters.fitnessLevel.length > 0) {
+      filtered = filtered.filter(p => p.physical_fitness && filters.fitnessLevel.includes(p.physical_fitness));
+    }
+
+    // Covering filter (hijab/beard)
+    if (filters.covering) {
+      filtered = filtered.filter(p => {
+        if (accountType === 'brother') {
+          return (p as any).hijab_commitment === filters.covering;
+        } else {
+          return (p as any).beard_commitment === filters.covering;
+        }
+      });
+    }
+
+    // Polygyny filter
+    if (filters.polygyny !== 'any') {
+      const acceptsPolygyny = filters.polygyny === 'open';
+      filtered = filtered.filter(p => {
+        const polyField = accountType === 'brother' ? p.polygyny_acceptance : p.polygyny_willingness;
+        return polyField === acceptsPolygyny;
+      });
+    }
+
+    // Marital status filter
+    if (filters.maritalStatus.length > 0) {
+      filtered = filtered.filter(p => filters.maritalStatus.includes(p.marital_status));
+    }
+
+    setFilteredProfiles(filtered);
+  };
+
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.searchText) count++;
+    if (filters.location) count++;
+    if (filters.ethnicity.length > 0) count++;
+    if (filters.build.length > 0) count++;
+    if (filters.fitnessLevel.length > 0) count++;
+    if (filters.covering) count++;
+    if (filters.polygyny !== 'any') count++;
+    if (filters.maritalStatus.length > 0) count++;
+    return count;
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      searchText: '',
+      location: '',
+      ethnicity: [],
+      build: [],
+      fitnessLevel: [],
+      covering: '',
+      polygyny: 'any',
+      maritalStatus: [],
+    });
+  };
+
+  const toggleArrayFilter = (key: keyof Filters, value: string) => {
+    const currentArray = filters[key] as string[];
+    if (currentArray.includes(value)) {
+      setFilters({ ...filters, [key]: currentArray.filter(v => v !== value) });
+    } else {
+      setFilters({ ...filters, [key]: [...currentArray, value] });
     }
   };
 
@@ -295,10 +522,275 @@ export default function SearchScreen() {
     return country?.flag || '🌍';
   };
 
-  const getEthnicityFlag = (ethnicity: string) => {
+  const getEthnicityFlag = (ethnicity: string | string[]) => {
     if (!ethnicity) return '🌍';
-    const eth = getEthnicityByName(ethnicity);
+    const ethnicityName = Array.isArray(ethnicity) ? ethnicity[0] : ethnicity;
+    if (!ethnicityName) return '🌍';
+    const eth = getEthnicityByName(ethnicityName);
     return eth?.flag || '🌍';
+  };
+
+  const renderFilterModal = () => {
+    const brotherBuilds = ['lean', 'muscular', 'bulky', 'heavyset', 'average'];
+    const sisterBuilds = ['athletic', 'curvaceous', 'curvy_athletic', 'hourglass', 'heavyset', 'average'];
+    const builds = accountType === 'brother' ? sisterBuilds : brotherBuilds;
+
+    const sisterCovering = [
+      { value: 'niqab', label: 'Niqab' },
+      { value: 'hijab_abaya', label: 'Hijab + Abaya' },
+      { value: 'hijab_western_clothing', label: 'Hijab + Western' },
+      { value: 'open_hair', label: 'Open Hair' },
+    ];
+
+    const brotherBeard = [
+      { value: 'full_sunnah_beard', label: 'Full Sunnah Beard' },
+      { value: 'trimmed_beard', label: 'Trimmed Beard' },
+      { value: 'clean_shaven', label: 'Clean Shaven' },
+    ];
+
+    const coveringOptions = accountType === 'brother' ? sisterCovering : brotherBeard;
+
+    return (
+      <Modal
+        visible={filterModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.filterModal}>
+          <ScrollView style={styles.filterScrollView} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={styles.filterHeader}>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <Text style={styles.filterBackButton}>← Back</Text>
+              </TouchableOpacity>
+              <Text style={styles.filterTitle}>Search</Text>
+            </View>
+
+            {/* Search Bar */}
+            <View style={styles.searchBarContainer}>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={styles.searchIcon}>
+                <Circle cx={11} cy={11} r={8} stroke="#7B8799" strokeWidth={2} />
+                <Path d="M21 21L16.65 16.65" stroke="#7B8799" strokeWidth={2} />
+              </Svg>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by username or location..."
+                placeholderTextColor="#C0C7D1"
+                value={filters.searchText}
+                onChangeText={(text) => setFilters({ ...filters, searchText: text })}
+              />
+            </View>
+
+            {/* Active Filters Badge */}
+            {getActiveFilterCount() > 0 && (
+              <View style={styles.activeFiltersContainer}>
+                <View style={styles.activeFiltersBadge}>
+                  <Text style={styles.activeFiltersCount}>{getActiveFilterCount()}</Text>
+                </View>
+                <TouchableOpacity onPress={clearAllFilters}>
+                  <Text style={styles.clearAllText}>Clear All</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Filter Content */}
+            <View style={styles.filterContent}>
+              
+              {/* Location */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>LOCATION</Text>
+                <View style={styles.filterBox}>
+                  <Text style={styles.filterBoxLabel}>Country</Text>
+                  <TextInput
+                    style={styles.filterInput}
+                    placeholder="Any"
+                    placeholderTextColor="#C0C7D1"
+                    value={filters.location}
+                    onChangeText={(text) => setFilters({ ...filters, location: text })}
+                  />
+                </View>
+              </View>
+
+              {/* Ethnicity */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>ETHNICITY</Text>
+                <View style={styles.filterBox}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.ethnicityList}>
+                      {ETHNICITIES.map((eth) => (
+                        <TouchableOpacity
+                          key={eth.name}
+                          style={[
+                            styles.ethnicityOption,
+                            filters.ethnicity.includes(eth.name) && styles.ethnicityOptionSelected
+                          ]}
+                          onPress={() => toggleArrayFilter('ethnicity', eth.name)}
+                        >
+                          <Text style={styles.ethnicityOptionText}>
+                            {eth.flag} {eth.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+
+              {/* Physical Attributes */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>PHYSICAL ATTRIBUTES</Text>
+                <View style={styles.filterBox}>
+                  <Text style={styles.filterBoxLabel}>Build</Text>
+                  <View style={styles.chipRow}>
+                    {builds.map((build) => (
+                      <TouchableOpacity
+                        key={build}
+                        style={[
+                          styles.chip,
+                          filters.build.includes(build) && styles.chipSelected
+                        ]}
+                        onPress={() => toggleArrayFilter('build', build)}
+                      >
+                        <Text style={[
+                          styles.chipText,
+                          filters.build.includes(build) && styles.chipTextSelected
+                        ]}>
+                          {getBuildLabel(build)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>Fitness Level</Text>
+                  <View style={styles.chipRow}>
+                    {['light_exercise', 'moderately_fit', 'fit', 'very_fit', 'athlete'].map((level) => (
+                      <TouchableOpacity
+                        key={level}
+                        style={[
+                          styles.chip,
+                          filters.fitnessLevel.includes(level) && styles.chipSelected
+                        ]}
+                        onPress={() => toggleArrayFilter('fitnessLevel', level)}
+                      >
+                        <Text style={[
+                          styles.chipText,
+                          filters.fitnessLevel.includes(level) && styles.chipTextSelected
+                        ]}>
+                          {getPhysicalFitnessLabel(level)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>
+                    {accountType === 'brother' ? 'Covering' : 'Beard'}
+                  </Text>
+                  <View style={styles.filterInput}>
+                    <TouchableOpacity
+                      onPress={() => setFilters({ ...filters, covering: '' })}
+                      style={styles.coveringOption}
+                    >
+                      <Text style={filters.covering === '' ? styles.coveringTextSelected : styles.coveringText}>
+                        Any
+                      </Text>
+                    </TouchableOpacity>
+                    {coveringOptions.map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        onPress={() => setFilters({ ...filters, covering: option.value })}
+                        style={styles.coveringOption}
+                      >
+                        <Text style={filters.covering === option.value ? styles.coveringTextSelected : styles.coveringText}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+              {/* Polygyny */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>POLYGYNY</Text>
+                <View style={styles.filterBox}>
+                  <View style={styles.chipRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.chipLarge,
+                        filters.polygyny === 'open' && styles.chipSelected
+                      ]}
+                      onPress={() => setFilters({ ...filters, polygyny: 'open' })}
+                    >
+                      <Text style={[
+                        styles.chipText,
+                        filters.polygyny === 'open' && styles.chipTextSelected
+                      ]}>
+                        Open to Polygyny
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.chipLarge,
+                        filters.polygyny === 'monogamy' && styles.chipSelected
+                      ]}
+                      onPress={() => setFilters({ ...filters, polygyny: 'monogamy' })}
+                    >
+                      <Text style={[
+                        styles.chipText,
+                        filters.polygyny === 'monogamy' && styles.chipTextSelected
+                      ]}>
+                        Monogamy Only
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Marital Status */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>MARITAL STATUS</Text>
+                <View style={styles.filterBox}>
+                  <View style={styles.chipRow}>
+                    {['never_married', 'divorced', 'widowed', 'married'].map((status) => (
+                      <TouchableOpacity
+                        key={status}
+                        style={[
+                          styles.chip,
+                          filters.maritalStatus.includes(status) && styles.chipSelected
+                        ]}
+                        onPress={() => toggleArrayFilter('maritalStatus', status)}
+                      >
+                        <Text style={[
+                          styles.chipText,
+                          filters.maritalStatus.includes(status) && styles.chipTextSelected
+                        ]}>
+                          {getMaritalStatusLabel(status)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+
+            </View>
+
+            {/* Apply Button */}
+            <View style={styles.filterFooter}>
+              <Text style={styles.matchCount}>
+                {filteredProfiles.length} profiles match your filters
+              </Text>
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={() => setFilterModalVisible(false)}
+              >
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    );
   };
 
   const renderProfileCard = ({ item }: { item: Profile }) => {
@@ -306,15 +798,26 @@ export default function SearchScreen() {
       ? item.polygyny_acceptance 
       : item.polygyny_willingness;
 
+    const unlockPercentage = activeTab === 'for-you' && item.similarity_score
+      ? Math.round(item.similarity_score * 100)
+      : 60;
+
+    const age = calculateAge(item.date_of_birth);
+
     return (
       <TouchableOpacity 
         style={styles.profileCard}
-        onPress={() => {
-          console.log('View profile:', item.username);
-        }}
+        onPress={() => router.push({
+          pathname: `/profile/${item.id}`,
+          params: { from: 'search' }
+        })}
       >
         <View style={styles.profileHeader}>
-          <Text style={styles.unlockText}>Profile Unlock: 60%</Text>
+          <Text style={styles.unlockText}>
+            {activeTab === 'for-you' 
+              ? `Compatibility: ${unlockPercentage}%` 
+              : `Profile Unlock: ${unlockPercentage}%`}
+          </Text>
           {hasPolygyny && (
             <View style={styles.polygynyBadge}>
               <Text style={styles.polygynyText}>Polygyny-Open</Text>
@@ -323,11 +826,16 @@ export default function SearchScreen() {
         </View>
 
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '60%' }]} />
+          <View style={[styles.progressFill, { width: `${unlockPercentage}%` }]} />
         </View>
 
         <View style={styles.usernameRow}>
           <Text style={styles.username}>{item.username}</Text>
+          {age && (
+            <View style={styles.ageBadge}>
+              <Text style={styles.ageText}>{age}</Text>
+            </View>
+          )}
           <Text style={styles.flag}>{getLocationFlag(item.location)}</Text>
         </View>
 
@@ -343,7 +851,7 @@ export default function SearchScreen() {
           </Text>
           {item.ethnicity && (
             <Text style={styles.infoText}>
-              {getEthnicityFlag(item.ethnicity)} {item.ethnicity}
+              {getEthnicityFlag(item.ethnicity)} {Array.isArray(item.ethnicity) ? item.ethnicity[0] : item.ethnicity}
             </Text>
           )}
         </View>
@@ -377,8 +885,16 @@ export default function SearchScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyText}>No profiles found</Text>
-      <Text style={styles.emptySubtext}>Check back soon for new members</Text>
+      <Text style={styles.emptyText}>
+        {getActiveFilterCount() > 0 ? 'No profiles match your filters' : 
+         activeTab === 'for-you' ? 'No AI matches found' : 'No profiles found'}
+      </Text>
+      <Text style={styles.emptySubtext}>
+        {getActiveFilterCount() > 0 ? 'Try adjusting your filters' :
+         activeTab === 'for-you' 
+          ? 'Complete your profile to get better matches' 
+          : 'Check back soon for new members'}
+      </Text>
     </View>
   );
 
@@ -394,6 +910,17 @@ export default function SearchScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Who are you looking for?</Text>
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setFilterModalVisible(true)}
+        >
+          <FilterIcon />
+          {getActiveFilterCount() > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{getActiveFilterCount()}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tabsContainer}>
@@ -426,7 +953,7 @@ export default function SearchScreen() {
       </View>
 
       <FlatList
-        data={profiles}
+        data={filteredProfiles}
         renderItem={renderProfileCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
@@ -434,12 +961,14 @@ export default function SearchScreen() {
         showsVerticalScrollIndicator={false}
       />
 
+      {renderFilterModal()}
+
       {/* Bottom Navigation Bar */}
       <View style={styles.navbar}>
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/interests')}>
             <InterestsIcon active={false} />
             <Text style={styles.navLabelInactive}>Interests</Text>
           </TouchableOpacity>
@@ -449,10 +978,13 @@ export default function SearchScreen() {
             <Text style={styles.navLabelActive}>Search</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
-            <NotificationsIcon active={false} count={12} />
-            <Text style={styles.navLabelInactive}>Notifications</Text>
-          </TouchableOpacity>
+          <TouchableOpacity 
+  style={styles.navItem} 
+  onPress={() => router.push('/(auth)/notifications')}
+>
+  <NotificationsIcon active={false} count={unreadCount} />
+  <Text style={styles.navLabelInactive}>Notifications</Text>
+</TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.navItem} 
@@ -485,12 +1017,36 @@ const styles = StyleSheet.create({
     paddingTop: 51,
     paddingBottom: 16,
     backgroundColor: '#F7F8FB',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontFamily: 'PlayfairDisplay_400Regular',
     fontSize: 24,
     lineHeight: 32,
     color: '#070A12',
+  },
+  filterButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#E03A3A',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    color: '#FFFFFF',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -578,6 +1134,18 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     color: '#070A12',
   },
+  ageBadge: {
+    backgroundColor: '#F8F1DA',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  ageText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#070A12',
+  },
   flag: {
     fontSize: 16,
     lineHeight: 19,
@@ -659,6 +1227,213 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7B8799',
   },
+  
+  // Filter Modal Styles
+  filterModal: {
+    flex: 1,
+    backgroundColor: '#F7F8FB',
+  },
+  filterScrollView: {
+    flex: 1,
+  },
+  filterHeader: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 28,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E7EAF0',
+  },
+  filterBackButton: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#F2CC66',
+    marginBottom: 12,
+  },
+  filterTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 28,
+    color: '#070A12',
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F8FB',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 28,
+    marginTop: 16,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#070A12',
+  },
+  activeFiltersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    marginTop: 16,
+    gap: 12,
+  },
+  activeFiltersBadge: {
+    backgroundColor: '#F2CC66',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeFiltersCount: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    color: '#070A12',
+  },
+  clearAllText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+    color: '#F2CC66',
+  },
+  filterContent: {
+    paddingHorizontal: 28,
+    paddingTop: 24,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterSectionLabel: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    color: '#7B8799',
+    marginBottom: 12,
+  },
+  filterBox: {
+    backgroundColor: '#F7F8FB',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 12,
+    padding: 16,
+  },
+  filterBoxLabel: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 13,
+    color: '#070A12',
+    marginBottom: 12,
+  },
+  filterInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  coveringOption: {
+    paddingVertical: 8,
+  },
+  coveringText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#C0C7D1',
+  },
+  coveringTextSelected: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#070A12',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipSelected: {
+    backgroundColor: '#F2CC66',
+    borderColor: '#F2CC66',
+  },
+  chipText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: '#7B8799',
+    textAlign: 'center',
+  },
+  chipTextSelected: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    color: '#070A12',
+  },
+  chipLarge: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 6,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  ethnicityList: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ethnicityOption: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  ethnicityOptionSelected: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#F2CC66',
+  },
+  ethnicityOptionText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#070A12',
+  },
+  filterFooter: {
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E7EAF0',
+    paddingHorizontal: 28,
+    paddingVertical: 20,
+    marginTop: 24,
+  },
+  matchCount: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#7B8799',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  applyButton: {
+    backgroundColor: '#070A12',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 16,
+    color: '#F2CC66',
+  },
+  
+  // Navigation
   navbar: {
     position: 'absolute',
     bottom: 0,

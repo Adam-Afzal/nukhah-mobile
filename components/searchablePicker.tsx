@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import {
   FlatList,
   Modal,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // In your SearchablePicker component interface
 interface SearchablePickerProps {
@@ -22,6 +22,7 @@ interface SearchablePickerProps {
   selectedValue: string | string[]; // Update to support both single and array
   multiSelect?: boolean; // Add this prop
 }
+
 export default function SearchablePicker({
   visible,
   onClose,
@@ -30,6 +31,7 @@ export default function SearchablePicker({
   title,
   placeholder = 'Search...',
   selectedValue,
+  multiSelect = false,
 }: SearchablePickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -38,10 +40,19 @@ export default function SearchablePicker({
     item.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const isSelected = (value: string) => {
+    if (Array.isArray(selectedValue)) {
+      return selectedValue.includes(value);
+    }
+    return selectedValue === value;
+  };
+
   const handleSelect = (value: string) => {
     onSelect(value);
     setSearchQuery('');
-    onClose();
+    if (!multiSelect) {
+      onClose();
+    }
   };
 
   return (
@@ -51,7 +62,7 @@ export default function SearchablePicker({
       transparent={false}
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <Text style={styles.title}>{title}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -77,7 +88,7 @@ export default function SearchablePicker({
             <TouchableOpacity
               style={[
                 styles.item,
-                selectedValue === item.value && styles.selectedItem,
+                isSelected(item.value) && styles.selectedItem,
               ]}
               onPress={() => handleSelect(item.value)}
             >
@@ -90,7 +101,7 @@ export default function SearchablePicker({
                   )}
                 </View>
               </View>
-              {selectedValue === item.value && (
+              {isSelected(item.value) && (
                 <Text style={styles.checkmark}>✓</Text>
               )}
             </TouchableOpacity>
@@ -101,6 +112,14 @@ export default function SearchablePicker({
             </View>
           }
         />
+
+        {multiSelect && (
+          <View style={styles.doneButtonContainer}>
+            <TouchableOpacity style={styles.doneButton} onPress={onClose}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -198,5 +217,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: '#7B8799',
+  },
+  doneButtonContainer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E7EAF0',
+  },
+  doneButton: {
+    backgroundColor: '#070A12',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 16,
+    color: '#F2CC66',
   },
 });

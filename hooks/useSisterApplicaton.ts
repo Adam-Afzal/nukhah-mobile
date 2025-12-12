@@ -24,8 +24,11 @@ interface SisterApplicationData {
   shariah_covering_description: string;
   personal_covering: string;
   listens_to_hijabi_influencers: boolean;
-  open_to_polygyny: boolean;
+  open_to_polygyny: boolean,
+  ethnicity: string[],
+  preferred_ethnicity: string[],
   password: string
+  date_of_birth: string
 }
 
 interface SubmitResponse {

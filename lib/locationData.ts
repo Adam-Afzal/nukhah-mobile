@@ -195,8 +195,15 @@ export interface Country {
     return results;
   };
   
-  export const getEthnicityByName = (name: string): Ethnicity | undefined => {
-    return ETHNICITIES.find(e => e.name.toLowerCase() === name.toLowerCase());
+  export const getEthnicityByName = (name: string | string[] | undefined): Ethnicity | undefined => {
+    if (!name) return undefined;
+    
+    // If it's an array, get the first element
+    const ethnicityName = Array.isArray(name) ? name[0] : name;
+    
+    if (!ethnicityName) return undefined;
+    
+    return ETHNICITIES.find(e => e.name.toLowerCase() === ethnicityName.toLowerCase());
   };
   
   export const searchEthnicities = (query: string): Ethnicity[] => {

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
-type Tab = 'discover' | 'for-you' | 'featured';
+type Tab = 'local' | 'discover' | 'featured';
 
 interface Profile {
   id: string;
@@ -36,6 +36,11 @@ interface Profile {
   hijab_commitment?: string;
   date_of_birth?: string;
   similarity_score?: number;
+  imam_verified?: boolean;
+  references_verified?: boolean;
+  masjid_name?: string;
+  imam_name?: string;
+  masjid_id?: string;
 }
 
 interface Filters {
@@ -47,6 +52,8 @@ interface Filters {
   covering: string;
   polygyny: 'any' | 'open' | 'monogamy';
   maritalStatus: string[];
+  masjid: string;
+  imam: string;
 }
 
 // Navigation Icons
@@ -110,6 +117,7 @@ const NotificationsIcon = ({ active, count }: { active: boolean; count?: number 
     )}
   </View>
 );
+
 const SettingsIcon = ({ active }: { active: boolean }) => (
   <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
     <Circle
@@ -190,12 +198,13 @@ const FilterIcon = () => (
 
 export default function SearchScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('for-you');
+  const [activeTab, setActiveTab] = useState<Tab>('local');
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [accountType, setAccountType] = useState<'brother' | 'sister' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserMasjidId, setCurrentUserMasjidId] = useState<string | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const { unreadCount } = useUnreadNotifications();
   
@@ -208,6 +217,8 @@ export default function SearchScreen() {
     covering: '',
     polygyny: 'any',
     maritalStatus: [],
+    masjid: '',
+    imam: '',
   });
 
   useEffect(() => {
@@ -218,7 +229,7 @@ export default function SearchScreen() {
     if (accountType && currentUserId) {
       loadProfiles();
     }
-  }, [activeTab, accountType, currentUserId]);
+  }, [activeTab, accountType, currentUserId, currentUserMasjidId]);
 
   useEffect(() => {
     applyFilters();
@@ -233,11 +244,26 @@ export default function SearchScreen() {
         .from('brother')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (brotherProfile) {
         setAccountType('brother');
         setCurrentUserId(brotherProfile.id);
+        
+        // Query using PROFILE ID, not auth user ID
+        const { data: verification } = await supabase
+          .from('imam_verification')
+          .select('masjid_id')
+          .eq('user_id', brotherProfile.id)
+          .eq('user_type', 'brother')
+          .eq('status', 'verified')
+          .maybeSingle();
+        
+        console.log('Brother verification:', verification);
+        
+        if (verification && verification.masjid_id) {
+          setCurrentUserMasjidId(verification.masjid_id);
+        }
         return;
       }
 
@@ -245,11 +271,26 @@ export default function SearchScreen() {
         .from('sister')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (sisterProfile) {
         setAccountType('sister');
         setCurrentUserId(sisterProfile.id);
+        
+        // Query using PROFILE ID, not auth user ID
+        const { data: verification } = await supabase
+          .from('imam_verification')
+          .select('masjid_id')
+          .eq('user_id', sisterProfile.id)
+          .eq('user_type', 'sister')
+          .eq('status', 'verified')
+          .maybeSingle();
+        
+        console.log('Sister verification:', verification);
+        
+        if (verification && verification.masjid_id) {
+          setCurrentUserMasjidId(verification.masjid_id);
+        }
       }
     } catch (error) {
       console.error('Error loading account type:', error);
@@ -274,8 +315,8 @@ export default function SearchScreen() {
   const loadProfiles = async () => {
     setIsLoading(true);
     try {
-      if (activeTab === 'for-you') {
-        await loadAIMatches();
+      if (activeTab === 'local') {
+        await loadLocalMatches();
       } else {
         await loadRegularProfiles();
       }
@@ -286,16 +327,17 @@ export default function SearchScreen() {
     }
   };
 
-  const loadAIMatches = async () => {
+  const loadLocalMatches = async () => {
     if (!currentUserId || !accountType) {
       console.log('Missing data:', { currentUserId, accountType });
       return;
     }
 
     try {
+      // Get AI matches
       const matchData = accountType === 'brother'
-        ? await findMatchesForBrother(currentUserId, 50)
-        : await findMatchesForSister(currentUserId, 50);
+        ? await findMatchesForBrother(currentUserId, 200)
+        : await findMatchesForSister(currentUserId, 200);
 
       if (!matchData || matchData.length === 0) {
         console.log('No match data returned');
@@ -303,71 +345,134 @@ export default function SearchScreen() {
         return;
       }
 
-      // RPC function returns: { id: uuid, similarity_score: float, username: text, location: text }
       const profileIds = matchData.map((m: any) => m.id);
-
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
+      const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
       const polygynyField = targetTable === 'sister' ? 'polygyny_acceptance' : 'polygyny_willingness';
       const coveringField = targetTable === 'sister' ? 'hijab_commitment' : 'beard_commitment';
       
+      // Fetch basic profile data
       const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`id, username, slug, location, ethnicity, marital_status, build, physical_fitness, ${polygynyField}, ${coveringField}, prayer_consistency, memorization_quran, date_of_birth`)
+        .select(`
+          id, username, slug, location, ethnicity, marital_status, build, 
+          physical_fitness, ${polygynyField}, ${coveringField}, 
+          prayer_consistency, memorization_quran, date_of_birth, 
+          imam_verified, references_verified
+        `)
         .in('id', profileIds);
 
       if (error) throw error;
 
+      // Fetch verification data with masjid info
+      const { data: verifications } = await supabase
+        .from('imam_verification')
+        .select('user_id, masjid_id(id, name), imam_id(name)')
+        .eq('status', 'verified')
+        .eq('user_type', targetUserType)
+        .in('user_id', profileIds);
+
+      // Combine the data
       const enrichedProfiles = profileDetails?.map((profile: any) => {
         const match = matchData.find((m: any) => m.id === profile.id);
+        const verification = verifications?.find((v: any) => v.user_id === profile.id);
+        
         return {
           ...profile,
           similarity_score: match?.similarity_score || 0,
+          masjid_id: (verification?.masjid_id as any)?.id,
+          masjid_name: (verification?.masjid_id as any)?.name,
+          imam_name: (verification?.imam_id as any)?.name,
         };
       }) || [];
 
-      enrichedProfiles.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
+      // Filter by same masjid
+      const localProfiles = currentUserMasjidId
+        ? enrichedProfiles.filter(p => p.masjid_id === currentUserMasjidId)
+        : [];
 
-      setProfiles(enrichedProfiles);
+      // Sort by similarity score
+      localProfiles.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
+
+      setProfiles(localProfiles);
     } catch (error) {
-      console.error('Error loading AI matches:', error);
+      console.error('Error loading local matches:', error);
       setProfiles([]);
     }
   };
 
   const loadRegularProfiles = async () => {
+    if (!currentUserId || !accountType) {
+      console.log('Missing data:', { currentUserId, accountType });
+      return;
+    }
+  
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        console.log('No user found');
+      // Get AI matches (without masjid filtering for discover tab)
+      const matchData = accountType === 'brother'
+        ? await findMatchesForBrother(currentUserId, 200)
+        : await findMatchesForSister(currentUserId, 200);
+  
+      if (!matchData || matchData.length === 0) {
+        console.log('No match data returned');
+        setProfiles([]);
         return;
       }
-
+  
+      const profileIds = matchData.map((m: any) => m.id);
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
+      const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
       const polygynyField = targetTable === 'sister' ? 'polygyny_acceptance' : 'polygyny_willingness';
       const coveringField = targetTable === 'sister' ? 'hijab_commitment' : 'beard_commitment';
       
-      let query = supabase
+      // Fetch basic profile data
+      const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`id, username, slug, location, ethnicity, marital_status, build, physical_fitness, ${polygynyField}, ${coveringField}, date_of_birth`)
-        .limit(50);
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Query error:', error);
-        throw error;
-      }
-      
-      setProfiles(data || []);
+        .select(`
+          id, username, slug, location, ethnicity, marital_status, build, 
+          physical_fitness, ${polygynyField}, ${coveringField}, 
+          prayer_consistency, memorization_quran, date_of_birth, 
+          imam_verified, references_verified
+        `)
+        .in('id', profileIds);
+  
+      if (error) throw error;
+  
+      // Fetch verification data with masjid info
+      const { data: verifications } = await supabase
+        .from('imam_verification')
+        .select('user_id, masjid_id(id, name), imam_id(name)')
+        .eq('status', 'verified')
+        .eq('user_type', targetUserType)
+        .in('user_id', profileIds);
+  
+      // Combine the data
+      const enrichedProfiles = profileDetails?.map((profile: any) => {
+        const match = matchData.find((m: any) => m.id === profile.id);
+        const verification = verifications?.find((v: any) => v.user_id === profile.id);
+        
+        return {
+          ...profile,
+          similarity_score: match?.similarity_score || 0,
+          masjid_id: (verification?.masjid_id as any)?.id,
+          masjid_name: (verification?.masjid_id as any)?.name,
+          imam_name: (verification?.imam_id as any)?.name,
+        };
+      }) || [];
+  
+      // Sort by similarity score (show all matches, no masjid filter)
+      enrichedProfiles.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
+  
+      setProfiles(enrichedProfiles);
     } catch (error) {
       console.error('Error loading profiles:', error);
+      setProfiles([]);
     }
   };
 
   const applyFilters = () => {
     let filtered = [...profiles];
 
-    // Search text filter
     if (filters.searchText) {
       const search = filters.searchText.toLowerCase();
       filtered = filtered.filter(p => 
@@ -376,14 +481,12 @@ export default function SearchScreen() {
       );
     }
 
-    // Location filter
     if (filters.location) {
       filtered = filtered.filter(p => 
         p.location.toLowerCase().includes(filters.location.toLowerCase())
       );
     }
 
-    // Ethnicity filter
     if (filters.ethnicity.length > 0) {
       filtered = filtered.filter(p => {
         const profileEthnicity = Array.isArray(p.ethnicity) ? p.ethnicity : [p.ethnicity];
@@ -391,17 +494,14 @@ export default function SearchScreen() {
       });
     }
 
-    // Build filter
     if (filters.build.length > 0) {
       filtered = filtered.filter(p => p.build && filters.build.includes(p.build));
     }
 
-    // Fitness level filter
     if (filters.fitnessLevel.length > 0) {
       filtered = filtered.filter(p => p.physical_fitness && filters.fitnessLevel.includes(p.physical_fitness));
     }
 
-    // Covering filter (hijab/beard)
     if (filters.covering) {
       filtered = filtered.filter(p => {
         if (accountType === 'brother') {
@@ -412,7 +512,6 @@ export default function SearchScreen() {
       });
     }
 
-    // Polygyny filter
     if (filters.polygyny !== 'any') {
       const acceptsPolygyny = filters.polygyny === 'open';
       filtered = filtered.filter(p => {
@@ -421,9 +520,20 @@ export default function SearchScreen() {
       });
     }
 
-    // Marital status filter
     if (filters.maritalStatus.length > 0) {
       filtered = filtered.filter(p => filters.maritalStatus.includes(p.marital_status));
+    }
+
+    if (filters.masjid) {
+      filtered = filtered.filter(p => 
+        p.masjid_name?.toLowerCase().includes(filters.masjid.toLowerCase())
+      );
+    }
+    
+    if (filters.imam) {
+      filtered = filtered.filter(p => 
+        p.imam_name?.toLowerCase().includes(filters.imam.toLowerCase())
+      );
     }
 
     setFilteredProfiles(filtered);
@@ -439,6 +549,8 @@ export default function SearchScreen() {
     if (filters.covering) count++;
     if (filters.polygyny !== 'any') count++;
     if (filters.maritalStatus.length > 0) count++;
+    if (filters.masjid) count++;
+    if (filters.imam) count++;
     return count;
   };
 
@@ -452,6 +564,8 @@ export default function SearchScreen() {
       covering: '',
       polygyny: 'any',
       maritalStatus: [],
+      masjid: '',
+      imam: '',
     });
   };
 
@@ -559,7 +673,6 @@ export default function SearchScreen() {
       >
         <View style={styles.filterModal}>
           <ScrollView style={styles.filterScrollView} showsVerticalScrollIndicator={false}>
-            {/* Header */}
             <View style={styles.filterHeader}>
               <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
                 <Text style={styles.filterBackButton}>← Back</Text>
@@ -567,7 +680,6 @@ export default function SearchScreen() {
               <Text style={styles.filterTitle}>Search</Text>
             </View>
 
-            {/* Search Bar */}
             <View style={styles.searchBarContainer}>
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={styles.searchIcon}>
                 <Circle cx={11} cy={11} r={8} stroke="#7B8799" strokeWidth={2} />
@@ -582,7 +694,6 @@ export default function SearchScreen() {
               />
             </View>
 
-            {/* Active Filters Badge */}
             {getActiveFilterCount() > 0 && (
               <View style={styles.activeFiltersContainer}>
                 <View style={styles.activeFiltersBadge}>
@@ -594,10 +705,7 @@ export default function SearchScreen() {
               </View>
             )}
 
-            {/* Filter Content */}
             <View style={styles.filterContent}>
-              
-              {/* Location */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>LOCATION</Text>
                 <View style={styles.filterBox}>
@@ -612,7 +720,6 @@ export default function SearchScreen() {
                 </View>
               </View>
 
-              {/* Ethnicity */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>ETHNICITY</Text>
                 <View style={styles.filterBox}>
@@ -637,7 +744,6 @@ export default function SearchScreen() {
                 </View>
               </View>
 
-              {/* Physical Attributes */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>PHYSICAL ATTRIBUTES</Text>
                 <View style={styles.filterBox}>
@@ -710,7 +816,6 @@ export default function SearchScreen() {
                 </View>
               </View>
 
-              {/* Polygyny */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>POLYGYNY</Text>
                 <View style={styles.filterBox}>
@@ -747,7 +852,6 @@ export default function SearchScreen() {
                 </View>
               </View>
 
-              {/* Marital Status */}
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>MARITAL STATUS</Text>
                 <View style={styles.filterBox}>
@@ -773,9 +877,30 @@ export default function SearchScreen() {
                 </View>
               </View>
 
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>VERIFICATION</Text>
+                <View style={styles.filterBox}>
+                  <Text style={styles.filterBoxLabel}>Masjid</Text>
+                  <TextInput
+                    style={styles.filterInput}
+                    placeholder="Search by masjid name..."
+                    placeholderTextColor="#C0C7D1"
+                    value={filters.masjid}
+                    onChangeText={(text) => setFilters({ ...filters, masjid: text })}
+                  />
+
+                  <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>Imam</Text>
+                  <TextInput
+                    style={styles.filterInput}
+                    placeholder="Search by imam name..."
+                    placeholderTextColor="#C0C7D1"
+                    value={filters.imam}
+                    onChangeText={(text) => setFilters({ ...filters, imam: text })}
+                  />
+                </View>
+              </View>
             </View>
 
-            {/* Apply Button */}
             <View style={styles.filterFooter}>
               <Text style={styles.matchCount}>
                 {filteredProfiles.length} profiles match your filters
@@ -798,7 +923,7 @@ export default function SearchScreen() {
       ? item.polygyny_acceptance 
       : item.polygyny_willingness;
 
-    const unlockPercentage = activeTab === 'for-you' && item.similarity_score
+    const unlockPercentage = item.similarity_score
       ? Math.round(item.similarity_score * 100)
       : 60;
 
@@ -814,9 +939,7 @@ export default function SearchScreen() {
       >
         <View style={styles.profileHeader}>
           <Text style={styles.unlockText}>
-            {activeTab === 'for-you' 
-              ? `Compatibility: ${unlockPercentage}%` 
-              : `Profile Unlock: ${unlockPercentage}%`}
+            Compatibility: {unlockPercentage}%
           </Text>
           {hasPolygyny && (
             <View style={styles.polygynyBadge}>
@@ -838,6 +961,21 @@ export default function SearchScreen() {
           )}
           <Text style={styles.flag}>{getLocationFlag(item.location)}</Text>
         </View>
+
+        {(item.imam_verified || item.references_verified) && (
+          <View style={styles.verificationRow}>
+            {item.imam_verified && item.masjid_name && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
+              </View>
+            )}
+            {item.references_verified && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>✓ Reference Verified</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {activeTab === 'featured' && (
           <View style={styles.crownBadge}>
@@ -883,20 +1021,32 @@ export default function SearchScreen() {
     );
   };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyText}>
-        {getActiveFilterCount() > 0 ? 'No profiles match your filters' : 
-         activeTab === 'for-you' ? 'No AI matches found' : 'No profiles found'}
-      </Text>
-      <Text style={styles.emptySubtext}>
-        {getActiveFilterCount() > 0 ? 'Try adjusting your filters' :
-         activeTab === 'for-you' 
-          ? 'Complete your profile to get better matches' 
-          : 'Check back soon for new members'}
-      </Text>
-    </View>
-  );
+  const renderEmptyState = () => {
+    const onLocalWithNoMasjid = activeTab === 'local' && !currentUserMasjidId;
+    
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyText}>
+          {onLocalWithNoMasjid 
+            ? 'Join a masjid to see local matches' 
+            : getActiveFilterCount() > 0 
+              ? 'No profiles match your filters' 
+              : activeTab === 'local' 
+                ? 'No profiles from your masjid yet' 
+                : 'No profiles found'}
+        </Text>
+        <Text style={styles.emptySubtext}>
+          {onLocalWithNoMasjid
+            ? 'Get verified by your local imam to unlock local matches'
+            : getActiveFilterCount() > 0 
+              ? 'Try adjusting your filters'
+              : activeTab === 'local' 
+                ? 'Check back soon for new members' 
+                : 'Check back soon for new members'}
+        </Text>
+      </View>
+    );
+  };
 
   if (isLoading && profiles.length === 0) {
     return (
@@ -925,20 +1075,20 @@ export default function SearchScreen() {
 
       <View style={styles.tabsContainer}>
         <TouchableOpacity 
+          style={[styles.tab, activeTab === 'local' && styles.activeTab]}
+          onPress={() => setActiveTab('local')}
+        >
+          <Text style={[styles.tabText, activeTab === 'local' && styles.activeTabText]}>
+            Local
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
           onPress={() => setActiveTab('discover')}
         >
           <Text style={[styles.tabText, activeTab === 'discover' && styles.activeTabText]}>
             Discover
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'for-you' && styles.activeTab]}
-          onPress={() => setActiveTab('for-you')}
-        >
-          <Text style={[styles.tabText, activeTab === 'for-you' && styles.activeTabText]}>
-            For You
           </Text>
         </TouchableOpacity>
 
@@ -963,7 +1113,6 @@ export default function SearchScreen() {
 
       {renderFilterModal()}
 
-      {/* Bottom Navigation Bar */}
       <View style={styles.navbar}>
         <View style={styles.navbarBorder} />
         
@@ -979,12 +1128,12 @@ export default function SearchScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-  style={styles.navItem} 
-  onPress={() => router.push('/(auth)/notifications')}
->
-  <NotificationsIcon active={false} count={unreadCount} />
-  <Text style={styles.navLabelInactive}>Notifications</Text>
-</TouchableOpacity>
+            style={styles.navItem} 
+            onPress={() => router.push('/(auth)/notifications')}
+          >
+            <NotificationsIcon active={false} count={unreadCount} />
+            <Text style={styles.navLabelInactive}>Notifications</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.navItem} 
@@ -1150,6 +1299,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 19,
   },
+  verificationRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  verificationBadge: {
+    backgroundColor: '#EAF5EE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#17803A',
+  },
+  verificationText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#17803A',
+  },
   crownBadge: {
     position: 'absolute',
     top: 72,
@@ -1227,8 +1396,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7B8799',
   },
-  
-  // Filter Modal Styles
   filterModal: {
     flex: 1,
     backgroundColor: '#F7F8FB',
@@ -1432,8 +1599,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#F2CC66',
   },
-  
-  // Navigation
   navbar: {
     position: 'absolute',
     bottom: 0,

@@ -34,6 +34,8 @@ interface InterestRequest {
   profile_build?: string;
   profile_physical_fitness?: string;
   profile_date_of_birth?: string;
+  profile_imam_verified?: boolean;
+  profile_references_verified?: boolean;
 }
 
 // Navigation Icons (same as index.tsx)
@@ -257,40 +259,77 @@ export default function InterestsScreen() {
       const enrichedSent = await enrichInterests(sent, 'recipient');
       setYourInterests(enrichedSent);
 
-      // Load mutual interests - PROPER DETECTION
-      // Mutual = Both parties expressed interest, completed 100%, AND both accepted
+      // ✅ MUTUAL INTEREST DETECTION WITH DEBUG LOGS
+      console.log('\n🔍 ===== CHECKING FOR MUTUAL INTERESTS =====');
+      console.log('My profile ID:', userId);
+      console.log('My account type:', userType);
+      console.log('Sent interests (my interests):', sent.length);
+      console.log('Received interests (interested in me):', received.length);
+      
       const mutual: any[] = [];
       const waliData: Record<string, any> = {};
       
       for (const sentInterest of sent) {
+        console.log(`\n📤 Checking sent interest to ${sentInterest.recipient_id}:`);
+        console.log('  Recipient type:', sentInterest.recipient_type);
+        console.log('  My progress:', sentInterest.unlock_percentage + '%');
+        console.log('  My status:', sentInterest.status);
+        
         // Find if there's a reciprocal interest
         const reciprocal = received.find(r => 
           r.requester_id === sentInterest.recipient_id &&
           r.requester_type === sentInterest.recipient_type
         );
         
-        if (!reciprocal) continue; // No reciprocal interest
-        
-        // Check if BOTH are 100% AND both accepted
-        const isMutual = (
-          sentInterest.unlock_percentage === 100 &&
-          reciprocal.unlock_percentage === 100 &&
-          sentInterest.status === 'accepted' &&
-          reciprocal.status === 'accepted'
-        );
-        
-        if (isMutual) {
-          mutual.push(sentInterest);
+        if (reciprocal) {
+          console.log('  ✅ Found reciprocal interest!');
+          console.log('  Their progress:', reciprocal.unlock_percentage + '%');
+          console.log('  Their status:', reciprocal.status);
           
-          // If brother viewing sister's profile, fetch wali contact
-          if (userType === 'brother' && sentInterest.recipient_type === 'sister') {
-            const wali = await fetchWaliContact(sentInterest.recipient_id);
-            if (wali) {
-              waliData[sentInterest.recipient_id] = wali;
+          // Check if BOTH are 100% AND both accepted
+          const isMutual = (
+            sentInterest.unlock_percentage === 100 &&
+            reciprocal.unlock_percentage === 100 &&
+            sentInterest.status === 'accepted' &&
+            reciprocal.status === 'accepted'
+          );
+          
+          console.log('  Mutual check breakdown:');
+          console.log('    My 100%?', sentInterest.unlock_percentage === 100);
+          console.log('    Their 100%?', reciprocal.unlock_percentage === 100);
+          console.log('    My accepted?', sentInterest.status === 'accepted');
+          console.log('    Their accepted?', reciprocal.status === 'accepted');
+          console.log('  ➡️ Is mutual?', isMutual);
+          
+          if (isMutual) {
+            console.log('  ✨ MUTUAL INTEREST CONFIRMED!');
+            mutual.push(sentInterest);
+            
+            // If brother viewing sister's profile, fetch wali contact
+            if (userType === 'brother' && sentInterest.recipient_type === 'sister') {
+              console.log('  📞 Fetching wali contact...');
+              const wali = await fetchWaliContact(sentInterest.recipient_id);
+              if (wali) {
+                waliData[sentInterest.recipient_id] = wali;
+                console.log('  ✅ Wali contact fetched');
+              } else {
+                console.log('  ⚠️ No wali contact found');
+              }
             }
+          } else {
+            console.log('  ❌ Not mutual - conditions not met');
           }
+        } else {
+          console.log('  ❌ No reciprocal interest found');
         }
       }
+      
+      console.log('\n✅ ===== MUTUAL INTERESTS SUMMARY =====');
+      console.log('Total mutual interests found:', mutual.length);
+      if (mutual.length > 0) {
+        console.log('Mutual with:', mutual.map(m => m.recipient_id).join(', '));
+      }
+      console.log('=======================================\n');
       
       const enrichedMutual = await enrichInterests(mutual, 'recipient');
       setMutualInterests(enrichedMutual);
@@ -312,7 +351,7 @@ export default function InterestsScreen() {
         
         const { data: profile } = await supabase
           .from(profileType)
-          .select('username, location, ethnicity, marital_status, build, physical_fitness, date_of_birth')
+          .select('username, location, ethnicity, marital_status, build, physical_fitness, date_of_birth, imam_verified, references_verified')
           .eq('id', profileId)
           .single();
 
@@ -325,6 +364,8 @@ export default function InterestsScreen() {
           profile_build: profile?.build,
           profile_physical_fitness: profile?.physical_fitness,
           profile_date_of_birth: profile?.date_of_birth,
+          profile_imam_verified: profile?.imam_verified,
+          profile_references_verified: profile?.references_verified,
         };
       })
     );
@@ -403,9 +444,9 @@ export default function InterestsScreen() {
 
     const handleCardPress = () => {
       if (activeTab === 'expressed' && item.unlock_percentage === 100) {
-        // Go to receiver summary screen (red/green flags)
-        console.log("going to summary")
-        router.push(`/interest-received/${item.id}`);
+        // Go directly to answers screen with accept/reject
+        console.log("going to answers screen")
+        router.push(`/(auth)/interest-answers/${item.id}`);
       } else {
         // Go to profile
         router.push(`/profile/${profileId}`);
@@ -446,6 +487,22 @@ export default function InterestsScreen() {
             <Text style={styles.eliteText}>⭐ Elite</Text>
           </View>
         </View>
+
+        {/* Verification Badges */}
+        {(item.profile_imam_verified || item.profile_references_verified) && (
+          <View style={styles.verificationRow}>
+            {item.profile_imam_verified && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>🕌 Masjid Verified</Text>
+              </View>
+            )}
+            {item.profile_references_verified && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>✓ Reference Verified</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
@@ -626,11 +683,11 @@ export default function InterestsScreen() {
           <Text style={[styles.tabText, activeTab === 'expressed' && styles.activeTabText]}>
             Expressed Interest
           </Text>
-          {expressedInterests.length > 0 && (
-            <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{expressedInterests.length}</Text>
-            </View>
-          )}
+          {expressedInterests.length > 0 && activeTab !== 'expressed' && (
+  <View style={styles.tabBadge}>
+    <Text style={styles.tabBadgeText}>{expressedInterests.length}</Text>
+  </View>
+)}
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -649,11 +706,11 @@ export default function InterestsScreen() {
           <Text style={[styles.tabText, activeTab === 'mutual' && styles.activeTabText]}>
             Mutual Interest
           </Text>
-          {mutualInterests.length > 0 && (
-            <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{mutualInterests.length}</Text>
-            </View>
-          )}
+          {mutualInterests.length > 0 && activeTab !== 'mutual' && (
+  <View style={styles.tabBadge}>
+    <Text style={styles.tabBadgeText}>{mutualInterests.length}</Text>
+  </View>
+)}
         </TouchableOpacity>
       </View>
 
@@ -692,12 +749,12 @@ export default function InterestsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-  style={styles.navItem} 
-  onPress={() => router.push('/(auth)/notifications')}
->
-  <NotificationsIcon active={false} count={unreadCount} />
-  <Text style={styles.navLabelInactive}>Notifications</Text>
-</TouchableOpacity>
+            style={styles.navItem} 
+            onPress={() => router.push('/(auth)/notifications')}
+          >
+            <NotificationsIcon active={false} count={unreadCount} />
+            <Text style={styles.navLabelInactive}>Notifications</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.navItem} 
@@ -762,7 +819,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,  // ← Changed from 6 to 4 for tighter spacing
   },
   activeTab: {
     borderBottomWidth: 2,
@@ -865,6 +922,26 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     color: '#070A12',
     fontStyle: 'italic',
+  },
+  verificationRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+    flexWrap: 'wrap',
+  },
+  verificationBadge: {
+    backgroundColor: '#EAF5EE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#17803A',
+  },
+  verificationText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#17803A',
   },
   infoRow: {
     flexDirection: 'row',

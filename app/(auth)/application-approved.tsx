@@ -69,7 +69,7 @@ export default function ApplicationApproved() {
         console.log('Subscriber record created - going to profile setup');
         
         // Go directly to profile setup
-        router.replace('/(auth)/profile-setup');
+        router.replace('/(onboarding)/profile-setup');
       } else {
         // Testing mode is OFF - go to payment screen
         console.log('Testing mode disabled - going to payment');

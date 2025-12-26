@@ -5,12 +5,12 @@ import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 export default function InterestReceivedScreen() {
@@ -29,6 +29,7 @@ export default function InterestReceivedScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [interestStatus, setInterestStatus] = useState<string>('pending'); // ✅ NEW: Track status
   const [requesterUsername, setRequesterUsername] = useState('');
   const [requesterId, setRequesterId] = useState('');
   const [requesterType, setRequesterType] = useState<'brother' | 'sister'>('brother');
@@ -68,6 +69,10 @@ export default function InterestReceivedScreen() {
         router.back();
         return;
       }
+
+      // ✅ NEW: Set the interest status
+      setInterestStatus(interest.status);
+      console.log('Interest status:', interest.status);
 
       setRequesterId(interest.requester_id);
       setRequesterType(interest.requester_type);
@@ -199,6 +204,8 @@ export default function InterestReceivedScreen() {
       const result = await acceptInterest(interestId);
       if (result.success) {
         alert('Interest accepted!');
+        // Update local status
+        setInterestStatus('accepted');
         // Use replace to clear the navigation stack
         router.replace('/(auth)/interests');
       } else {
@@ -220,6 +227,8 @@ export default function InterestReceivedScreen() {
       const result = await rejectInterest(interestId);
       if (result.success) {
         alert('Interest declined.');
+        // Update local status
+        setInterestStatus('rejected');
         // Use replace to clear the navigation stack
         router.replace('/(auth)/interests');
       } else {
@@ -357,38 +366,61 @@ export default function InterestReceivedScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Note */}
-        <Text style={styles.note}>
-          💡 You can accept their interest now and decide later whether to express interest back. 
-          Accepting doesn't commit you to proceeding.
-        </Text>
+        {/* Note - Only show if pending */}
+        {interestStatus === 'pending' && (
+          <Text style={styles.note}>
+            💡 You can accept their interest now and decide later whether to express interest back. 
+            Accepting doesn't commit you to proceeding.
+          </Text>
+        )}
 
       </ScrollView>
 
-      {/* Bottom Buttons */}
-      <View style={styles.bottomContainer}>
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.acceptButton, isProcessing && styles.buttonDisabled]}
-            onPress={handleAccept}
-            disabled={isProcessing}
-          >
-            <Text style={styles.acceptButtonText}>
-              {isProcessing ? 'Processing...' : 'Accept'}
-            </Text>
-          </TouchableOpacity>
+      {/* ✅ UPDATED: Bottom Buttons - Only show if pending */}
+      {interestStatus === 'pending' && (
+        <View style={styles.bottomContainer}>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.acceptButton, isProcessing && styles.buttonDisabled]}
+              onPress={handleAccept}
+              disabled={isProcessing}
+            >
+              <Text style={styles.acceptButtonText}>
+                {isProcessing ? 'Processing...' : 'Accept'}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.declineButton, isProcessing && styles.buttonDisabled]}
-            onPress={handleDecline}
-            disabled={isProcessing}
-          >
-            <Text style={styles.declineButtonText}>
-              {isProcessing ? 'Processing...' : 'Decline'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.declineButton, isProcessing && styles.buttonDisabled]}
+              onPress={handleDecline}
+              disabled={isProcessing}
+            >
+              <Text style={styles.declineButtonText}>
+                {isProcessing ? 'Processing...' : 'Decline'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
+
+      {/* ✅ NEW: Status Badge - Show if already decided */}
+      {interestStatus === 'accepted' && (
+        <View style={[styles.bottomContainer, { backgroundColor: '#EAF5EE' }]}>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusIcon}>✅</Text>
+            <Text style={styles.statusText}>You accepted this interest</Text>
+          </View>
+        </View>
+      )}
+
+      {interestStatus === 'rejected' && (
+        <View style={[styles.bottomContainer, { backgroundColor: '#FFEAEA' }]}>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusIcon}>❌</Text>
+            <Text style={styles.statusText}>You declined this interest</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -657,5 +689,21 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     color: '#FFFFFF',
+  },
+  // ✅ NEW: Status badge styles
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  statusIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  statusText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#070A12',
   },
 });

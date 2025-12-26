@@ -1,135 +1,121 @@
-// hooks/useUserStatus.ts
-// FIXED: Uses getSession() instead of getUser() to wait for AsyncStorage
+// hooks/useUserStatus.ts (UPDATED VERSION)
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 
 interface UserStatus {
+  status: 'pending' | 'approved' | 'rejected';
   hasProfile: boolean;
-  hasApplication: boolean;
-  status: 'pending' | 'approved' | 'rejected' | null;
   paid: boolean;
-  applicationType: 'brother' | 'sister' | null;
-  profileId?: string;
+  accountType: 'brother' | 'sister' | null;
+  onboardingCompleted: boolean;
+  hasMasjidAffiliation: boolean;
+  hasReferences: boolean;
 }
 
-const fetchUserStatus = async (): Promise<UserStatus> => {
-  // FIXED: Use getSession() instead of getUser() - it waits for AsyncStorage
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.user) {
-    return {
-      hasProfile: false,
-      hasApplication: false,
-      status: null,
-      paid: false,
-      applicationType: null,
-    };
-  }
-
-  const user = session.user;
-
-  // Helper function to check payment status
-  const checkPaymentStatus = async (userId: string): Promise<boolean> => {
-    const { data: subscriber } = await supabase
-      .from('subscribers')
-      .select('subscribed')
-      .eq('user_id', userId)
-      .single();
-
-    return subscriber?.subscribed || false;
-  };
-
-  // 1. First check if they have a full profile
-  const { data: brotherProfile } = await supabase
-    .from('brother')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (brotherProfile) {
-    const paid = await checkPaymentStatus(user.id);
-    console.log(`paid status: ${paid}`); // FIXED: Proper console.log syntax
-    return {
-      hasProfile: true,
-      hasApplication: true,
-      status: 'approved',
-      paid: paid,
-      applicationType: 'brother',
-      profileId: brotherProfile.id,
-    };
-  }
-
-  const { data: sisterProfile } = await supabase
-    .from('sister')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (sisterProfile) {
-    const paid = await checkPaymentStatus(user.id);
-    return {
-      hasProfile: true,
-      hasApplication: true,
-      status: 'approved',
-      paid: paid,
-      applicationType: 'sister',
-      profileId: sisterProfile.id,
-    };
-  }
-
-  // 2. No profile yet, check application status
-  const { data: brotherApp } = await supabase
-    .from('brother_application')
-    .select('status')
-    .eq('user_id', user.id)
-    .single();
-
-  if (brotherApp) {
-    const paid = await checkPaymentStatus(user.id);
-    return {
-      hasProfile: false,
-      hasApplication: true,
-      status: brotherApp.status as 'pending' | 'approved' | 'rejected',
-      paid: paid,
-      applicationType: 'brother',
-    };
-  }
-
-  const { data: sisterApp } = await supabase
-    .from('sister_application')
-    .select('status')
-    .eq('user_id', user.id)
-    .single();
-
-  if (sisterApp) {
-    console.log("sister application found!");
-    const paid = await checkPaymentStatus(user.id);
-    return {
-      hasProfile: false,
-      hasApplication: true,
-      status: sisterApp.status as 'pending' | 'approved' | 'rejected',
-      paid: paid,
-      applicationType: 'sister',
-    };
-  }
-
-  // No application found
-  return {
-    hasProfile: false,
-    hasApplication: false,
-    status: null,
-    paid: false,
-    applicationType: null,
-  };
-};
-
-export const useUserStatus = () => {
+export function useUserStatus() {
   return useQuery({
-    queryKey: ['user-status'],
-    queryFn: fetchUserStatus,
-    staleTime: 1000 * 60, // 1 minute
-    retry: 2,
-    // ADDED: Don't run query until session is ready
-    enabled: true, // React Query will handle retries
+    queryKey: ['userStatus'],
+    queryFn: async (): Promise<UserStatus> => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('No user found');
+      }
+
+      // Check brother application
+      const { data: brotherApp, error: brotherError } = await supabase
+        .from('brother_application')
+        .select('status')
+        .eq('user_id', user.id)
+        .maybeSingle(); // Use maybeSingle instead of single
+
+      if (brotherApp) {
+        // Check if brother profile exists
+        const { data: brotherProfile } = await supabase
+          .from('brother')
+          .select('id, masjid_id, is_masjid_affiliated')
+          .eq('user_id', user.id)
+          .single();
+
+        let hasMasjidAffiliation = false;
+        let hasReferences = false;
+
+        if (brotherProfile) {
+          // Check if masjid affiliation is set (either affiliated or explicitly not affiliated)
+          hasMasjidAffiliation = brotherProfile.is_masjid_affiliated !== null;
+
+          // Check if they have at least 1 reference
+          const { count: refCount } = await supabase
+            .from('reference')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', brotherProfile.id)
+            .eq('user_type', 'brother');
+
+          hasReferences = (refCount || 0) >= 1;
+        }
+
+        const onboardingCompleted = hasMasjidAffiliation && hasReferences;
+
+        return {
+          status: brotherApp.status as 'pending' | 'approved' | 'rejected',
+          hasProfile: !!brotherProfile,
+          paid: true, // For now, always true - you can add payment logic later
+          accountType: 'brother',
+          onboardingCompleted,
+          hasMasjidAffiliation,
+          hasReferences,
+        };
+      }
+
+      // Check sister application
+      const { data: sisterApp, error: sisterError } = await supabase
+        .from('sister_application')
+        .select('status')
+        .eq('user_id', user.id)
+        .maybeSingle(); // Use maybeSingle instead of single
+
+      if (sisterApp) {
+        // Check if sister profile exists
+        const { data: sisterProfile } = await supabase
+          .from('sister')
+          .select('id, masjid_id, is_masjid_affiliated')
+          .eq('user_id', user.id)
+          .single();
+
+        let hasMasjidAffiliation = false;
+        let hasReferences = false;
+
+        if (sisterProfile) {
+          // Check if masjid affiliation is set
+          hasMasjidAffiliation = sisterProfile.is_masjid_affiliated !== null;
+
+          // Check if they have at least 1 reference
+          const { count: refCount } = await supabase
+            .from('reference')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', sisterProfile.id)
+            .eq('user_type', 'sister');
+
+          hasReferences = (refCount || 0) >= 1;
+        }
+
+        const onboardingCompleted = hasMasjidAffiliation && hasReferences;
+
+        return {
+          status: sisterApp.status as 'pending' | 'approved' | 'rejected',
+          hasProfile: !!sisterProfile,
+          paid: true, // For now, always true
+          accountType: 'sister',
+          onboardingCompleted,
+          hasMasjidAffiliation,
+          hasReferences,
+        };
+      }
+
+      throw new Error('No application found');
+    },
+    retry: false, // Don't retry on error
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
-};
+}

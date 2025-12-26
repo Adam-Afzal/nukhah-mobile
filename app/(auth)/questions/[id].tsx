@@ -121,7 +121,7 @@ export default function QuestionsScreen() {
         setCurrentAnswer(existingAnswers[questionsList[nextUnanswered].number] || '');
       } else if (responses.length === 5) {
         // All questions answered
-        router.push(`/(auth)/profile/${interest.recipient_id}`);
+        router.replace(`/(auth)/profile/${interest.recipient_id}`);
         return;
       }
 
@@ -184,7 +184,7 @@ export default function QuestionsScreen() {
         setCurrentAnswer(answers[questions[nextIndex].number] || '');
       } else {
         // All questions answered, go to profile
-        router.push(`/(auth)/profile/${recipientId}`);
+        router.replace(`/(auth)/profile/${recipientId}`);
       }
     } catch (error: any) {
       console.error('Error saving answer:', error);

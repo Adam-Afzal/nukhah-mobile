@@ -107,21 +107,7 @@ export default function SettingsScreen() {
   const { unreadCount } = useUnreadNotifications();
 
   const handleEditProfile = () => {
-    // TODO: Create edit profile screen
-    Alert.alert(
-      'Edit Profile',
-      'This feature is coming soon. You will be able to edit your profile information here.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleSpouseCriteria = () => {
-    // TODO: Create spouse criteria screen
-    Alert.alert(
-      'Spouse Criteria',
-      'This feature is coming soon. You will be able to define and update your spouse criteria here.',
-      [{ text: 'OK' }]
-    );
+    router.push('/(auth)/edit-profile');
   };
 
   const handleVerificationStatus = () => {
@@ -238,36 +224,7 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.settingContent}>
                 <Text style={styles.settingTitle}>Edit Profile</Text>
-                <Text style={styles.settingDescription}>Update your personal information</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-
-            <View style={styles.divider} />
-
-            <TouchableOpacity style={styles.settingItem} onPress={handleSpouseCriteria}>
-              <View style={styles.iconContainer}>
-                <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
-                  <Rect width={32} height={32} rx={8} fill="#F8F1DA" />
-                  <Path
-                    d="M16 12L19 15L16 18"
-                    stroke="#070A12"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <Path
-                    d="M13 15H19"
-                    stroke="#070A12"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </View>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Spouse Criteria</Text>
-                <Text style={styles.settingDescription}>Define what you're looking for</Text>
+                <Text style={styles.settingDescription}>Update your personal information and preferences</Text>
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>

@@ -2,7 +2,7 @@
 import { expressInterest, getInterest, withdrawInterest } from '@/lib/interestService';
 import { getCountryByName } from '@/lib/locationData';
 import { notifyProfileView } from '@/lib/notificationService';
-import { checkProfileAccess, getWaliContact } from '@/lib/profileAccessService';
+import { getWaliContact } from '@/lib/profileAccessService';
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -48,6 +48,8 @@ interface ProfileData {
   wali_email?: string;
   wali_phone?: string;
   wali_preferred_contact?: string;
+  imam_verified?: boolean;
+  references_verified?: boolean;
   
   // Locked fields
   deen?: string;
@@ -144,14 +146,22 @@ export default function ProfileScreen() {
         .select('*')
         .eq('id', id)
         .maybeSingle();
-        await sendProfileViewNotification();
+   
 
       if (brotherData) {
         setProfile(brotherData);
         setProfileType('brother');
         if (userId) await checkInterestStatusAndAccess(userId, id, 'brother');
+
+        if(userId && accountType) {
+          await sendProfileViewNotification(brotherData, 'brother', userId, accountType);
+
+        }
+ 
+        
         return;
       }
+
 
       // Try sister
       const { data: sisterData } = await supabase
@@ -160,19 +170,31 @@ export default function ProfileScreen() {
         .eq('id', id)
         .maybeSingle();
 
-        await sendProfileViewNotification();
+   
 
       if (sisterData) {
         setProfile(sisterData);
         setProfileType('sister');
         if (userId) await checkInterestStatusAndAccess(userId, id, 'sister');
+
+        if(userId && accountType) {
+          await sendProfileViewNotification(sisterData, 'brother', userId, accountType);
+
+        }
+
+   
       }
     } catch (error) {
       console.error('Error loading profile:', error);
     }
   };
 
-  const sendProfileViewNotification = async () => {
+  const sendProfileViewNotification = async (profileData: ProfileData,
+    profileTypeData: 'brother' | 'sister',
+    userIdData: string,
+    accountTypeData: 'brother' | 'sister') => {
+    console.log("called notification function")
+    console.log(from)
     if (
       from !== 'search' || 
       hasNotifiedProfileView || 
@@ -182,6 +204,7 @@ export default function ProfileScreen() {
       !profileType ||
       currentUserId === profile.id
     ) {
+      console.log(`${from}, ${hasNotifiedProfileView}, ${currentUserId}. ${accountType}. ${profile}. ${profileType}`)
       return;
     }
   
@@ -197,50 +220,64 @@ export default function ProfileScreen() {
     setHasNotifiedProfileView(true);
   };
 
-  const checkInterestStatusAndAccess = async (
-    userId: string, 
-    recipientId: string, 
-    recipientType: 'brother' | 'sister'
-  ) => {
-    console.log('=== Checking Interest Status & Access ===');
-    console.log('User ID:', userId);
-    console.log('Recipient ID:', recipientId);
-    
-    const interest = await getInterest(userId, recipientId);
-    
-    console.log('Found interest:', interest);
-    
-    if (interest && interest.status !== 'withdrawn') {
-      console.log('Setting unlock percentage:', interest.unlock_percentage);
-      setUnlockPercentage(interest.unlock_percentage);
-      setInterestId(interest.id);
-    } else {
-      console.log('No active interest found - showing Express Interest button');
-    }
+ // Add this updated function to your profile screen
 
-    // Check profile access level
-    if (accountType && userId) {
-      const access = await checkProfileAccess(
-        userId,
-        accountType,
-        recipientId,
-        recipientType
-      );
+const checkInterestStatusAndAccess = async (
+  userId: string, 
+  recipientId: string, 
+  recipientType: 'brother' | 'sister'
+) => {
+  console.log('=== Checking Interest Status & Access ===');
+  console.log('User ID:', userId);
+  console.log('Recipient ID:', recipientId);
+  
+  const interest = await getInterest(userId, recipientId);
+  
+  console.log('Found interest:', interest);
+  
+  if (interest && interest.status !== 'withdrawn') {
+    console.log('Setting unlock percentage:', interest.unlock_percentage);
+    setUnlockPercentage(interest.unlock_percentage);
+    setInterestId(interest.id);
+  } else {
+    console.log('No active interest found - showing Express Interest button');
+  }
 
-      console.log('Profile access:', access);
+  // Check for mutual interest (both parties accepted each other)
+  if (accountType && userId) {
+    // Get my interest in them
+    const myInterest = await getInterest(userId, recipientId);
+    
+    // Get their interest in me
+    const theirInterest = await getInterest(recipientId, userId);
+    
+    console.log('My interest:', myInterest);
+    console.log('Their interest:', theirInterest);
+    
+    // Both interests exist, both have answered all 5 questions, and both are accepted
+    const isMutualInterest = 
+      myInterest && 
+      theirInterest && 
+      myInterest.unlock_percentage === 100 && 
+      theirInterest.unlock_percentage === 100 &&
+      myInterest.status === 'accepted' &&
+      theirInterest.status === 'accepted';
+    
+    console.log('Is mutual interest:', isMutualInterest);
 
-      // Check if can view wali contact
-      if (access.canViewWaliContact && accountType === 'brother' && recipientType === 'sister') {
-        setCanViewWali(true);
-        // Fetch wali contact
-        const wali = await getWaliContact(userId, recipientId);
-        if (wali) {
-          setWaliContact(wali);
-          console.log('Wali contact loaded');
-        }
+    // Check if can view wali contact (only brothers can see wali of sisters)
+    if (isMutualInterest && accountType === 'brother' && recipientType === 'sister') {
+      setCanViewWali(true);
+      // Fetch wali contact
+      const wali = await getWaliContact(userId, recipientId);
+      if (wali) {
+        setWaliContact(wali);
+        console.log('Wali contact loaded');
       }
     }
-  };
+  }
+};
+  
 
   const handleExpressInterest = async () => {
     if (!currentUserId || !accountType || !id || !profile) return;
@@ -452,10 +489,21 @@ export default function ProfileScreen() {
           <Text style={styles.age}>{age}</Text>
         </View>
 
-        <View style={styles.eliteBadge}>
-          <Text style={styles.eliteStar}>⭐</Text>
-          <Text style={styles.eliteText}>Elite Profile</Text>
-        </View>
+        {/* Verification Badges */}
+        {(profile.imam_verified || profile.references_verified) && (
+          <View style={styles.verificationRow}>
+            {profile.imam_verified && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>🕌 Masjid Verified</Text>
+              </View>
+            )}
+            {profile.references_verified && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>✓ Reference Verified</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Show progress bar only if there's an active interest */}
         {interestId && !isOwnProfile && (
@@ -874,19 +922,25 @@ const styles = StyleSheet.create({
     lineHeight: 29,
     color: '#7B8799',
   },
-  eliteBadge: {
+  verificationRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 20,
+    flexWrap: 'wrap',
   },
-  eliteStar: {
-    fontSize: 16,
+  verificationBadge: {
+    backgroundColor: '#EAF5EE',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#17803A',
   },
-  eliteText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
-    color: '#7B8799',
+  verificationText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#17803A',
   },
   progressText: {
     fontFamily: 'Inter_600SemiBold',

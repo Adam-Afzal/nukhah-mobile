@@ -1,4 +1,4 @@
-// app/(auth)/profile-setup.tsx
+// app/(onboarding)/profile-setup.tsx
 import SearchablePicker from '@/components/searchablePicker';
 import { updateBrotherEmbedding, updateSisterEmbedding } from '@/lib/embeddingService';
 import { COUNTRIES, ETHNICITIES } from '@/lib/locationData';
@@ -608,7 +608,7 @@ const locationItems = COUNTRIES.flatMap(country =>
       Alert.alert(
         'Success!',
         'Profile created successfully',
-        [{ text: 'OK', onPress: () => router.replace('/(auth)') }]
+        [{ text: 'OK', onPress: () => router.push('/(onboarding)/masjid-affiliation') }]
       );
     } catch (error: any) {
       console.error('Error saving profile:', error);

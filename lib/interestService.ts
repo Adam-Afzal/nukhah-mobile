@@ -359,23 +359,37 @@ export async function acceptInterest(
   interestId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get interest details first
     const interest = await getInterestById(interestId);
     if (!interest) {
       return { success: false, error: 'Interest not found' };
     }
 
-    const { error } = await supabase
+    console.log("accepting interest:", interestId);
+    console.log("current status:", interest.status);
+    
+    const { data, error } = await supabase
       .from('interests')
       .update({
         status: 'accepted',
         updated_at: new Date().toISOString(),
       })
-      .eq('id', interestId);
-
+      .eq('id', interestId)
+      .select(); // ✅ ADD THIS - Returns what was updated
+    
+    console.log("update data:", data);
+    console.log("update error:", error);
+    console.log("rows affected:", data?.length);
+    
     if (error) throw error;
+    
+    // Check if any rows were actually updated
+    if (!data || data.length === 0) {
+      console.error("❌ No rows updated! Possible RLS policy issue");
+      return { success: false, error: 'Update failed - no rows affected' };
+    }
+    
+    console.log("✅ Updated to:", data[0].status);
 
-    // Send notification to requester
     await notifyInterestAccepted(
       interestId,
       interest.requester_id,
@@ -453,6 +467,7 @@ export async function getMyInterests(
 
 /**
  * Get all interests where current user is the recipient
+ * ✅ FIXED: Now includes both pending AND accepted interests
  */
 export async function getReceivedInterests(
   userId: string,
@@ -464,7 +479,7 @@ export async function getReceivedInterests(
       .select('*')
       .eq('recipient_id', userId)
       .eq('recipient_type', userType)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'accepted']) // ✅ FIXED: Include both pending and accepted
       .order('created_at', { ascending: false });
 
     if (error) throw error;

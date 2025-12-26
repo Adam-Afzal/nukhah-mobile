@@ -141,6 +141,16 @@ export default function LoginScreen() {
               Don't have an account? <Text style={styles.applyButtonTextBold}>Apply Now</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* Imam Portal Link */}
+          <TouchableOpacity
+            style={styles.imamPortalLink}
+            onPress={() => router.push('/(imam)/login')}
+          >
+            <Text style={styles.imamPortalText}>
+              Are you an imam? <Text style={styles.imamPortalTextBold}>Access Imam Portal →</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -253,6 +263,21 @@ const styles = StyleSheet.create({
     color: '#F7E099',
   },
   applyButtonTextBold: {
+    fontFamily: 'Inter_600SemiBold',
+    color: '#F2CC66',
+  },
+  imamPortalLink: {
+    alignSelf: 'center',
+    marginTop: 20,
+    paddingVertical: 12,
+  },
+  imamPortalText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#7B8799',
+    textAlign: 'center',
+  },
+  imamPortalTextBold: {
     fontFamily: 'Inter_600SemiBold',
     color: '#F2CC66',
   },

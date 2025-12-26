@@ -1,3 +1,4 @@
+// app/_layout.tsx - UPDATED WITH IMAM ROUTING
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +39,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isImam, setIsImam] = useState<boolean | null>(null);
   const segments = useSegments();
   const router = useRouter();
 
@@ -65,25 +67,79 @@ export default function RootLayout() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setIsImam(null); // Reset imam status when auth changes
     });
 
     return () => subscription.unsubscribe();
   }, []);
-  
 
+  // Check if user is imam when session loads
+  useEffect(() => {
+    if (!session) {
+      setIsImam(null);
+      return;
+    }
+
+    const checkIfImam = async () => {
+      try {
+        const { data: imam } = await supabase
+          .from('imam')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        setIsImam(!!imam);
+      } catch (error) {
+        console.error('Error checking imam status:', error);
+        setIsImam(false);
+      }
+    };
+
+    checkIfImam();
+  }, [session]);
+  
   // Handle routing based on auth state (PROTECTED ROUTES)
   useEffect(() => {
     if (authLoading || !fontsLoaded) return;
 
     const inAuth = segments[0] === '(auth)';
+    const inImam = segments[0] === '(imam)';
+    
+    // CRITICAL FIX: Allow public imam routes without authentication
+    // Check if accessing imam login OR verify-reference pages
+    const isPublicImamRoute = inImam && (
+      segments.includes('login') || 
+      segments.some(seg => seg?.includes('verify-reference'))
+    );
 
-    // Only redirect unauthenticated users trying to access protected routes
-    if (!session && inAuth) {
-      // User is NOT logged in but trying to access auth routes → Kick them out
-      router.replace('/welcome');
+    // Allow access to public imam routes without authentication
+    if (isPublicImamRoute) {
+      console.log('Accessing public imam route - allowing without auth check');
+      return;
     }
-    // Let the (auth)/_layout.tsx handle authenticated user routing based on their status
-  }, [session, segments, authLoading, fontsLoaded]);
+
+    // Only redirect unauthenticated users trying to access OTHER protected routes
+    if (!session && (inAuth || inImam)) {
+      // User is NOT logged in but trying to access protected routes → Kick them out
+      router.replace('/welcome');
+      return;
+    }
+
+    // If user is authenticated, route based on user type
+    if (session && isImam !== null) {
+      // User is an imam but not in imam section
+      if (isImam && !inImam) {
+        router.replace('/(imam)/dashboard');
+        return;
+      }
+
+      // Regular user on welcome/login screens
+      if (!isImam && !inAuth && (segments[0] === 'welcome' || segments[0] === 'login' || segments[0] === 'index')) {
+        router.replace('/(auth)');
+        return;
+      }
+    }
+  }, [session, segments, authLoading, fontsLoaded, isImam]);
 
   useEffect(() => {
     if (fontsLoaded && !authLoading) {
@@ -142,6 +198,13 @@ export default function RootLayout() {
           />
           <Stack.Screen 
             name="(auth)" 
+            options={{ 
+              headerShown: false,
+              animation: 'fade',
+            }} 
+          />
+          <Stack.Screen 
+            name="(imam)" 
             options={{ 
               headerShown: false,
               animation: 'fade',

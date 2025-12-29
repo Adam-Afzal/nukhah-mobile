@@ -61,7 +61,6 @@ type FormData = {
   
   // Obedience Questions
   halal_command_response: string;
-  jump_command_response: string;
   
   // Social & Wali
   has_social_media: boolean;
@@ -105,7 +104,6 @@ export default function SisterApplication() {
     current_location: '',
     preferred_region: '',
     halal_command_response: '',
-    jump_command_response: '',
     has_social_media: false,
     wali_onboard: '',
     shariah_covering_description: '',
@@ -173,7 +171,6 @@ export default function SisterApplication() {
     if (!formData.current_location.trim()) newErrors.current_location = 'Required';
     if (!formData.preferred_region.trim()) newErrors.preferred_region = 'Required';
     if (!formData.halal_command_response.trim()) newErrors.halal_command_response = 'Required';
-    if (!formData.jump_command_response.trim()) newErrors.jump_command_response = 'Required';
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -565,29 +562,6 @@ export default function SisterApplication() {
         )}
       </View>
 
-      {/* Jump Command Response */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>
-          Your husband tells you to jump in the air - what is your response? *
-        </Text>
-        <TextInput
-          style={[styles.textArea, errors.jump_command_response && styles.inputError]}
-          placeholder="Your answer..."
-          placeholderTextColor="#7B8799"
-          value={formData.jump_command_response}
-          onChangeText={(text) => {
-            setFormData({ ...formData, jump_command_response: text });
-            if (errors.jump_command_response) {
-              setErrors({ ...errors, jump_command_response: '' });
-            }
-          }}
-          multiline
-          numberOfLines={4}
-        />
-        {errors.jump_command_response && (
-          <Text style={styles.errorText}>{errors.jump_command_response}</Text>
-        )}
-      </View>
     </View>
   );
 

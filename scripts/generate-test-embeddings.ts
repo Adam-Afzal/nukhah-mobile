@@ -5,9 +5,9 @@ import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
 // Initialize clients
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || ''; // Use service role key for admin access
-const openaiApiKey = process.env.OPENAI_API_KEY || '';
+const supabaseUrl = 'gggg'
+const supabaseServiceKey = 'gggg' // Use service role key for admin access
+const openaiApiKey = 'fff'
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const openai = new OpenAI({ apiKey: openaiApiKey });

@@ -1,9 +1,5 @@
-import OpenAI from 'openai';
+import Constants from 'expo-constants';
 import { supabase } from './supabase';
-
-const openai = new OpenAI({
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
-});
 
 interface ProfileData {
   deen?: string;
@@ -72,16 +68,33 @@ export function generateProfileText(profile: ProfileData): string {
 }
 
 /**
- * Generates an embedding vector for a profile
+ * Generates an embedding vector by calling the edge function
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
-    const response = await openai.embeddings.create({
-      model: 'text-embedding-3-small', // Cheaper and faster, 1536 dimensions
-      input: text,
-    });
+    const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
+    
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured');
+    }
 
-    return response.data[0].embedding;
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/generate-embedding`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to generate embedding: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.embedding;
   } catch (error) {
     console.error('Error generating embedding:', error);
     throw error;

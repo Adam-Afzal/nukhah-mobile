@@ -2,10 +2,11 @@
 import OpenAI from 'openai';
 import { supabase } from './supabase';
 
-const apiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+
+const apiKey = 'lalalala'
 
 if (!apiKey) {
-  console.error('EXPO_PUBLIC_OPENAI_API_KEY is not set in environment variables');
+  console.error('api key is not set in environment variables');
 }
 
 const openai = new OpenAI({

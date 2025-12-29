@@ -1,6 +1,6 @@
 // hooks/useSisterApplication.ts
-
 import { useMutation } from '@tanstack/react-query';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
@@ -18,7 +18,6 @@ interface SisterApplicationData {
   current_location: string;
   preferred_region: string;
   halal_command_response: string;
-  jump_command_response: string;
   has_social_media: boolean;
   wali_onboard: string;
   shariah_covering_description: string;
@@ -45,8 +44,8 @@ interface SubmitResponse {
 const submitSisterApplication = async (
   applicationData: SisterApplicationData
 ): Promise<SubmitResponse> => {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseApiKey = process.env.EXPO_PUBLIC_SUPABASE_API_KEY;
+  const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseApiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_KEY;
 
   if (!supabaseUrl || !supabaseApiKey) {
     throw new Error('Missing Supabase configuration');
@@ -54,10 +53,8 @@ const submitSisterApplication = async (
 
   console.log("Making request to submit application...");
 
-
-  
   const response = await fetch(
-    `${supabaseUrl}/functions/v1/clever-task`, // Changed from rapid-endpoint
+    `${supabaseUrl}/functions/v1/clever-task`,
     {
       method: 'POST',
       headers: {
@@ -69,7 +66,7 @@ const submitSisterApplication = async (
   );
 
   console.log("Response status:", response.status);
-  
+
   // Parse the response body
   const data = await response.json();
   console.log("Response data:", data);
@@ -88,7 +85,7 @@ export const useSisterApplication = () => {
     mutationFn: submitSisterApplication,
     onSuccess: (data) => {
       console.log("Mutation success with data:", data);
-      
+
       if (data.message === 'check_email') {
         // User already applied - generic message for security
         Alert.alert(
@@ -111,7 +108,7 @@ export const useSisterApplication = () => {
               text: 'OK',
               onPress: () => {
                 // Navigate to login or auth check
-                router.replace('/login'); // Send them to login!
+                router.replace('/login');
               },
             },
           ]

@@ -1,5 +1,6 @@
 // hooks/useBrotherApplication.ts
 import { useMutation } from '@tanstack/react-query';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
@@ -39,8 +40,8 @@ interface SubmitResponse {
 const submitBrotherApplication = async (
   applicationData: BrotherApplicationData
 ): Promise<SubmitResponse> => {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const supabaseApiKey = process.env.EXPO_PUBLIC_SUPABASE_API_KEY;
+  const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseApiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_KEY;
 
   if (!supabaseUrl || !supabaseApiKey) {
     throw new Error('Missing Supabase configuration');

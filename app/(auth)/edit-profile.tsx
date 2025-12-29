@@ -1,5 +1,6 @@
 // app/(auth)/edit-profile.tsx
 import { supabase } from '@/lib/supabase';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -267,7 +268,7 @@ export default function EditProfileScreen() {
 
       if (error) throw error;
 
-      // Regenerate embedding
+      // Regenerate embedding via edge function
       await regenerateEmbedding();
 
       Alert.alert('Success', 'Profile updated successfully', [
@@ -285,61 +286,39 @@ export default function EditProfileScreen() {
     try {
       if (!profileId || !accountType) return;
 
-      // Calculate age
-      const age = formData.date_of_birth 
-        ? new Date().getFullYear() - new Date(formData.date_of_birth).getFullYear()
-        : 0;
+      const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
+      
+      if (!supabaseUrl) {
+        console.error('Supabase URL not configured');
+        return;
+      }
 
-      // Build profile text for embedding
-      const profileText = `Location: ${formData.location || 'Not specified'}. ` +
-        `Ethnicity: ${formData.ethnicity.length > 0 ? formData.ethnicity.join(', ') : 'Not specified'}. ` +
-        `Age: ${age}. ` +
-        `Deen: ${formData.deen || 'Not specified'}. ` +
-        `Personality: ${formData.personality || 'Not specified'}. ` +
-        `Lifestyle: ${formData.lifestyle || 'Not specified'}. ` +
-        `Spouse Criteria: ${formData.spouse_criteria || 'Not specified'}. ` +
-        (formData.build ? `Build: ${formData.build}. ` : '') +
-        (formData.physical_fitness ? `Physical Fitness: ${formData.physical_fitness}.` : '');
+      console.log('Calling edge function to regenerate embedding...');
 
-      console.log('Regenerating embedding with profile text:', profileText);
-
-      // Call OpenAI to generate embedding
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.EXPO_PUBLIC_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: profileText,
-        }),
-      });
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/regenerate-embedding`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            profileId,
+            accountType,
+            profileData: formData,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('OpenAI API error:', errorData);
-        throw new Error('Failed to generate embedding');
+        console.error('Edge function error:', errorData);
+        // Don't throw - profile was still updated successfully
+        return;
       }
 
       const data = await response.json();
-      const embedding = data.data[0].embedding;
-
-      console.log('✅ Embedding generated, updating database...');
-
-      // Update profile with new embedding
-      const table = accountType === 'brother' ? 'brother' : 'sister';
-      const { error: embeddingError } = await supabase
-        .from(table)
-        .update({ profile_embedding: embedding })
-        .eq('id', profileId);
-
-      if (embeddingError) {
-        console.error('Error updating embedding:', embeddingError);
-        // Don't throw - profile was still updated successfully
-      } else {
-        console.log('✅ Embedding regenerated successfully');
-      }
+      console.log('✅ Embedding regenerated successfully:', data);
     } catch (error) {
       console.error('Error regenerating embedding:', error);
       // Don't throw - profile update was successful, embedding is just bonus

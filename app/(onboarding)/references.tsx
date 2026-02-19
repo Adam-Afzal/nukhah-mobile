@@ -144,13 +144,13 @@ export default function ReferencesScreen() {
 
       const userName = profile 
         ? `${profile.first_name} ${profile.last_name}` 
-        : 'A Nukhbah user';
+        : 'A Mithaq user';
 
       // Call Supabase Edge Function to send SMS
       const { data, error } = await supabase.functions.invoke('send-sms', {
         body: {
           to: phone,
-          message: `Nukhbah: ${userName} has listed you as a character reference. Reply with code ${code} to verify. Valid for 48 hours.`,
+          message: `Mithaq: ${userName} has listed you as a character reference. Reply with code ${code} to verify. Valid for 48 hours.`,
         },
       });
 

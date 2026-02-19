@@ -37,6 +37,15 @@ export function useUserStatus() {
           .eq('user_id', user.id)
           .single();
 
+        // Check subscription status
+        const { data: subscriber } = await supabase
+          .from('subscribers')
+          .select('subscribed')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const paid = subscriber?.subscribed === true;
+
         let hasMasjidAffiliation = false;
         let hasReferences = false;
 
@@ -59,7 +68,7 @@ export function useUserStatus() {
         return {
           status: brotherApp.status as 'pending' | 'approved' | 'rejected',
           hasProfile: !!brotherProfile,
-          paid: true, // For now, always true - you can add payment logic later
+          paid,
           accountType: 'brother',
           onboardingCompleted,
           hasMasjidAffiliation,
@@ -81,6 +90,15 @@ export function useUserStatus() {
           .select('id, masjid_id, is_masjid_affiliated')
           .eq('user_id', user.id)
           .single();
+
+        // Check subscription status
+        const { data: subscriber } = await supabase
+          .from('subscribers')
+          .select('subscribed')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        const paid = subscriber?.subscribed === true;
 
         let hasMasjidAffiliation = false;
         let hasReferences = false;
@@ -104,7 +122,7 @@ export function useUserStatus() {
         return {
           status: sisterApp.status as 'pending' | 'approved' | 'rejected',
           hasProfile: !!sisterProfile,
-          paid: true, // For now, always true
+          paid,
           accountType: 'sister',
           onboardingCompleted,
           hasMasjidAffiliation,

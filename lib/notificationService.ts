@@ -156,7 +156,7 @@ export async function notifyInterestExpressed(
     userId,
     type: 'interest_expressed',
     title: 'New Interest',
-    message: `${requesterUsername} is interested in you and started answering your questions`,
+    message: `${requesterUsername} is interested in you`,
     data: {
       interest_id: interestId,
       requester_profile_id: requesterProfileId,

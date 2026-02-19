@@ -3,14 +3,14 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface Masjid {
@@ -47,6 +47,7 @@ export default function MasjidAffiliationScreen() {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log(user?.id)
       if (!user) {
         Alert.alert('Error', 'Not authenticated');
         router.back();
@@ -56,30 +57,32 @@ export default function MasjidAffiliationScreen() {
       // Check if brother or sister
       const { data: brotherData } = await supabase
         .from('brother')
-        .select('id, location')
+        .select('id, location_country, location_city')
         .eq('user_id', user.id)
         .single();
 
       if (brotherData) {
         setAccountType('brother');
         setUserId(brotherData.id);
-        setUserLocation(brotherData.location || '');
-        await loadMasajid(brotherData.location);
+        setUserLocation(brotherData.location_country || '');
+        await loadMasajid(brotherData.location_city);
         setIsLoading(false);
         return;
       }
 
       const { data: sisterData } = await supabase
         .from('sister')
-        .select('id, location')
+        .select('id, location_country, location_city')
         .eq('user_id', user.id)
         .single();
+
+        console.log(`sister data in masjid page: ${sisterData}`)
 
       if (sisterData) {
         setAccountType('sister');
         setUserId(sisterData.id);
-        setUserLocation(sisterData.location || '');
-        await loadMasajid(sisterData.location);
+        setUserLocation(sisterData.location_city || '');
+        await loadMasajid(sisterData.location_country);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -219,12 +222,15 @@ const loadMasajid = async (location?: string) => {
     }
   };
 
-  const filteredMasajid = masajid.filter(m => 
-    m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.imam?.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMasajid = masajid.filter(m => {
+    const query = searchQuery.toLowerCase();
+    return (
+      m.name?.toLowerCase().includes(query) ||
+      m.location?.toLowerCase().includes(query) ||
+      m.city?.toLowerCase().includes(query) ||
+      m.imam?.name?.toLowerCase().includes(query)
+    );
+  });
 
   if (isLoading) {
     return (

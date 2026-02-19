@@ -1,5 +1,5 @@
 {
-  "name": "nukhah-mobile",
+  "name": "mithaq-mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -12,7 +12,9 @@
     "seed-test": "node ./scripts/seed-test-user.js",
     "seed-sister": "node ./scripts/seed-sister-user.js",
     "create-imam": "node ./scripts/create-imam-account.js",
-    "list-masjid": "node scripts/list-masjid.js"
+    "list-masjid": "node scripts/list-masjid.js",
+    "reset-user": "node scripts/reset-user.js",
+    "reset-brother": "node scripts/reset-brother-user.js"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -48,6 +50,7 @@
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
+    "react-native-purchases": "^9.8.0",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

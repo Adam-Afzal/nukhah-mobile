@@ -26,7 +26,7 @@ export default function WaliContactCard({ sisterUsername, waliContact }: WaliCon
       const subject = encodeURIComponent(`Marriage Proposal for ${sisterUsername}`);
       const body = encodeURIComponent(
         `Assalamu Alaikum ${waliContact.name},\n\n` +
-        `I am contacting you regarding a marriage proposal for ${sisterUsername} through the Nukhbah matrimonial platform.\n\n` +
+        `I am contacting you regarding a marriage proposal for ${sisterUsername} through the Mithaq matrimonial platform.\n\n` +
         `I would like to discuss this matter further at your convenience.\n\n` +
         `JazakAllahu Khairan`
       );

@@ -16,7 +16,7 @@ interface Profile {
   id: string;
   username: string;
   location: string;
-  ethnicity: string[];
+  ethnicity: string;
   deen: string;
   personality: string;
   lifestyle: string;
@@ -32,7 +32,7 @@ function buildProfileText(profile: Profile, type: 'brother' | 'sister'): string 
   const age = calculateAge(profile.date_of_birth);
   
   return `Location: ${profile.location}. ` +
-    `Ethnicity: ${profile.ethnicity.join(', ')}. ` +
+    `Ethnicity: ${profile.ethnicity}. ` +
     `Age: ${age}. ` +
     `Marital Status: ${profile.marital_status}. ` +
     `Deen: ${profile.deen}. ` +

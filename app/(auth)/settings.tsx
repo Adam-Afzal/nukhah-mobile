@@ -1,10 +1,12 @@
 // app/(auth)/settings.tsx
+import { getManagementUrl } from '@/lib/paymentService';
 import { supabase } from '@/lib/supabase';
 import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -119,13 +121,17 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleManageMembership = () => {
-    // TODO: Create membership management screen
-    Alert.alert(
-      'Manage Membership',
-      'This feature is coming soon. You will be able to manage your subscription and payment details here.',
-      [{ text: 'OK' }]
-    );
+  const handleManageMembership = async () => {
+    const url = await getManagementUrl();
+    if (url) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert(
+        'Manage Membership',
+        'To manage your subscription, go to your device Settings > Subscriptions.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleLogout = async () => {

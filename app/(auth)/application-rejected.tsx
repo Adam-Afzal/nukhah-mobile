@@ -61,7 +61,7 @@ export default function ApplicationRejected() {
           <View style={styles.logoDot} />
           <View style={styles.logoAccent} />
         </View>
-        <Text style={styles.logoText}>Nukhbah</Text>
+        <Text style={styles.logoText}>Mithaq</Text>
       </View>
 
       {/* Main Card */}
@@ -78,7 +78,7 @@ export default function ApplicationRejected() {
         <Text style={styles.title}>Application Declined</Text>
 
         {/* Subtitle */}
-        <Text style={styles.subtitle}>Thank you for your interest in Nukhbah.</Text>
+        <Text style={styles.subtitle}>Thank you for your interest in Mithaq.</Text>
         <Text style={styles.subtitle}>Unfortunately, we cannot approve your application</Text>
         <Text style={styles.subtitle}>at this time.</Text>
 
@@ -92,10 +92,10 @@ export default function ApplicationRejected() {
               <Text style={styles.reasonText}>{reviewComments}</Text>
             ) : (
               <Text style={styles.reasonText}>
-                Based on your responses, specifically regarding aqeedah and sources of Islamic knowledge, we found areas that do not align with the standards required for Nukhbah membership.
+                Based on your responses, specifically regarding aqeedah and sources of Islamic knowledge, we found areas that do not align with the standards required for Mithaq membership.
               </Text>
             )}
-            <Text style={styles.signature}>- Nukhbah Review Team</Text>
+            <Text style={styles.signature}>- Mithaq Review Team</Text>
           </View>
         </View>
 

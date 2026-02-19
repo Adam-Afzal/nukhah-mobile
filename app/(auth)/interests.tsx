@@ -28,14 +28,13 @@ interface InterestRequest {
   status: string;
   created_at: string;
   profile_username?: string;
-  profile_location?: string;
-  profile_ethnicity?: string[];
+  profile_location_country?: string;
+  profile_location_city?: string;
+  profile_ethnicity?: string;
   profile_marital_status?: string;
   profile_build?: string;
-  profile_physical_fitness?: string;
   profile_date_of_birth?: string;
-  profile_imam_verified?: boolean;
-  profile_references_verified?: boolean;
+  profile_prayer_consistency?: string;
 }
 
 // Navigation Icons (same as index.tsx)
@@ -249,90 +248,50 @@ export default function InterestsScreen() {
 
   const loadAllInterests = async (userId: string, userType: 'brother' | 'sister') => {
     try {
-      // Load expressed interests (people interested in you)
+      // Load all received and sent interests
       const received = await getReceivedInterests(userId, userType);
-      const enrichedReceived = await enrichInterests(received, 'requester');
-      setExpressedInterests(enrichedReceived);
-
-      // Load your interests (people you're interested in)
       const sent = await getMyInterests(userId, userType);
-      const enrichedSent = await enrichInterests(sent, 'recipient');
-      setYourInterests(enrichedSent);
 
-      // ✅ MUTUAL INTEREST DETECTION WITH DEBUG LOGS
-      console.log('\n🔍 ===== CHECKING FOR MUTUAL INTERESTS =====');
-      console.log('My profile ID:', userId);
-      console.log('My account type:', userType);
-      console.log('Sent interests (my interests):', sent.length);
-      console.log('Received interests (interested in me):', received.length);
-      
-      const mutual: any[] = [];
       const waliData: Record<string, any> = {};
-      
-      for (const sentInterest of sent) {
-        console.log(`\n📤 Checking sent interest to ${sentInterest.recipient_id}:`);
-        console.log('  Recipient type:', sentInterest.recipient_type);
-        console.log('  My progress:', sentInterest.unlock_percentage + '%');
-        console.log('  My status:', sentInterest.status);
-        
-        // Find if there's a reciprocal interest
-        const reciprocal = received.find(r => 
-          r.requester_id === sentInterest.recipient_id &&
-          r.requester_type === sentInterest.recipient_type
-        );
-        
-        if (reciprocal) {
-          console.log('  ✅ Found reciprocal interest!');
-          console.log('  Their progress:', reciprocal.unlock_percentage + '%');
-          console.log('  Their status:', reciprocal.status);
-          
-          // Check if BOTH are 100% AND both accepted
-          const isMutual = (
-            sentInterest.unlock_percentage === 100 &&
-            reciprocal.unlock_percentage === 100 &&
-            sentInterest.status === 'accepted' &&
-            reciprocal.status === 'accepted'
-          );
-          
-          console.log('  Mutual check breakdown:');
-          console.log('    My 100%?', sentInterest.unlock_percentage === 100);
-          console.log('    Their 100%?', reciprocal.unlock_percentage === 100);
-          console.log('    My accepted?', sentInterest.status === 'accepted');
-          console.log('    Their accepted?', reciprocal.status === 'accepted');
-          console.log('  ➡️ Is mutual?', isMutual);
-          
-          if (isMutual) {
-            console.log('  ✨ MUTUAL INTEREST CONFIRMED!');
-            mutual.push(sentInterest);
-            
-            // If brother viewing sister's profile, fetch wali contact
-            if (userType === 'brother' && sentInterest.recipient_type === 'sister') {
-              console.log('  📞 Fetching wali contact...');
-              const wali = await fetchWaliContact(sentInterest.recipient_id);
-              if (wali) {
-                waliData[sentInterest.recipient_id] = wali;
-                console.log('  ✅ Wali contact fetched');
-              } else {
-                console.log('  ⚠️ No wali contact found');
-              }
-            }
-          } else {
-            console.log('  ❌ Not mutual - conditions not met');
-          }
-        } else {
-          console.log('  ❌ No reciprocal interest found');
+
+      // Matched = any accepted interest in either direction
+      const acceptedSent = sent.filter(s => s.status === 'accepted');
+      const acceptedReceived = received.filter(r => r.status === 'accepted');
+      const acceptedSentIds = new Set(acceptedSent.map(s => s.id));
+      const acceptedReceivedIds = new Set(acceptedReceived.map(r => r.id));
+
+      // Fetch wali contacts for matched interests (brother viewing sisters)
+      for (const interest of acceptedSent) {
+        if (userType === 'brother' && interest.recipient_type === 'sister') {
+          const wali = await fetchWaliContact(interest.recipient_id);
+          if (wali) waliData[interest.recipient_id] = wali;
         }
       }
-      
-      console.log('\n✅ ===== MUTUAL INTERESTS SUMMARY =====');
-      console.log('Total mutual interests found:', mutual.length);
-      if (mutual.length > 0) {
-        console.log('Mutual with:', mutual.map(m => m.recipient_id).join(', '));
+      for (const interest of acceptedReceived) {
+        if (userType === 'brother' && interest.requester_type === 'sister') {
+          const wali = await fetchWaliContact(interest.requester_id);
+          if (wali) waliData[interest.requester_id] = wali;
+        }
       }
-      console.log('=======================================\n');
-      
-      const enrichedMutual = await enrichInterests(mutual, 'recipient');
-      setMutualInterests(enrichedMutual);
+
+      // "Expressed Interest" tab: received interests that are pending
+      const pendingReceived = received.filter(r =>
+        r.status === 'pending' && !acceptedReceivedIds.has(r.id)
+      );
+      const enrichedReceived = await enrichInterests(pendingReceived, 'requester');
+      setExpressedInterests(enrichedReceived);
+
+      // "Your Interests" tab: sent interests that are pending
+      const pendingSent = sent.filter(s =>
+        s.status === 'pending' && !acceptedSentIds.has(s.id)
+      );
+      const enrichedSent = await enrichInterests(pendingSent, 'recipient');
+      setYourInterests(enrichedSent);
+
+      // "Mutual Interest" tab: all accepted interests (either direction)
+      const enrichedAcceptedSent = await enrichInterests(acceptedSent, 'recipient');
+      const enrichedAcceptedReceived = await enrichInterests(acceptedReceived, 'requester');
+      setMutualInterests([...enrichedAcceptedSent, ...enrichedAcceptedReceived]);
       setWaliContacts(waliData);
 
     } catch (error) {
@@ -349,41 +308,27 @@ export default function InterestsScreen() {
         const profileId = profileSource === 'requester' ? interest.requester_id : interest.recipient_id;
         const profileType = profileSource === 'requester' ? interest.requester_type : interest.recipient_type;
         
+        const selectFields = 'username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency';
+
         const { data: profile } = await supabase
           .from(profileType)
-          .select('username, location, ethnicity, marital_status, build, physical_fitness, date_of_birth, imam_verified, references_verified')
+          .select(selectFields)
           .eq('id', profileId)
           .single();
 
         return {
           ...interest,
           profile_username: profile?.username,
-          profile_location: profile?.location,
+          profile_location_country: profile?.location_country,
+          profile_location_city: profile?.location_city,
           profile_ethnicity: profile?.ethnicity,
           profile_marital_status: profile?.marital_status,
           profile_build: profile?.build,
-          profile_physical_fitness: profile?.physical_fitness,
           profile_date_of_birth: profile?.date_of_birth,
-          profile_imam_verified: profile?.imam_verified,
-          profile_references_verified: profile?.references_verified,
+          profile_prayer_consistency: profile?.prayer_consistency,
         };
       })
     );
-  };
-
-  const calculateAge = (dateOfBirth: string | undefined): number | null => {
-    if (!dateOfBirth) return null;
-    
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
   };
 
   const getMaritalStatusLabel = (status: string) => {
@@ -411,25 +356,31 @@ export default function InterestsScreen() {
     return labels[build] || build;
   };
 
-  const getLocationFlag = (location: string) => {
-    if (!location) return '🌍';
-    const parts = location.split(',');
-    if (parts.length < 2) return '🌍';
-    const countryName = parts[parts.length - 1].trim();
+  const getLocationFlag = (countryName: string) => {
+    if (!countryName) return '🌍';
     const country = getCountryByName(countryName);
     return country?.flag || '🌍';
   };
 
-  const getEthnicityFlag = (ethnicity: string | string[]) => {
+  const getEthnicityFlag = (ethnicity: string) => {
     if (!ethnicity) return '🌍';
-    const ethnicityName = Array.isArray(ethnicity) ? ethnicity[0] : ethnicity;
-    if (!ethnicityName) return '🌍';
-    const eth = getEthnicityByName(ethnicityName);
+    const eth = getEthnicityByName(ethnicity);
     return eth?.flag || '🌍';
   };
 
+  const calculateAge = (dateOfBirth: string | undefined): number | null => {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birth = new Date(dateOfBirth);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   const renderInterestCard = ({ item }: { item: InterestRequest }) => {
-    const age = calculateAge(item.profile_date_of_birth);
     const profileId = activeTab === 'expressed' ? item.requester_id : item.recipient_id;
     const profileType = activeTab === 'expressed' ? item.requester_type : item.recipient_type;
     
@@ -443,14 +394,8 @@ export default function InterestsScreen() {
     const wali = showWali ? waliContacts[profileId] : null;
 
     const handleCardPress = () => {
-      if (activeTab === 'expressed' && item.unlock_percentage === 100) {
-        // Go directly to answers screen with accept/reject
-        console.log("going to answers screen")
-        router.push(`/(auth)/interest-answers/${item.id}`);
-      } else {
-        // Go to profile
-        router.push(`/profile/${profileId}`);
-      }
+      // Always navigate to the profile
+      router.push(`/profile/${profileId}`);
     };
 
     const handleCallWali = () => {
@@ -467,20 +412,22 @@ export default function InterestsScreen() {
       }
     };
 
+    const age = calculateAge(item.profile_date_of_birth);
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.interestCard}
         onPress={handleCardPress}
       >
         <View style={styles.cardHeader}>
           <View style={styles.usernameRow}>
             <Text style={styles.username}>{item.profile_username}</Text>
-            {age && (
+            {age !== null && (
               <View style={styles.ageBadge}>
                 <Text style={styles.ageText}>{age}</Text>
               </View>
             )}
-            <Text style={styles.flag}>{getLocationFlag(item.profile_location || '')}</Text>
+            <Text style={styles.flag}>{getLocationFlag(item.profile_location_country || '')}</Text>
           </View>
           {/* Elite Badge (optional - add logic if needed) */}
           <View style={styles.eliteBadge}>
@@ -488,40 +435,12 @@ export default function InterestsScreen() {
           </View>
         </View>
 
-        {/* Verification Badges */}
-        {(item.profile_imam_verified || item.profile_references_verified) && (
-          <View style={styles.verificationRow}>
-            {item.profile_imam_verified && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>🕌 Masjid Verified</Text>
-              </View>
-            )}
-            {item.profile_references_verified && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>✓ Reference Verified</Text>
-              </View>
-            )}
-          </View>
-        )}
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
-            {getLocationFlag(item.profile_location || '')} {item.profile_location || 'Location not set'}
+            {getLocationFlag(item.profile_location_country || '')} {item.profile_location_city ? `${item.profile_location_city}, ${item.profile_location_country}` : item.profile_location_country || 'Location not set'}
           </Text>
         </View>
-
-        {activeTab !== 'mutual' && (
-          <>
-            <View style={styles.progressSection}>
-              <Text style={styles.progressLabel}>Questions Progress</Text>
-              <Text style={styles.progressPercentage}>{item.unlock_percentage}%</Text>
-            </View>
-
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${item.unlock_percentage}%` }]} />
-            </View>
-          </>
-        )}
 
         {/* MUTUAL INTEREST - Show confirmation badge */}
         {activeTab === 'mutual' && (
@@ -607,11 +526,7 @@ export default function InterestsScreen() {
         )}
 
         <TouchableOpacity style={styles.viewButton} onPress={handleCardPress}>
-          <Text style={styles.viewButtonText}>
-            {activeTab === 'expressed' 
-              ? (item.unlock_percentage === 100 ? 'Review Match' : 'View Progress')
-              : 'View Profile'}
-          </Text>
+          <Text style={styles.viewButtonText}>View Profile</Text>
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -717,9 +632,9 @@ export default function InterestsScreen() {
       {/* Tab Description */}
       <View style={styles.descriptionContainer}>
         <Text style={styles.descriptionText}>
-          {activeTab === 'expressed' && `${accountType === 'brother' ? 'Sisters' : 'Brothers'} answering questions to unlock your profile`}
+          {activeTab === 'expressed' && `${accountType === 'brother' ? 'Sisters' : 'Brothers'} who have expressed interest in you`}
           {activeTab === 'your' && `${accountType === 'brother' ? 'Sisters' : 'Brothers'} you're interested in`}
-          {activeTab === 'mutual' && 'People who completed your questions and you completed theirs'}
+          {activeTab === 'mutual' && 'Both parties have accepted each other\'s interest'}
         </Text>
       </View>
 

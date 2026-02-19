@@ -1,48 +1,83 @@
 // app/(auth)/edit-profile.tsx
+import SearchablePicker from '@/components/searchablePicker';
+import { ETHNICITIES } from '@/lib/locationData';
 import { supabase } from '@/lib/supabase';
+import { Picker } from '@react-native-picker/picker';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 type AccountType = 'brother' | 'sister';
 
 interface ProfileData {
   username: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  location: string;
-  ethnicity: string[];
-  date_of_birth: string;
-  deen: string;
+  build: string;
+  ethnicity: string;
+  occupation: string;
+  marital_status: string;
+  children: boolean;
+  revert: boolean;
+  disabilities: string;
+  hobbies_and_interests: string;
   personality: string;
-  lifestyle: string;
-  spouse_criteria: string;
+  open_to_hijrah: boolean;
+  open_to_reverts: boolean;
+  living_arrangements: string;
+  preferred_ethnicity: string[];
+  other_spouse_criteria: string;
   dealbreakers: string;
-  build?: string;
-  physical_fitness?: string;
-  // Brother specific
+  prayer_consistency: string;
+  // Brother-specific
   beard_commitment?: string;
-  // Sister specific
-  hijab_commitment?: string;
-  wali_name?: string;
-  wali_relationship?: string;
-  wali_phone?: string;
-  wali_email?: string;
-  wali_preferred_contact?: string;
+  // Sister-specific
+  open_to_polygyny?: boolean;
 }
+
+const BROTHER_BUILD_OPTIONS = [
+  { label: 'Select build', value: '' },
+  { label: 'Skinny', value: 'skinny' },
+  { label: 'Slim', value: 'slim' },
+  { label: 'Muscular', value: 'muscular' },
+  { label: 'Bulky', value: 'bulky' },
+  { label: 'Heavyset', value: 'heavyset' },
+];
+
+const SISTER_BUILD_OPTIONS = [
+  { label: 'Select build', value: '' },
+  { label: 'Skinny', value: 'skinny' },
+  { label: 'Slim', value: 'slim' },
+  { label: 'Hourglass', value: 'hourglass' },
+  { label: 'Curvy', value: 'curvy' },
+  { label: 'Heavyset', value: 'heavyset' },
+];
+
+const BROTHER_MARITAL_OPTIONS = [
+  { label: 'Select status', value: '' },
+  { label: 'Never Married', value: 'never_married' },
+  { label: 'Married', value: 'married' },
+  { label: 'Divorced', value: 'divorced' },
+  { label: 'Widowed', value: 'widowed' },
+  { label: 'Annulled', value: 'annulled' },
+];
+
+const SISTER_MARITAL_OPTIONS = [
+  { label: 'Select status', value: '' },
+  { label: 'Never Married', value: 'never_married' },
+  { label: 'Divorced', value: 'divorced' },
+  { label: 'Widowed', value: 'widowed' },
+  { label: 'Annulled', value: 'annulled' },
+];
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -53,19 +88,36 @@ export default function EditProfileScreen() {
   const [originalUsername, setOriginalUsername] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [ethnicityPickerVisible, setEthnicityPickerVisible] = useState(false);
+  const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
+
+  const ethnicityItems = ETHNICITIES.map(eth => ({
+    label: eth.name,
+    value: eth.name,
+    flag: eth.flag,
+    subtitle: eth.description,
+  }));
+
   const [formData, setFormData] = useState<ProfileData>({
     username: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    location: '',
-    ethnicity: [],
-    date_of_birth: '',
-    deen: '',
+    build: '',
+    ethnicity: '',
+    occupation: '',
+    marital_status: '',
+    children: false,
+    revert: false,
+    disabilities: '',
+    hobbies_and_interests: '',
     personality: '',
-    lifestyle: '',
-    spouse_criteria: '',
+    open_to_hijrah: false,
+    open_to_reverts: true,
+    living_arrangements: '',
+    preferred_ethnicity: [],
+    other_spouse_criteria: '',
     dealbreakers: '',
+    prayer_consistency: '',
+    beard_commitment: '',
+    open_to_polygyny: false,
   });
 
   useEffect(() => {
@@ -95,19 +147,22 @@ export default function EditProfileScreen() {
         setOriginalUsername(brotherData.username || '');
         setFormData({
           username: brotherData.username || '',
-          first_name: brotherData.first_name || '',
-          last_name: brotherData.last_name || '',
-          phone: brotherData.phone || '',
-          location: brotherData.location || '',
-          ethnicity: brotherData.ethnicity || [],
-          date_of_birth: brotherData.date_of_birth || '',
-          deen: brotherData.deen || '',
-          personality: brotherData.personality || '',
-          lifestyle: brotherData.lifestyle || '',
-          spouse_criteria: brotherData.spouse_criteria || '',
-          dealbreakers: brotherData.dealbreakers || '',
           build: brotherData.build || '',
-          physical_fitness: brotherData.physical_fitness || '',
+          ethnicity: brotherData.ethnicity || '',
+          occupation: brotherData.occupation || '',
+          marital_status: brotherData.marital_status || '',
+          children: brotherData.children || false,
+          revert: brotherData.revert || false,
+          disabilities: brotherData.disabilities || '',
+          hobbies_and_interests: brotherData.hobbies_and_interests || '',
+          personality: brotherData.personality || '',
+          open_to_hijrah: brotherData.open_to_hijrah || false,
+          open_to_reverts: brotherData.open_to_reverts ?? true,
+          living_arrangements: brotherData.living_arrangements || '',
+          preferred_ethnicity: brotherData.preferred_ethnicity || [],
+          other_spouse_criteria: brotherData.other_spouse_criteria || '',
+          dealbreakers: brotherData.dealbreakers || '',
+          prayer_consistency: brotherData.prayer_consistency || '',
           beard_commitment: brotherData.beard_commitment || '',
         });
         setIsLoading(false);
@@ -127,25 +182,23 @@ export default function EditProfileScreen() {
         setOriginalUsername(sisterData.username || '');
         setFormData({
           username: sisterData.username || '',
-          first_name: sisterData.first_name || '',
-          last_name: sisterData.last_name || '',
-          phone: sisterData.phone || '',
-          location: sisterData.location || '',
-          ethnicity: sisterData.ethnicity || [],
-          date_of_birth: sisterData.date_of_birth || '',
-          deen: sisterData.deen || '',
-          personality: sisterData.personality || '',
-          lifestyle: sisterData.lifestyle || '',
-          spouse_criteria: sisterData.spouse_criteria || '',
-          dealbreakers: sisterData.dealbreakers || '',
           build: sisterData.build || '',
-          physical_fitness: sisterData.physical_fitness || '',
-          hijab_commitment: sisterData.hijab_commitment || '',
-          wali_name: sisterData.wali_name || '',
-          wali_relationship: sisterData.wali_relationship || '',
-          wali_phone: sisterData.wali_phone || '',
-          wali_email: sisterData.wali_email || '',
-          wali_preferred_contact: sisterData.wali_preferred_contact || '',
+          ethnicity: sisterData.ethnicity || '',
+          occupation: sisterData.occupation || '',
+          marital_status: sisterData.marital_status || '',
+          children: sisterData.children || false,
+          revert: sisterData.revert || false,
+          disabilities: sisterData.disabilities || '',
+          hobbies_and_interests: sisterData.hobbies_and_interests || '',
+          personality: sisterData.personality || '',
+          open_to_hijrah: sisterData.open_to_hijrah || false,
+          open_to_reverts: sisterData.open_to_reverts ?? true,
+          living_arrangements: sisterData.living_arrangements || '',
+          preferred_ethnicity: sisterData.preferred_ethnicity || [],
+          other_spouse_criteria: sisterData.other_spouse_criteria || '',
+          dealbreakers: sisterData.dealbreakers || '',
+          prayer_consistency: sisterData.prayer_consistency || '',
+          open_to_polygyny: sisterData.open_to_polygyny || false,
         });
       }
     } catch (error) {
@@ -157,12 +210,10 @@ export default function EditProfileScreen() {
   };
 
   const checkUsernameAvailability = async (username: string): Promise<boolean> => {
-    // If username hasn't changed, it's available
     if (username === originalUsername) {
       return true;
     }
 
-    // Check both brother and sister tables
     const { data: brotherData } = await supabase
       .from('brother')
       .select('id')
@@ -181,24 +232,18 @@ export default function EditProfileScreen() {
   };
 
   const handleUsernameChange = async (username: string) => {
-    setFormData({ ...formData, username });
+    const cleanedUsername = username.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    setFormData({ ...formData, username: cleanedUsername });
     setUsernameError('');
 
-    // Validate format
-    if (username.length < 3) {
+    if (cleanedUsername.length < 3) {
       setUsernameError('Username must be at least 3 characters');
       return;
     }
 
-    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-      setUsernameError('Username can only contain letters, numbers, hyphens, and underscores');
-      return;
-    }
-
-    // Check availability
-    if (username !== originalUsername) {
+    if (cleanedUsername !== originalUsername) {
       setIsCheckingUsername(true);
-      const isAvailable = await checkUsernameAvailability(username);
+      const isAvailable = await checkUsernameAvailability(cleanedUsername);
       setIsCheckingUsername(false);
 
       if (!isAvailable) {
@@ -208,7 +253,6 @@ export default function EditProfileScreen() {
   };
 
   const handleSave = async () => {
-    // Validation
     if (!formData.username.trim()) {
       Alert.alert('Validation Error', 'Username is required');
       return;
@@ -219,13 +263,23 @@ export default function EditProfileScreen() {
       return;
     }
 
-    if (!formData.first_name.trim() || !formData.last_name.trim()) {
-      Alert.alert('Validation Error', 'First name and last name are required');
+    if (!formData.build) {
+      Alert.alert('Validation Error', 'Build is required');
       return;
     }
 
-    if (!formData.phone.trim()) {
-      Alert.alert('Validation Error', 'Phone number is required');
+    if (!formData.ethnicity) {
+      Alert.alert('Validation Error', 'Ethnicity is required');
+      return;
+    }
+
+    if (!formData.marital_status) {
+      Alert.alert('Validation Error', 'Marital status is required');
+      return;
+    }
+
+    if (!formData.personality.trim()) {
+      Alert.alert('Validation Error', 'Personality is required');
       return;
     }
 
@@ -237,38 +291,41 @@ export default function EditProfileScreen() {
 
       const table = accountType === 'brother' ? 'brother' : 'sister';
 
-      // Update profile
+      const updateData: Record<string, any> = {
+        username: formData.username.trim(),
+        build: formData.build,
+        ethnicity: formData.ethnicity,
+        occupation: formData.occupation.trim(),
+        marital_status: formData.marital_status,
+        children: formData.children,
+        revert: formData.revert,
+        disabilities: formData.disabilities.trim(),
+        hobbies_and_interests: formData.hobbies_and_interests.trim(),
+        personality: formData.personality.trim(),
+        open_to_hijrah: formData.open_to_hijrah,
+        open_to_reverts: formData.open_to_reverts,
+        living_arrangements: formData.living_arrangements.trim(),
+        preferred_ethnicity: formData.preferred_ethnicity,
+        other_spouse_criteria: formData.other_spouse_criteria.trim(),
+        dealbreakers: formData.dealbreakers.trim(),
+        prayer_consistency: formData.prayer_consistency,
+      };
+
+      if (accountType === 'brother') {
+        updateData.beard_commitment = formData.beard_commitment;
+      }
+
+      if (accountType === 'sister') {
+        updateData.open_to_polygyny = formData.open_to_polygyny;
+      }
+
       const { error } = await supabase
         .from(table)
-        .update({
-          username: formData.username.trim(),
-          first_name: formData.first_name.trim(),
-          last_name: formData.last_name.trim(),
-          phone: formData.phone.trim(),
-          location: formData.location.trim(),
-          date_of_birth: formData.date_of_birth,
-          deen: formData.deen.trim(),
-          personality: formData.personality.trim(),
-          lifestyle: formData.lifestyle.trim(),
-          spouse_criteria: formData.spouse_criteria.trim(),
-          dealbreakers: formData.dealbreakers.trim(),
-          ...(accountType === 'brother' && {
-            beard_commitment: formData.beard_commitment,
-          }),
-          ...(accountType === 'sister' && {
-            hijab_commitment: formData.hijab_commitment,
-            wali_name: formData.wali_name?.trim(),
-            wali_relationship: formData.wali_relationship,
-            wali_phone: formData.wali_phone?.trim(),
-            wali_email: formData.wali_email?.trim(),
-            wali_preferred_contact: formData.wali_preferred_contact,
-          }),
-        })
+        .update(updateData)
         .eq('id', profileId);
 
       if (error) throw error;
 
-      // Regenerate embedding via edge function
       await regenerateEmbedding();
 
       Alert.alert('Success', 'Profile updated successfully', [
@@ -287,13 +344,16 @@ export default function EditProfileScreen() {
       if (!profileId || !accountType) return;
 
       const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
-      
       if (!supabaseUrl) {
         console.error('Supabase URL not configured');
         return;
       }
 
-      console.log('Calling edge function to regenerate embedding...');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No auth session for embedding regeneration');
+        return;
+      }
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/regenerate-embedding`,
@@ -301,27 +361,21 @@ export default function EditProfileScreen() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({
-            profileId,
-            accountType,
-            profileData: formData,
-          }),
+          body: JSON.stringify({ profileId, accountType }),
         }
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Edge function error:', errorData);
-        // Don't throw - profile was still updated successfully
         return;
       }
 
-      const data = await response.json();
-      console.log('✅ Embedding regenerated successfully:', data);
+      console.log('Embedding regenerated successfully');
     } catch (error) {
       console.error('Error regenerating embedding:', error);
-      // Don't throw - profile update was successful, embedding is just bonus
     }
   };
 
@@ -333,18 +387,21 @@ export default function EditProfileScreen() {
     );
   }
 
+  const buildOptions = accountType === 'brother' ? BROTHER_BUILD_OPTIONS : SISTER_BUILD_OPTIONS;
+  const maritalOptions = accountType === 'brother' ? BROTHER_MARITAL_OPTIONS : SISTER_MARITAL_OPTIONS;
+
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
+    <View style={styles.container}>
+      <KeyboardAwareScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Back Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -357,104 +414,180 @@ export default function EditProfileScreen() {
           <Text style={styles.headerSubtitle}>Update your information</Text>
         </View>
 
+        {/* Username Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Username</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Username *</Text>
+            <View style={styles.usernameInputContainer}>
+              <TextInput
+                style={[
+                  styles.input,
+                  usernameError ? styles.inputError : null,
+                  !usernameError && formData.username !== originalUsername && formData.username.length >= 3 ? styles.inputSuccess : null,
+                ]}
+                value={formData.username}
+                onChangeText={handleUsernameChange}
+                placeholder="Enter username"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="none"
+              />
+              {isCheckingUsername && (
+                <ActivityIndicator size="small" color="#F2CC66" style={styles.usernameSpinner} />
+              )}
+              {!isCheckingUsername && !usernameError && formData.username !== originalUsername && formData.username.length >= 3 && (
+                <Text style={styles.usernameCheckmark}>✓</Text>
+              )}
+            </View>
+            {usernameError && (
+              <Text style={styles.errorText}>{usernameError}</Text>
+            )}
+            {!usernameError && !isCheckingUsername && formData.username !== originalUsername && formData.username.length >= 3 && (
+              <Text style={styles.successText}>Username is available</Text>
+            )}
+            <Text style={styles.hint}>Letters, numbers, hyphens, and underscores only</Text>
+          </View>
+        </View>
+
         {/* Basic Information Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                usernameError ? styles.inputError : null,
-              ]}
-              value={formData.username}
-              onChangeText={handleUsernameChange}
-              placeholder="Enter username"
-              placeholderTextColor="#9CA3AF"
-              autoCapitalize="none"
-            />
-            {isCheckingUsername && (
-              <Text style={styles.hint}>Checking availability...</Text>
-            )}
-            {usernameError && (
-              <Text style={styles.errorText}>{usernameError}</Text>
-            )}
-            {!usernameError && !isCheckingUsername && formData.username !== originalUsername && formData.username.length >= 3 && (
-              <Text style={styles.successText}>✓ Username is available</Text>
-            )}
-            <Text style={styles.hint}>Letters, numbers, hyphens, and underscores only</Text>
+            <Text style={styles.label}>Build *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.build}
+                onValueChange={(value) => setFormData({ ...formData, build: value })}
+                itemStyle={styles.pickerItem}
+              >
+                {buildOptions.map((option) => (
+                  <Picker.Item key={option.value} label={option.label} value={option.value} />
+                ))}
+              </Picker>
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>First Name *</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.first_name}
-              onChangeText={(text) => setFormData({ ...formData, first_name: text })}
-              placeholder="Enter first name"
-              placeholderTextColor="#9CA3AF"
-            />
+            <Text style={styles.label}>Ethnicity *</Text>
+            <TouchableOpacity
+              style={styles.pickerTrigger}
+              onPress={() => setEthnicityPickerVisible(true)}
+            >
+              <Text style={formData.ethnicity ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+                {formData.ethnicity || 'Select your ethnicity'}
+              </Text>
+              <Text style={styles.pickerArrow}>›</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Last Name *</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.last_name}
-              onChangeText={(text) => setFormData({ ...formData, last_name: text })}
-              placeholder="Enter last name"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+          <SearchablePicker
+            visible={ethnicityPickerVisible}
+            onClose={() => setEthnicityPickerVisible(false)}
+            onSelect={(value) => setFormData({ ...formData, ethnicity: value })}
+            items={ethnicityItems}
+            title="Select Ethnicity"
+            placeholder="Search ethnicity..."
+            selectedValue={formData.ethnicity}
+          />
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone *</Text>
+            <Text style={styles.label}>Occupation</Text>
             <TextInput
               style={styles.input}
-              value={formData.phone}
-              onChangeText={(text) => setFormData({ ...formData, phone: text })}
-              placeholder="+44 20 1234 5678"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.location}
-              onChangeText={(text) => setFormData({ ...formData, location: text })}
-              placeholder="City, Country"
+              value={formData.occupation}
+              onChangeText={(text) => setFormData({ ...formData, occupation: text })}
+              placeholder="e.g., Software Engineer, Student"
               placeholderTextColor="#9CA3AF"
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Date of Birth</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.date_of_birth}
-              onChangeText={(text) => setFormData({ ...formData, date_of_birth: text })}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9CA3AF"
-            />
-            <Text style={styles.hint}>Format: YYYY-MM-DD (e.g., 1995-03-15)</Text>
+            <Text style={styles.label}>Marital Status *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.marital_status}
+                onValueChange={(value) => setFormData({ ...formData, marital_status: value })}
+                itemStyle={styles.pickerItem}
+              >
+                {maritalOptions.map((option) => (
+                  <Picker.Item key={option.value} label={option.label} value={option.value} />
+                ))}
+              </Picker>
+            </View>
           </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Prayer Consistency</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.prayer_consistency}
+                onValueChange={(value) => setFormData({ ...formData, prayer_consistency: value })}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="Select prayer consistency" value="" />
+                <Picker.Item label="5x a Day" value="5x_daily" />
+                <Picker.Item label="As Much as Possible" value="as_much_as_possible" />
+                <Picker.Item label="Never" value="never" />
+              </Picker>
+            </View>
+          </View>
+
+          {accountType === 'brother' && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Beard Commitment</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={formData.beard_commitment}
+                  onValueChange={(value) => setFormData({ ...formData, beard_commitment: value })}
+                  itemStyle={styles.pickerItem}
+                >
+                  <Picker.Item label="Select beard commitment" value="" />
+                  <Picker.Item label="Full Sunnah Beard" value="full_sunnah_beard" />
+                  <Picker.Item label="Trimmed Beard" value="trimmed_beard" />
+                  <Picker.Item label="Clean Shaven" value="clean_shaven" />
+                </Picker>
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* About Me Section */}
+        {/* Personal Details Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About Me</Text>
+          <Text style={styles.sectionTitle}>Personal Details</Text>
+
+          <View style={styles.switchGroup}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Do you have children?</Text>
+              <Switch
+                value={formData.children}
+                onValueChange={(value) => setFormData({ ...formData, children: value })}
+                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                thumbColor={formData.children ? '#070A12' : '#7B8799'}
+              />
+            </View>
+          </View>
+
+          <View style={styles.switchGroup}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Are you a revert?</Text>
+              <Switch
+                value={formData.revert}
+                onValueChange={(value) => setFormData({ ...formData, revert: value })}
+                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                thumbColor={formData.revert ? '#070A12' : '#7B8799'}
+              />
+            </View>
+          </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Deen</Text>
+            <Text style={styles.label}>Disabilities (if any)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              value={formData.deen}
-              onChangeText={(text) => setFormData({ ...formData, deen: text })}
-              placeholder="Describe your religious practice..."
+              value={formData.disabilities}
+              onChangeText={(text) => setFormData({ ...formData, disabilities: text })}
+              placeholder="Any physical or health conditions to mention"
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
@@ -463,29 +596,29 @@ export default function EditProfileScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Personality</Text>
+            <Text style={styles.label}>Hobbies & Interests</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={formData.hobbies_and_interests}
+              onChangeText={(text) => setFormData({ ...formData, hobbies_and_interests: text })}
+              placeholder="What do you enjoy doing in your free time?"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Personality *</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={formData.personality}
               onChangeText={(text) => setFormData({ ...formData, personality: text })}
-              placeholder="Describe your personality..."
+              placeholder="Describe your personality"
               placeholderTextColor="#9CA3AF"
               multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Lifestyle</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={formData.lifestyle}
-              onChangeText={(text) => setFormData({ ...formData, lifestyle: text })}
-              placeholder="Describe your lifestyle..."
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
+              numberOfLines={4}
               textAlignVertical="top"
             />
           </View>
@@ -493,18 +626,132 @@ export default function EditProfileScreen() {
 
         {/* Preferences Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Marriage Preferences</Text>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+
+          <View style={styles.switchGroup}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Open to hijrah?</Text>
+              <Switch
+                value={formData.open_to_hijrah}
+                onValueChange={(value) => setFormData({ ...formData, open_to_hijrah: value })}
+                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                thumbColor={formData.open_to_hijrah ? '#070A12' : '#7B8799'}
+              />
+            </View>
+          </View>
+
+          <View style={styles.switchGroup}>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Open to reverts?</Text>
+              <Switch
+                value={formData.open_to_reverts}
+                onValueChange={(value) => setFormData({ ...formData, open_to_reverts: value })}
+                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                thumbColor={formData.open_to_reverts ? '#070A12' : '#7B8799'}
+              />
+            </View>
+          </View>
+
+          {accountType === 'sister' && (
+            <View style={styles.switchGroup}>
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Open to polygyny?</Text>
+                <Switch
+                  value={formData.open_to_polygyny}
+                  onValueChange={(value) => setFormData({ ...formData, open_to_polygyny: value })}
+                  trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                  thumbColor={formData.open_to_polygyny ? '#070A12' : '#7B8799'}
+                />
+              </View>
+            </View>
+          )}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Spouse Criteria</Text>
+            <Text style={styles.label}>Living Arrangements</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              value={formData.spouse_criteria}
-              onChangeText={(text) => setFormData({ ...formData, spouse_criteria: text })}
-              placeholder="What are you looking for in a spouse?"
+              value={formData.living_arrangements}
+              onChangeText={(text) => setFormData({ ...formData, living_arrangements: text })}
+              placeholder="Describe your ideal living arrangements after marriage"
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Preferred Ethnicity</Text>
+            <Text style={styles.hint}>Select "Any" or choose specific ethnicities</Text>
+
+            <TouchableOpacity
+              style={[
+                styles.radioOption,
+                formData.preferred_ethnicity.includes('Any') && styles.radioOptionSelected,
+              ]}
+              onPress={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  preferred_ethnicity: prev.preferred_ethnicity.includes('Any') ? [] : ['Any']
+                }));
+              }}
+            >
+              <View style={styles.radio}>
+                {formData.preferred_ethnicity.includes('Any') && <View style={styles.radioInner} />}
+              </View>
+              <Text style={styles.radioText}>Any Ethnicity</Text>
+            </TouchableOpacity>
+
+            {!formData.preferred_ethnicity.includes('Any') && (
+              <TouchableOpacity
+                style={styles.pickerTrigger}
+                onPress={() => setPreferredEthnicityPickerVisible(true)}
+              >
+                <Text style={formData.preferred_ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+                  {formData.preferred_ethnicity.length > 0
+                    ? `${formData.preferred_ethnicity.length} selected: ${formData.preferred_ethnicity.slice(0, 2).join(', ')}${formData.preferred_ethnicity.length > 2 ? '...' : ''}`
+                    : 'Select specific ethnicities'}
+                </Text>
+                <Text style={styles.pickerArrow}>›</Text>
+              </TouchableOpacity>
+            )}
+
+            {formData.preferred_ethnicity.includes('Any') && (
+              <Text style={styles.hint}>Open to all ethnicities</Text>
+            )}
+          </View>
+
+          <SearchablePicker
+            visible={preferredEthnicityPickerVisible}
+            onClose={() => setPreferredEthnicityPickerVisible(false)}
+            onSelect={(value) => {
+              setFormData(prev => {
+                const isSelected = prev.preferred_ethnicity.includes(value);
+                return {
+                  ...prev,
+                  preferred_ethnicity: isSelected
+                    ? prev.preferred_ethnicity.filter(e => e !== value)
+                    : [...prev.preferred_ethnicity, value]
+                };
+              });
+            }}
+            items={ethnicityItems}
+            title="Select Preferred Ethnicities"
+            placeholder="Search ethnicity..."
+            selectedValue={formData.preferred_ethnicity}
+            multiSelect={true}
+          />
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Other Spouse Criteria</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={formData.other_spouse_criteria}
+              onChangeText={(text) => setFormData({ ...formData, other_spouse_criteria: text })}
+              placeholder="What else are you looking for in a spouse?"
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={4}
               textAlignVertical="top"
             />
           </View>
@@ -515,107 +762,14 @@ export default function EditProfileScreen() {
               style={[styles.input, styles.textArea]}
               value={formData.dealbreakers}
               onChangeText={(text) => setFormData({ ...formData, dealbreakers: text })}
-              placeholder="What are your dealbreakers?"
+              placeholder="What are your non-negotiables?"
               placeholderTextColor="#9CA3AF"
               multiline
-              numberOfLines={3}
+              numberOfLines={4}
               textAlignVertical="top"
             />
           </View>
-
-          {/* Brother specific */}
-          {accountType === 'brother' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Beard Commitment</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.beard_commitment}
-                onChangeText={(text) => setFormData({ ...formData, beard_commitment: text })}
-                placeholder="full_sunnah_beard, trimmed_beard, clean_shaven"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-          )}
-
-          {/* Sister specific */}
-          {accountType === 'sister' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Hijab Commitment</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.hijab_commitment}
-                onChangeText={(text) => setFormData({ ...formData, hijab_commitment: text })}
-                placeholder="niqab, hijab_abaya, hijab_western_clothing, open_hair"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-          )}
         </View>
-
-        {/* Wali Information - Sisters Only */}
-        {accountType === 'sister' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Wali Information</Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Wali Name</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.wali_name}
-                onChangeText={(text) => setFormData({ ...formData, wali_name: text })}
-                placeholder="Enter wali's name"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Relationship</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.wali_relationship}
-                onChangeText={(text) => setFormData({ ...formData, wali_relationship: text })}
-                placeholder="Father, Brother, Uncle, Grandfather, Other"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Wali Phone</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.wali_phone}
-                onChangeText={(text) => setFormData({ ...formData, wali_phone: text })}
-                placeholder="+44 20 1234 5678"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Wali Email</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.wali_email}
-                onChangeText={(text) => setFormData({ ...formData, wali_email: text })}
-                placeholder="wali@email.com"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Preferred Contact Method</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.wali_preferred_contact}
-                onChangeText={(text) => setFormData({ ...formData, wali_preferred_contact: text })}
-                placeholder="Phone, Email, or Both"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-          </View>
-        )}
 
         {/* Save Button */}
         <TouchableOpacity
@@ -638,8 +792,8 @@ export default function EditProfileScreen() {
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
@@ -659,7 +813,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingTop: 20,
+    paddingTop: 60,
     paddingBottom: 40,
   },
   backButton: {
@@ -723,9 +877,27 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: '#E03A3A',
   },
+  inputSuccess: {
+    borderColor: '#17803A',
+  },
   textArea: {
     minHeight: 100,
     paddingTop: 12,
+  },
+  usernameInputContainer: {
+    position: 'relative',
+  },
+  usernameSpinner: {
+    position: 'absolute',
+    right: 16,
+    top: 14,
+  },
+  usernameCheckmark: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+    fontSize: 20,
+    color: '#17803A',
   },
   hint: {
     fontFamily: 'Inter_400Regular',
@@ -733,6 +905,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     color: '#7B8799',
     marginTop: 4,
+    fontStyle: 'italic',
   },
   errorText: {
     fontFamily: 'Inter_600SemiBold',
@@ -747,6 +920,101 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     color: '#27AE60',
     marginTop: 4,
+  },
+  pickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    overflow: 'hidden',
+    height: 150,
+  },
+  pickerItem: {
+    height: 150,
+    fontSize: 16,
+    color: '#070A12',
+  },
+  pickerTrigger: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerTriggerText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#070A12',
+    flex: 1,
+  },
+  pickerPlaceholder: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#9CA3AF',
+    flex: 1,
+  },
+  pickerArrow: {
+    fontSize: 24,
+    color: '#7B8799',
+  },
+  switchGroup: {
+    marginBottom: 16,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  switchLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: '#070A12',
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  radioOptionSelected: {
+    backgroundColor: 'rgba(242, 204, 102, 0.1)',
+    borderColor: '#F2CC66',
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F2CC66',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F2CC66',
+  },
+  radioText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#070A12',
   },
   saveButton: {
     backgroundColor: '#F2CC66',

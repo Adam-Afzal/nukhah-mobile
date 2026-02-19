@@ -32,12 +32,38 @@ export default function LoginScreen() {
       router.replace('/(auth)');
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert(
-        'Login Failed',
-        error.message === 'Invalid login credentials'
-          ? 'Invalid email or password. Please try again.'
-          : error.message
-      );
+
+      if (error.message === 'Email not confirmed') {
+        Alert.alert(
+          'Email Not Confirmed',
+          'Please confirm your email address before logging in. Check your inbox for a confirmation link.',
+          [
+            {
+              text: 'Resend Confirmation',
+              onPress: async () => {
+                try {
+                  const { error: resendError } = await supabase.auth.resend({
+                    type: 'signup',
+                    email: email.trim(),
+                  });
+                  if (resendError) throw resendError;
+                  Alert.alert('Email Sent', 'A new confirmation email has been sent. Please check your inbox.');
+                } catch (resendErr: any) {
+                  Alert.alert('Error', resendErr.message || 'Failed to resend confirmation email.');
+                }
+              },
+            },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Login Failed',
+          error.message === 'Invalid login credentials'
+            ? 'Invalid email or password. Please try again.'
+            : error.message
+        );
+      }
     } finally {
       setLoading(false);
     }

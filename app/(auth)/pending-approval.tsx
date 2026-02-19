@@ -29,7 +29,7 @@ export default function PendingApprovalScreen() {
           <View style={styles.logoContainer}>
             <View style={styles.logoIcon} />
           </View>
-          <Text style={styles.headerTitle}>Nukhbah</Text>
+          <Text style={styles.headerTitle}>Mithaq</Text>
         </View>
 
         {/* Main Card */}
@@ -44,7 +44,7 @@ export default function PendingApprovalScreen() {
 
           {/* Description */}
           <Text style={styles.description}>
-            Your application is being carefully reviewed{'\n'}by the Nukhbah team.
+            Your application is being carefully reviewed{'\n'}by the Mithaq team.
           </Text>
 
           {/* Info Section */}

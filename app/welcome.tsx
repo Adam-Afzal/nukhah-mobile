@@ -69,7 +69,7 @@ export default function WelcomeScreen() {
         </View>
 
         {/* App Name */}
-        <Text style={styles.appName}>Nukhbah</Text>
+        <Text style={styles.appName}>Mithaq</Text>
 
         {/* Main Tagline */}
         <Text style={styles.tagline}>

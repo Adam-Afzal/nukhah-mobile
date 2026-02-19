@@ -119,7 +119,7 @@ export default function ImamLoginScreen() {
         {/* Info */}
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            If you don't have login credentials, please contact Nukhbah support to register your masjid.
+            If you don't have login credentials, please contact Mithaq support to register your masjid.
           </Text>
         </View>
       </View>

@@ -191,6 +191,13 @@ export default function NotificationsScreen() {
         break;
 
       case 'interest_expressed':
+        if (notification.data.requester_profile_id) {
+          router.push(`/(auth)/profile/${notification.data.requester_profile_id}`);
+        } else {
+          router.push('/(auth)/interests');
+        }
+        break;
+
       case 'questions_progress':
       case 'questions_completed':
         router.push('/(auth)/interests');

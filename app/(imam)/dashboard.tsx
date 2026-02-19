@@ -120,7 +120,7 @@ export default function ImamDashboardScreen() {
           // Get user profile data
           const { data: userData } = await supabase
             .from(verification.user_type)
-            .select('first_name, last_name, phone, location')
+            .select('first_name, last_name, phone, location_country, location_city')
             .eq('id', verification.user_id)
             .maybeSingle();
 
@@ -142,7 +142,7 @@ export default function ImamDashboardScreen() {
             ...verification,
             user_name: userData ? `${userData.first_name} ${userData.last_name}` : 'Unknown',
             user_phone: userData?.phone || 'N/A',
-            user_location: userData?.location || 'N/A',
+            user_location: userData?.location_city ? `${userData.location_city}, ${userData.location_country}` : userData?.location_country || 'N/A',
             reference_name: referenceData?.reference_name || 'No reference',
             reference_relationship: referenceData?.reference_relationship || 'N/A',
             reference_phone: referenceData?.reference_phone || 'N/A',

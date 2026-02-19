@@ -94,7 +94,7 @@ export default function SplashScreen() {
         </View>
 
         {/* App Name */}
-        <Text style={styles.appName}>Nukhbah</Text>
+        <Text style={styles.appName}>Mithaq</Text>
 
         {/* Tagline */}
         <Text style={styles.tagline}>

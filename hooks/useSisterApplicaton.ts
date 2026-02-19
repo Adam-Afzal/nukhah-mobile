@@ -7,27 +7,16 @@ import { Alert } from 'react-native';
 interface SisterApplicationData {
   first_name: string;
   last_name: string;
+  nationality: string;
   email: string;
   phone_number: string;
-  where_is_allah: string;
-  knowledge_source: string;
-  aqeedah: string;
-  marital_status: string;
-  divorce_reason: string;
-  physical_fitness: string;
-  current_location: string;
-  preferred_region: string;
-  halal_command_response: string;
-  has_social_media: boolean;
-  wali_onboard: string;
-  shariah_covering_description: string;
-  personal_covering: string;
-  listens_to_hijabi_influencers: boolean;
-  open_to_polygyny: boolean,
-  ethnicity: string[],
-  preferred_ethnicity: string[],
-  password: string
-  date_of_birth: string
+  password: string;
+  date_of_birth: string;
+  has_wali: boolean;
+  wali_first_name?: string;
+  wali_last_name?: string;
+  wali_email?: string;
+  wali_phone?: string;
 }
 
 interface SubmitResponse {
@@ -102,12 +91,11 @@ export const useSisterApplication = () => {
         // New application submitted successfully
         Alert.alert(
           'Application Submitted!',
-          'Your application has been submitted for review. You can now log in to check your status.',
+          'Your application has been submitted for review. Please check your email to confirm your account before logging in.',
           [
             {
               text: 'OK',
               onPress: () => {
-                // Navigate to login or auth check
                 router.replace('/login');
               },
             },

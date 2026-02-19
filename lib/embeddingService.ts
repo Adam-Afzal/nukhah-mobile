@@ -2,26 +2,28 @@ import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
 interface ProfileData {
-  deen?: string;
   personality?: string;
-  lifestyle?: string;
-  spouse_criteria?: string;
-  dealbreakers?: string;
-  islamic_education?: string;
-  memorization_quran?: string;
-  prayer_consistency?: string;
-  location?: string;
-  ethnicity?: string[];
+  hobbies_and_interests?: string;
+  location_country?: string;
+  location_city?: string;
+  ethnicity?: string;
   preferred_ethnicity?: string[];
   marital_status?: string;
   children?: boolean;
+  revert?: boolean;
+  open_to_hijrah?: boolean;
+  open_to_reverts?: boolean;
+  living_arrangements?: string;
+  other_spouse_criteria?: string;
+  dealbreakers?: string;
+  date_of_birth?: string;
+  build?: string;
+  prayer_consistency?: string;
   // Brother specific
   beard_commitment?: string;
-  polygyny_willingness?: boolean;
-  financial_responsibility?: string;
   // Sister specific
   hijab_commitment?: string;
-  polygyny_acceptance?: boolean;
+  open_to_polygyny?: boolean;
 }
 
 /**
@@ -30,39 +32,49 @@ interface ProfileData {
 export function generateProfileText(profile: ProfileData): string {
   const parts: string[] = [];
 
-  // Deen and character
-  if (profile.deen) parts.push(`Relationship with deen: ${profile.deen}`);
   if (profile.personality) parts.push(`Personality: ${profile.personality}`);
-  if (profile.lifestyle) parts.push(`Lifestyle: ${profile.lifestyle}`);
-  
-  // Islamic practice
-  if (profile.prayer_consistency) parts.push(`Prayer: ${profile.prayer_consistency}`);
-  if (profile.memorization_quran) parts.push(`Quran memorization: ${profile.memorization_quran}`);
-  if (profile.islamic_education) parts.push(`Islamic education: ${profile.islamic_education}`);
-  
-  // Physical and appearance
-  if (profile.beard_commitment) parts.push(`Beard: ${profile.beard_commitment}`);
-  if (profile.hijab_commitment) parts.push(`Hijab: ${profile.hijab_commitment}`);
-  
-  // Location and background
-  if (profile.location) parts.push(`Location: ${profile.location}`);
+  if (profile.hobbies_and_interests) parts.push(`Hobbies and interests: ${profile.hobbies_and_interests}`);
+
+  if (profile.location_city && profile.location_country) {
+    parts.push(`Location: ${profile.location_city}, ${profile.location_country}`);
+  } else if (profile.location_country) {
+    parts.push(`Location: ${profile.location_country}`);
+  }
+
   if (profile.ethnicity) parts.push(`Ethnicity: ${profile.ethnicity}`);
-  
-  // Marital preferences
+
+  if (profile.date_of_birth) {
+    const age = new Date().getFullYear() - new Date(profile.date_of_birth).getFullYear();
+    parts.push(`Age: ${age}`);
+  }
+
+  if (profile.build) parts.push(`Build: ${profile.build}`);
   if (profile.marital_status) parts.push(`Marital status: ${profile.marital_status}`);
   if (profile.children !== undefined) parts.push(`Has children: ${profile.children ? 'yes' : 'no'}`);
-  if (profile.polygyny_willingness !== undefined) parts.push(`Open to polygyny: ${profile.polygyny_willingness ? 'yes' : 'no'}`);
-  if (profile.polygyny_acceptance !== undefined) parts.push(`Accepts polygyny: ${profile.polygyny_acceptance ? 'yes' : 'no'}`);
-  
-  // What they're looking for
-  if (profile.spouse_criteria) parts.push(`Looking for: ${profile.spouse_criteria}`);
+  if (profile.prayer_consistency) parts.push(`Prayer consistency: ${profile.prayer_consistency}`);
+
+  if (profile.open_to_hijrah !== undefined) parts.push(`Open to hijrah: ${profile.open_to_hijrah ? 'yes' : 'no'}`);
+  if (profile.open_to_reverts !== undefined) parts.push(`Open to reverts: ${profile.open_to_reverts ? 'yes' : 'no'}`);
+  if (profile.revert !== undefined) parts.push(`Is a revert: ${profile.revert ? 'yes' : 'no'}`);
+
+  // Brother-specific
+  if (profile.beard_commitment) parts.push(`Beard: ${profile.beard_commitment}`);
+
+  // Sister-specific
+  if (profile.hijab_commitment) parts.push(`Hijab: ${profile.hijab_commitment}`);
+  if (profile.open_to_polygyny !== undefined) {
+    parts.push(`Open to polygyny: ${profile.open_to_polygyny ? 'yes' : 'no'}`);
+  }
+  if (profile.marital_status === 'married') {
+    parts.push('Currently married and seeking additional spouse through polygyny');
+  }
+
+  if (profile.living_arrangements) parts.push(`Living arrangements: ${profile.living_arrangements}`);
+  if (profile.other_spouse_criteria) parts.push(`Looking for: ${profile.other_spouse_criteria}`);
   if (profile.dealbreakers) parts.push(`Dealbreakers: ${profile.dealbreakers}`);
   if (profile.preferred_ethnicity?.length) {
     parts.push(`Preferred ethnicity: ${profile.preferred_ethnicity.join(', ')}`);
   }
-  
-  // Financial
-  if (profile.financial_responsibility) parts.push(`Financial approach: ${profile.financial_responsibility}`);
 
   return parts.join('. ');
 }
@@ -78,22 +90,31 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       throw new Error('Supabase URL not configured');
     }
 
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      throw new Error('No auth session found');
+    }
+
     const response = await fetch(
       `${supabaseUrl}/functions/v1/generate-embedding`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ text }),
       }
     );
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error(`Failed to generate embedding: ${response.statusText}`);
+      throw new Error(`Failed to generate embedding: ${response.status} - ${JSON.stringify(data)}`);
     }
 
-    const data = await response.json();
     return data.embedding;
   } catch (error) {
     console.error('Error generating embedding:', error);

@@ -7,7 +7,7 @@ require('dotenv').config({ path: '.env.local' });
 require('dotenv').config();
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || '';
 
 
 if (!supabaseUrl || !supabaseServiceKey) {

@@ -28,6 +28,9 @@ export default function AuthLayout() {
   useEffect(() => {
     if (isLoading || !userStatus || isNavigatingRef.current) return;
 
+    // Don't redirect if we've navigated outside the (auth) group
+    if (segments[0] !== '(auth)') return;
+
     const currentPage = segments.length > 1 ? segments[1] : undefined;
 
     // Check application status first

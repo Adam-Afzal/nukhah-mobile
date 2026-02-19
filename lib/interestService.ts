@@ -3,8 +3,6 @@ import {
   notifyInterestAccepted,
   notifyInterestExpressed,
   notifyInterestRejected,
-  notifyQuestionProgress,
-  notifyQuestionsCompleted,
 } from './notificationService';
 import { supabase } from './supabase';
 
@@ -83,9 +81,9 @@ export async function expressInterest(
         recipient_id: recipientId,
         recipient_type: recipientType,
         status: 'pending',
-        questions_answered: 0,
+        questions_answered: 5,
         total_questions: 5,
-        unlock_percentage: 0,
+        unlock_percentage: 100,
       })
       .select()
       .single();
@@ -277,33 +275,6 @@ export async function saveQuestionResponse(
 
     if (updateError) throw updateError;
 
-    // Send notifications based on progress
-    const interest = await getInterestById(interestId);
-    if (interest && questionsAnswered > 0) {
-      // Notify at 40%, 60%, 80%
-      if (questionsAnswered === 2 || questionsAnswered === 3 || questionsAnswered === 4) {
-        await notifyQuestionProgress(
-          interestId,
-          interest.recipient_id,
-          interest.recipient_type,
-          interest.requester_id,
-          interest.requester_type,
-          questionsAnswered * 20
-        );
-      }
-
-      // Notify when completed (100%)
-      if (questionsAnswered === 5) {
-        await notifyQuestionsCompleted(
-          interestId,
-          interest.recipient_id,
-          interest.recipient_type,
-          interest.requester_id,
-          interest.requester_type
-        );
-      }
-    }
-
     return { success: true };
   } catch (error: any) {
     console.error('Error saving question response:', error);
@@ -313,24 +284,22 @@ export async function saveQuestionResponse(
 
 /**
  * Withdraw interest (set status to withdrawn)
- * Can ONLY withdraw before completing all questions (unlock_percentage < 100)
+ * Can only withdraw when status is 'pending'
  */
 export async function withdrawInterest(
   interestId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Get the interest to check if withdrawal is allowed
     const interest = await getInterestById(interestId);
-    
+
     if (!interest) {
       return { success: false, error: 'Interest not found' };
     }
 
-    // Prevent withdrawal if questions are completed
-    if (interest.unlock_percentage >= 100) {
-      return { 
-        success: false, 
-        error: 'Cannot withdraw after completing questions. Please accept or decline instead.' 
+    if (interest.status !== 'pending') {
+      return {
+        success: false,
+        error: 'Can only withdraw pending interests.'
       };
     }
 
@@ -343,8 +312,8 @@ export async function withdrawInterest(
       .eq('id', interestId);
 
     if (error) throw error;
-    
-    console.log('✅ Interest withdrawn at', interest.unlock_percentage + '%');
+
+    console.log('✅ Interest withdrawn');
     return { success: true };
   } catch (error: any) {
     console.error('Error withdrawing interest:', error);
@@ -455,6 +424,7 @@ export async function getMyInterests(
       .select('*')
       .eq('requester_id', userId)
       .eq('requester_type', userType)
+      .in('status', ['pending', 'accepted'])
       .order('created_at', { ascending: false });
 
     if (error) throw error;

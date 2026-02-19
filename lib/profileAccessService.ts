@@ -191,7 +191,8 @@ export async function isSectionUnlocked(
 }
 
 /**
- * Get wali contact information (only if access granted)
+ * Get wali contact information
+ * Accessible when there's an accepted interest between brother and sister (either direction)
  */
 export async function getWaliContact(
   brotherId: string,
@@ -204,11 +205,25 @@ export async function getWaliContact(
   preferred_contact?: string;
 } | null> {
   try {
-    // Check if brother has access to wali contact
-    const access = await checkProfileAccess(brotherId, 'brother', sisterId, 'sister');
-    
-    if (!access.canViewWaliContact) {
-      console.log('Brother does not have access to wali contact');
+    // Check for accepted interest in either direction
+    const { data: brotherToSister } = await supabase
+      .from('interests')
+      .select('id, status')
+      .eq('requester_id', brotherId)
+      .eq('recipient_id', sisterId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+
+    const { data: sisterToBrother } = await supabase
+      .from('interests')
+      .select('id, status')
+      .eq('requester_id', sisterId)
+      .eq('recipient_id', brotherId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+
+    if (!brotherToSister && !sisterToBrother) {
+      console.log('No accepted interest between brother and sister');
       return null;
     }
 

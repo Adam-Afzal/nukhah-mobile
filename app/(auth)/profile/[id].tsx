@@ -1,5 +1,5 @@
 // app/(auth)/profile/[id].tsx
-import { expressInterest, getInterest, withdrawInterest } from '@/lib/interestService';
+import { acceptInterest, expressInterest, getInterest, rejectInterest, withdrawInterest } from '@/lib/interestService';
 import { getCountryByName } from '@/lib/locationData';
 import { notifyProfileView } from '@/lib/notificationService';
 import { getWaliContact } from '@/lib/profileAccessService';
@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   ScrollView,
   StyleSheet,
@@ -23,8 +24,9 @@ interface ProfileData {
   first_name: string;
   last_name: string;
   date_of_birth: string;
-  location: string;
-  ethnicity: string[];
+  location_country: string;
+  location_city: string;
+  ethnicity: string;
   marital_status: string;
   build?: string;
   physical_fitness?: string;
@@ -48,10 +50,13 @@ interface ProfileData {
   wali_email?: string;
   wali_phone?: string;
   wali_preferred_contact?: string;
+  phone?: string;
+  masjid_id?: string;
+  is_masjid_affiliated?: boolean;
   imam_verified?: boolean;
   references_verified?: boolean;
-  
-  // Locked fields
+
+  // Profile text fields (now always visible)
   deen?: string;
   personality?: string;
   lifestyle?: string;
@@ -68,20 +73,31 @@ interface WaliContact {
   preferred_contact?: string;
 }
 
+interface MasjidInfo {
+  name: string;
+  marriage_service_url?: string;
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
-  
+
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileType, setProfileType] = useState<'brother' | 'sister' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [accountType, setAccountType] = useState<'brother' | 'sister' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [unlockPercentage, setUnlockPercentage] = useState(0);
   const [interestId, setInterestId] = useState<string | null>(null);
+  const [interestStatus, setInterestStatus] = useState<string | null>(null);
+  const [receivedInterestId, setReceivedInterestId] = useState<string | null>(null);
+  const [receivedInterestStatus, setReceivedInterestStatus] = useState<string | null>(null);
   const [isExpressing, setIsExpressing] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [waliContact, setWaliContact] = useState<WaliContact | null>(null);
   const [canViewWali, setCanViewWali] = useState(false);
+  const [canViewBrotherPhone, setCanViewBrotherPhone] = useState(false);
+  const [profileMasjid, setProfileMasjid] = useState<MasjidInfo | null>(null);
   const [hasNotifiedProfileView, setHasNotifiedProfileView] = useState(false);
 
   useEffect(() => {
@@ -91,8 +107,8 @@ export default function ProfileScreen() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const userId = await loadCurrentUser();
-      await loadProfile(userId);
+      const { userId, acctType } = await loadCurrentUser();
+      await loadProfile(userId, acctType);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -100,10 +116,10 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadCurrentUser = async (): Promise<string | null> => {
+  const loadCurrentUser = async (): Promise<{ userId: string | null; acctType: 'brother' | 'sister' | null }> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      if (!user) return { userId: null, acctType: null };
 
       const { data: brotherProfile } = await supabase
         .from('brother')
@@ -114,7 +130,7 @@ export default function ProfileScreen() {
       if (brotherProfile) {
         setAccountType('brother');
         setCurrentUserId(brotherProfile.id);
-        return brotherProfile.id;
+        return { userId: brotherProfile.id, acctType: 'brother' };
       }
 
       const { data: sisterProfile } = await supabase
@@ -126,17 +142,17 @@ export default function ProfileScreen() {
       if (sisterProfile) {
         setAccountType('sister');
         setCurrentUserId(sisterProfile.id);
-        return sisterProfile.id;
+        return { userId: sisterProfile.id, acctType: 'sister' };
       }
 
-      return null;
+      return { userId: null, acctType: null };
     } catch (error) {
       console.error('Error loading current user:', error);
-      return null;
+      return { userId: null, acctType: null };
     }
   };
 
-  const loadProfile = async (userId: string | null) => {
+  const loadProfile = async (userId: string | null, acctType: 'brother' | 'sister' | null) => {
     if (!id) return;
 
     try {
@@ -146,22 +162,17 @@ export default function ProfileScreen() {
         .select('*')
         .eq('id', id)
         .maybeSingle();
-   
 
       if (brotherData) {
         setProfile(brotherData);
         setProfileType('brother');
-        if (userId) await checkInterestStatusAndAccess(userId, id, 'brother');
+        if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'brother');
 
-        if(userId && accountType) {
-          await sendProfileViewNotification(brotherData, 'brother', userId, accountType);
-
+        if (userId && acctType) {
+          await sendProfileViewNotification(brotherData, 'brother', userId, acctType);
         }
- 
-        
         return;
       }
-
 
       // Try sister
       const { data: sisterData } = await supabase
@@ -170,167 +181,208 @@ export default function ProfileScreen() {
         .eq('id', id)
         .maybeSingle();
 
-   
-
       if (sisterData) {
         setProfile(sisterData);
         setProfileType('sister');
-        if (userId) await checkInterestStatusAndAccess(userId, id, 'sister');
+        if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'sister');
 
-        if(userId && accountType) {
-          await sendProfileViewNotification(sisterData, 'brother', userId, accountType);
-
+        if (userId && acctType) {
+          await sendProfileViewNotification(sisterData, 'sister', userId, acctType);
         }
-
-   
       }
     } catch (error) {
       console.error('Error loading profile:', error);
     }
   };
 
-  const sendProfileViewNotification = async (profileData: ProfileData,
+  const sendProfileViewNotification = async (
+    profileData: ProfileData,
     profileTypeData: 'brother' | 'sister',
     userIdData: string,
-    accountTypeData: 'brother' | 'sister') => {
-    console.log("called notification function")
-    console.log(from)
+    accountTypeData: 'brother' | 'sister'
+  ) => {
     if (
-      from !== 'search' || 
-      hasNotifiedProfileView || 
-      !currentUserId || 
-      !accountType || 
-      !profile ||
-      !profileType ||
-      currentUserId === profile.id
+      from !== 'search' ||
+      hasNotifiedProfileView ||
+      userIdData === profileData.id
     ) {
-      console.log(`${from}, ${hasNotifiedProfileView}, ${currentUserId}. ${accountType}. ${profile}. ${profileType}`)
       return;
     }
-  
-    console.log('📧 Sending profile view notification');
-    
+
     await notifyProfileView(
-      profile.id,
-      profileType,
-      currentUserId,
-      accountType
+      profileData.id,
+      profileTypeData,
+      userIdData,
+      accountTypeData
     );
-  
+
     setHasNotifiedProfileView(true);
   };
 
- // Add this updated function to your profile screen
-
-const checkInterestStatusAndAccess = async (
-  userId: string, 
-  recipientId: string, 
-  recipientType: 'brother' | 'sister'
-) => {
-  console.log('=== Checking Interest Status & Access ===');
-  console.log('User ID:', userId);
-  console.log('Recipient ID:', recipientId);
-  
-  const interest = await getInterest(userId, recipientId);
-  
-  console.log('Found interest:', interest);
-  
-  if (interest && interest.status !== 'withdrawn') {
-    console.log('Setting unlock percentage:', interest.unlock_percentage);
-    setUnlockPercentage(interest.unlock_percentage);
-    setInterestId(interest.id);
-  } else {
-    console.log('No active interest found - showing Express Interest button');
-  }
-
-  // Check for mutual interest (both parties accepted each other)
-  if (accountType && userId) {
-    // Get my interest in them
+  const checkInterestStatusAndAccess = async (
+    userId: string,
+    acctType: 'brother' | 'sister',
+    recipientId: string,
+    recipientType: 'brother' | 'sister'
+  ) => {
+    // Check my interest in them
     const myInterest = await getInterest(userId, recipientId);
-    
-    // Get their interest in me
-    const theirInterest = await getInterest(recipientId, userId);
-    
-    console.log('My interest:', myInterest);
-    console.log('Their interest:', theirInterest);
-    
-    // Both interests exist, both have answered all 5 questions, and both are accepted
-    const isMutualInterest = 
-      myInterest && 
-      theirInterest && 
-      myInterest.unlock_percentage === 100 && 
-      theirInterest.unlock_percentage === 100 &&
-      myInterest.status === 'accepted' &&
-      theirInterest.status === 'accepted';
-    
-    console.log('Is mutual interest:', isMutualInterest);
 
-    // Check if can view wali contact (only brothers can see wali of sisters)
-    if (isMutualInterest && accountType === 'brother' && recipientType === 'sister') {
-      setCanViewWali(true);
-      // Fetch wali contact
-      const wali = await getWaliContact(userId, recipientId);
-      if (wali) {
-        setWaliContact(wali);
-        console.log('Wali contact loaded');
-      }
+    if (myInterest && myInterest.status !== 'withdrawn') {
+      setInterestId(myInterest.id);
+      setInterestStatus(myInterest.status);
     }
-  }
-};
-  
+
+    // Check their interest in me (received interest)
+    const theirInterest = await getInterest(recipientId, userId);
+
+    if (theirInterest && theirInterest.status !== 'withdrawn') {
+      setReceivedInterestId(theirInterest.id);
+      setReceivedInterestStatus(theirInterest.status);
+    }
+
+    // Check match access (accepted interest in either direction)
+    const hasAcceptedInterest =
+      (myInterest && myInterest.status === 'accepted') ||
+      (theirInterest && theirInterest.status === 'accepted');
+
+    if (hasAcceptedInterest) {
+      // Brother viewing sister: show wali contact
+      if (acctType === 'brother' && recipientType === 'sister') {
+        setCanViewWali(true);
+        const wali = await getWaliContact(userId, recipientId);
+        if (wali) {
+          setWaliContact(wali);
+        }
+      }
+
+      // Sister viewing brother: show brother phone
+      if (acctType === 'sister' && recipientType === 'brother') {
+        setCanViewBrotherPhone(true);
+      }
+
+      // Fetch masjid info for the profile being viewed (nikkah service)
+      await loadProfileMasjid(recipientId, recipientType);
+    }
+  };
+
+  const loadProfileMasjid = async (profileId: string, profileType: 'brother' | 'sister') => {
+    try {
+      // Check if profile has a verified masjid affiliation
+      const { data: verification } = await supabase
+        .from('imam_verification')
+        .select('masjid_id')
+        .eq('user_id', profileId)
+        .eq('user_type', profileType)
+        .eq('status', 'verified')
+        .maybeSingle();
+
+      if (!verification?.masjid_id) return;
+
+      const { data: masjid } = await supabase
+        .from('masjid')
+        .select('name, marriage_service_url')
+        .eq('id', verification.masjid_id)
+        .single();
+
+      if (masjid) {
+        setProfileMasjid(masjid);
+      }
+    } catch (error) {
+      console.error('Error loading profile masjid:', error);
+    }
+  };
 
   const handleExpressInterest = async () => {
     if (!currentUserId || !accountType || !id || !profile) return;
-    console.log("expressing interest");
 
     setIsExpressing(true);
     try {
       const recipientType = profileType || (accountType === 'brother' ? 'sister' : 'brother');
       const result = await expressInterest(currentUserId, accountType, id, recipientType);
 
-      console.log("called service");
-
       if (result.success && result.interestId) {
-        console.log(`interest id: ${result.interestId}`);
         setInterestId(result.interestId);
-        console.log("now moving to questions screen");
-        router.replace({
-          pathname: '/questions/[interestId]',
-          params: { interestId: result.interestId }
-        });
+        setInterestStatus('pending');
       } else {
-        alert('Failed to express interest. Please try again.');
+        Alert.alert('Error', 'Failed to express interest. Please try again.');
       }
     } catch (error) {
       console.error('Error expressing interest:', error);
-      alert('An error occurred. Please try again.');
+      Alert.alert('Error', 'An error occurred. Please try again.');
     } finally {
       setIsExpressing(false);
     }
   };
 
-  const handleContinueQuestions = () => {
-    if (interestId) {
-      router.replace({
-        pathname: '/questions/[interestId]',
-        params: { interestId: interestId }
-      });
-    }
-  };
-
-  const handleNoLongerInterested = async () => {
+  const handleWithdrawInterest = async () => {
     if (!interestId) return;
 
     try {
       const result = await withdrawInterest(interestId);
       if (result.success) {
-        router.back();
+        setInterestId(null);
+        setInterestStatus(null);
       } else {
-        alert(result.error || 'Failed to withdraw interest. Please try again.');
+        Alert.alert('Error', result.error || 'Failed to withdraw interest.');
       }
     } catch (error) {
       console.error('Error withdrawing interest:', error);
-      alert('An error occurred. Please try again.');
+      Alert.alert('Error', 'An error occurred. Please try again.');
+    }
+  };
+
+  const handleAcceptInterest = async () => {
+    if (!receivedInterestId) return;
+
+    setIsAccepting(true);
+    try {
+      const result = await acceptInterest(receivedInterestId);
+      if (result.success) {
+        setReceivedInterestStatus('accepted');
+        // Brother viewing sister: show wali
+        if (accountType === 'brother' && profileType === 'sister' && currentUserId) {
+          setCanViewWali(true);
+          const wali = await getWaliContact(currentUserId, id!);
+          if (wali) {
+            setWaliContact(wali);
+          }
+        }
+        // Sister viewing brother: show phone
+        if (accountType === 'sister' && profileType === 'brother') {
+          setCanViewBrotherPhone(true);
+        }
+        // Load masjid info for nikkah service
+        if (profileType) {
+          await loadProfileMasjid(id!, profileType);
+        }
+      } else {
+        Alert.alert('Error', result.error || 'Failed to accept interest.');
+      }
+    } catch (error) {
+      console.error('Error accepting interest:', error);
+      Alert.alert('Error', 'An error occurred. Please try again.');
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
+  const handleRejectInterest = async () => {
+    if (!receivedInterestId) return;
+
+    setIsRejecting(true);
+    try {
+      const result = await rejectInterest(receivedInterestId);
+      if (result.success) {
+        setReceivedInterestStatus('rejected');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to reject interest.');
+      }
+    } catch (error) {
+      console.error('Error rejecting interest:', error);
+      Alert.alert('Error', 'An error occurred. Please try again.');
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -345,7 +397,7 @@ const checkInterestStatusAndAccess = async (
       const subject = encodeURIComponent(`Marriage Proposal for ${profile.username}`);
       const body = encodeURIComponent(
         `Assalamu Alaikum ${waliContact.name},\n\n` +
-        `I am contacting you regarding a marriage proposal for ${profile.username} through the Nukhbah matrimonial platform.\n\n` +
+        `I am contacting you regarding a marriage proposal for ${profile.username} through the Mithaq matrimonial platform.\n\n` +
         `I would like to discuss this matter further at your convenience.\n\n` +
         `JazakAllahu Khairan`
       );
@@ -358,11 +410,11 @@ const checkInterestStatusAndAccess = async (
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     return age;
   };
 
@@ -420,29 +472,10 @@ const checkInterestStatusAndAccess = async (
     }
   };
 
-  const getLocationFlag = (location: string) => {
-    if (!location) return '🌍';
-    const parts = location.split(',');
-    if (parts.length < 2) return '🌍';
-    const countryName = parts[parts.length - 1].trim();
+  const getLocationFlag = (countryName: string) => {
+    if (!countryName) return '🌍';
     const country = getCountryByName(countryName);
     return country?.flag || '🌍';
-  };
-
-  const renderLockedField = (content: string | undefined, unlockMessage: string) => {
-    const displayText = content || 'This information will be revealed once unlocked. The user has provided details here that you can discover by answering their questions.';
-    
-    return (
-      <View style={styles.lockedSection}>
-        <View style={styles.blurFallback}>
-          <Text style={styles.lockedText}>{displayText}</Text>
-        </View>
-        <View style={styles.lockOverlay}>
-          <Text style={styles.lockIcon}>🔒</Text>
-          <Text style={styles.lockMessage}>{unlockMessage}</Text>
-        </View>
-      </View>
-    );
   };
 
   if (isLoading || !profile) {
@@ -454,30 +487,30 @@ const checkInterestStatusAndAccess = async (
   }
 
   const coveringType = profileType === 'sister' ? 'hijab' : 'beard';
-  const coveringValue = profileType === 'sister' 
-    ? profile.hijab_commitment 
+  const coveringValue = profileType === 'sister'
+    ? profile.hijab_commitment
     : profile.beard_commitment;
-  
+
   const age = calculateAge(profile.date_of_birth);
-
-  // Calculate unlocked sections based on questions answered
-  const questionsAnswered = Math.floor(unlockPercentage / 20);
-  const isDeenUnlocked = questionsAnswered >= 1; // Q1 - 20%
-  const isLifestyleUnlocked = questionsAnswered >= 2; // Q2 - 40%
-  const isPersonalityUnlocked = questionsAnswered >= 3; // Q3 - 60%
-  const isMaritalUnlocked = questionsAnswered >= 4; // Q4 - 80%
-  const isFullyUnlocked = questionsAnswered >= 5; // Q5 - 100%
-
   const isOwnProfile = currentUserId === id;
+
+  // Determine what bottom buttons to show
+  const isMatched =
+    interestStatus === 'accepted' || receivedInterestStatus === 'accepted';
+  const isRejectedByThem = interestStatus === 'rejected';
+  const isRejectedByYou = receivedInterestStatus === 'rejected';
+  const showReceivedInterestButtons = !isOwnProfile && receivedInterestId && receivedInterestStatus === 'pending';
+  const showExpressInterestButton = !isOwnProfile && !interestId && !showReceivedInterestButtons && !isMatched && !isRejectedByThem && !isRejectedByYou;
+  const showWithdrawButton = !isOwnProfile && interestId && interestStatus === 'pending' && !showReceivedInterestButtons;
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -505,27 +538,15 @@ const checkInterestStatusAndAccess = async (
           </View>
         )}
 
-        {/* Show progress bar only if there's an active interest */}
-        {interestId && !isOwnProfile && (
-          <>
-            <Text style={styles.progressText}>
-              Profile Unlock Progress: {unlockPercentage}% ({questionsAnswered}/5 questions)
-            </Text>
-            <View style={styles.progressBarContainer}>
-              <View style={[styles.progressBarFill, { width: `${unlockPercentage}%` }]} />
-            </View>
-          </>
-        )}
-
         <View style={styles.locationRow}>
-          <Text style={styles.flag}>{getLocationFlag(profile.location)}</Text>
-          <Text style={styles.locationText}>{profile.location}</Text>
+          <Text style={styles.flag}>{getLocationFlag(profile.location_country)}</Text>
+          <Text style={styles.locationText}>{profile.location_city ? `${profile.location_city}, ${profile.location_country}` : profile.location_country}</Text>
         </View>
 
-        {/* BASIC INFO - ALWAYS VISIBLE */}
+        {/* BASIC INFO */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
-          
+
           <View style={styles.infoGrid}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Marital Status</Text>
@@ -618,158 +639,95 @@ const checkInterestStatusAndAccess = async (
           </View>
         </View>
 
-        {/* DEEN - Unlocks at Q1 (20%) */}
+        {/* DEEN */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Deen {!isDeenUnlocked && '🔒'}
+          <Text style={styles.sectionTitle}>Deen</Text>
+          <Text style={styles.longText}>
+            {profile.deen || 'No description provided'}
           </Text>
-          
-          {isDeenUnlocked || isOwnProfile ? (
-            <Text style={styles.longText}>
-              {profile.deen || 'No description provided'}
-            </Text>
-          ) : (
-            renderLockedField(profile.deen, 'Answer Question 1 (Deen) to unlock')
-          )}
         </View>
 
-        {/* ISLAMIC EDUCATION - Unlocks at Q1 (20%) */}
+        {/* ISLAMIC EDUCATION */}
         {profile.islamic_education && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Islamic Education {!isDeenUnlocked && '🔒'}
+            <Text style={styles.sectionTitle}>Islamic Education</Text>
+            <Text style={styles.longText}>
+              {profile.islamic_education}
             </Text>
-            
-            {isDeenUnlocked || isOwnProfile ? (
-              <Text style={styles.longText}>
-                {profile.islamic_education || 'No details provided'}
-              </Text>
-            ) : (
-              renderLockedField(profile.islamic_education, 'Answer Question 1 (Deen) to unlock')
-            )}
           </View>
         )}
 
-        {/* LIFESTYLE - Unlocks at Q2 (40%) */}
+        {/* LIFESTYLE */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Lifestyle {!isLifestyleUnlocked && '🔒'}
+          <Text style={styles.sectionTitle}>Lifestyle</Text>
+          <Text style={styles.longText}>
+            {profile.lifestyle || 'No description provided'}
           </Text>
-          
-          {isLifestyleUnlocked || isOwnProfile ? (
-            <Text style={styles.longText}>
-              {profile.lifestyle || 'No description provided'}
-            </Text>
-          ) : (
-            renderLockedField(profile.lifestyle, 'Answer Question 2 (Lifestyle) to unlock')
-          )}
         </View>
 
-        {/* PERSONALITY - Unlocks at Q3 (60%) */}
+        {/* PERSONALITY */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Personality {!isPersonalityUnlocked && '🔒'}
+          <Text style={styles.sectionTitle}>Personality</Text>
+          <Text style={styles.longText}>
+            {profile.personality || 'No description provided'}
           </Text>
-          
-          {isPersonalityUnlocked || isOwnProfile ? (
-            <Text style={styles.longText}>
-              {profile.personality || 'No description provided'}
-            </Text>
-          ) : (
-            renderLockedField(profile.personality, 'Answer Question 3 (Fitness/Personality) to unlock')
-          )}
         </View>
 
-        {/* CONFLICT RESOLUTION - Unlocks at Q4 (80%) */}
+        {/* CONFLICT RESOLUTION */}
         {profile.conflict_resolution && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Conflict Resolution {!isMaritalUnlocked && '🔒'}
+            <Text style={styles.sectionTitle}>Conflict Resolution</Text>
+            <Text style={styles.longText}>
+              {profile.conflict_resolution}
             </Text>
-            
-            {isMaritalUnlocked || isOwnProfile ? (
-              <Text style={styles.longText}>
-                {profile.conflict_resolution || 'No description provided'}
-              </Text>
-            ) : (
-              renderLockedField(profile.conflict_resolution, 'Answer Question 4 (Marital Life) to unlock')
-            )}
           </View>
         )}
 
-        {/* SPOUSE CRITERIA - Unlocks at Q5 (100%) */}
+        {/* SPOUSE CRITERIA */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Spouse Criteria {!isFullyUnlocked && '🔒'}
+          <Text style={styles.sectionTitle}>Spouse Criteria</Text>
+          <Text style={styles.longText}>
+            {profile.spouse_criteria || 'No criteria provided'}
           </Text>
-          
-          {isFullyUnlocked || isOwnProfile ? (
-            <Text style={styles.longText}>
-              {profile.spouse_criteria || 'No criteria provided'}
-            </Text>
-          ) : (
-            renderLockedField(profile.spouse_criteria, 'Answer all 5 questions to unlock')
-          )}
         </View>
 
-        {/* DEALBREAKERS - Unlocks at Q5 (100%) */}
+        {/* DEALBREAKERS */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Dealbreakers {!isFullyUnlocked && '🔒'}
+          <Text style={styles.sectionTitle}>Dealbreakers</Text>
+          <Text style={styles.longText}>
+            {profile.dealbreakers || 'No dealbreakers specified'}
           </Text>
-          
-          {isFullyUnlocked || isOwnProfile ? (
-            <Text style={styles.longText}>
-              {profile.dealbreakers || 'No dealbreakers specified'}
-            </Text>
-          ) : (
-            renderLockedField(profile.dealbreakers, 'Answer all 5 questions to unlock')
-          )}
         </View>
 
-        {/* FINANCIAL RESPONSIBILITY - Brother only, unlocks at Q5 (100%) */}
+        {/* FINANCIAL RESPONSIBILITY - Brother only */}
         {profileType === 'brother' && profile.financial_responsibility && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Financial Responsibility {!isFullyUnlocked && '🔒'}
+            <Text style={styles.sectionTitle}>Financial Responsibility</Text>
+            <Text style={styles.longText}>
+              {profile.financial_responsibility}
             </Text>
-            
-            {isFullyUnlocked || isOwnProfile ? (
-              <Text style={styles.longText}>
-                {profile.financial_responsibility || 'No description provided'}
-              </Text>
-            ) : (
-              renderLockedField(profile.financial_responsibility, 'Answer all 5 questions to unlock')
-            )}
           </View>
         )}
 
-        {/* CHARITY HABITS - Unlocks at Q5 (100%) */}
+        {/* CHARITY HABITS */}
         {profile.charity_habits && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Charity Habits {!isFullyUnlocked && '🔒'}
+            <Text style={styles.sectionTitle}>Charity Habits</Text>
+            <Text style={styles.longText}>
+              {profile.charity_habits}
             </Text>
-            
-            {isFullyUnlocked || isOwnProfile ? (
-              <Text style={styles.longText}>
-                {profile.charity_habits || 'No description provided'}
-              </Text>
-            ) : (
-              renderLockedField(profile.charity_habits, 'Answer all 5 questions to unlock')
-            )}
           </View>
         )}
 
-        {/* WALI CONTACT - Only shows for brothers viewing sisters at mutual interest */}
+        {/* WALI CONTACT - Only shows for brothers viewing sisters with accepted interest */}
         {canViewWali && waliContact && profileType === 'sister' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>👤 Wali Contact</Text>
-            
+
             <View style={styles.waliCard}>
               <View style={styles.waliHeader}>
                 <Text style={styles.waliHeaderText}>
-                  ✨ Mutual Interest Confirmed
+                  ✨ Interest Accepted
                 </Text>
                 <Text style={styles.waliSubtext}>
                   Contact the Wali to proceed with the marriage process
@@ -813,7 +771,7 @@ const checkInterestStatusAndAccess = async (
 
               <View style={styles.waliButtons}>
                 {waliContact.phone && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.waliButton}
                     onPress={handleCallWali}
                   >
@@ -822,7 +780,7 @@ const checkInterestStatusAndAccess = async (
                 )}
 
                 {waliContact.email && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.waliButton}
                     onPress={handleEmailWali}
                   >
@@ -838,12 +796,87 @@ const checkInterestStatusAndAccess = async (
           </View>
         )}
 
+        {/* BROTHER CONTACT - Only shows for sisters viewing brothers with accepted interest */}
+        {canViewBrotherPhone && profile?.phone && profileType === 'brother' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📱 Contact Details</Text>
+
+            <View style={styles.waliCard}>
+              <View style={styles.waliHeader}>
+                <Text style={styles.waliHeaderText}>
+                  ✨ Interest Accepted
+                </Text>
+                <Text style={styles.waliSubtext}>
+                  Share this contact with your Wali to proceed
+                </Text>
+              </View>
+
+              <View style={styles.waliInfo}>
+                <View style={styles.waliRow}>
+                  <Text style={styles.waliLabel}>Phone:</Text>
+                  <Text style={styles.waliValue}>{profile.phone}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.waliButton}
+                onPress={() => Linking.openURL(`tel:${profile.phone}`)}
+              >
+                <Text style={styles.waliButtonText}>📱 Call</Text>
+              </TouchableOpacity>
+
+              <Text style={[styles.waliReminder, { marginTop: 12 }]}>
+                ☪️  Remember: All communication should be conducted with Islamic etiquette. Share this with your Wali.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* NIKKAH SERVICE - Shows when matched and profile's masjid offers it */}
+        {profileMasjid?.marriage_service_url && (
+          <View style={styles.section}>
+            <View style={styles.nikkahCard}>
+              <Text style={styles.nikkahText}>
+                🕌 {profileMasjid.name} offers a nikkah service
+              </Text>
+              <TouchableOpacity
+                onPress={() => Linking.openURL(profileMasjid.marriage_service_url!)}
+              >
+                <Text style={styles.nikkahLink}>Explore it here →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
       </ScrollView>
 
       {/* Bottom Buttons */}
       {!isOwnProfile && (
         <View style={styles.bottomContainer}>
-          {!interestId ? (
+          {showReceivedInterestButtons && (
+            <View style={styles.twoButtonContainer}>
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={handleAcceptInterest}
+                disabled={isAccepting}
+              >
+                <Text style={styles.acceptButtonText}>
+                  {isAccepting ? 'Accepting...' : 'Accept Interest'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={handleRejectInterest}
+                disabled={isRejecting}
+              >
+                <Text style={styles.rejectButtonText}>
+                  {isRejecting ? 'Rejecting...' : 'Reject Interest'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {showExpressInterestButton && (
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleExpressInterest}
@@ -853,24 +886,34 @@ const checkInterestStatusAndAccess = async (
                 {isExpressing ? 'Processing...' : 'Express Interest'}
               </Text>
             </TouchableOpacity>
-          ) : unlockPercentage < 100 ? (
-            <View style={styles.twoButtonContainer}>
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={handleContinueQuestions}
-              >
-                <Text style={styles.primaryButtonText}>
-                  Continue Questions ({questionsAnswered}/5)
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={handleNoLongerInterested}
-              >
-                <Text style={styles.secondaryButtonText}>Withdraw Interest</Text>
-              </TouchableOpacity>
+          )}
+
+          {showWithdrawButton && (
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={handleWithdrawInterest}
+            >
+              <Text style={styles.secondaryButtonText}>Withdraw Interest</Text>
+            </TouchableOpacity>
+          )}
+
+          {!isOwnProfile && isMatched && (
+            <View style={styles.matchedButton}>
+              <Text style={styles.matchedButtonText}>Matched</Text>
             </View>
-          ) : null}
+          )}
+
+          {!isOwnProfile && isRejectedByThem && !isMatched && (
+            <View style={styles.rejectedButton}>
+              <Text style={styles.rejectedButtonText}>Rejected (by them)</Text>
+            </View>
+          )}
+
+          {!isOwnProfile && isRejectedByYou && !isMatched && (
+            <View style={styles.rejectedButton}>
+              <Text style={styles.rejectedButtonText}>Rejected (by you)</Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -942,23 +985,6 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     color: '#17803A',
   },
-  progressText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: '#070A12',
-    marginBottom: 8,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: '#E7EAF0',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#F2CC66',
-  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1011,44 +1037,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#070A12',
-  },
-  lockedSection: {
-    position: 'relative',
-    minHeight: 120,
-  },
-  blurFallback: {
-    backgroundColor: '#E7EAF0',
-    padding: 20,
-    borderRadius: 8,
-    minHeight: 120,
-  },
-  lockedText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#070A12',
-    opacity: 0,
-  },
-  lockOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  lockIcon: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  lockMessage: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    lineHeight: 17,
-    color: '#7B8799',
-    textAlign: 'center',
   },
   waliCard: {
     backgroundColor: '#FFF9E6',
@@ -1144,7 +1132,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#E7EAF0',
   },
   primaryButton: {
-    flex: 1,
     backgroundColor: '#070A12',
     borderRadius: 8,
     paddingVertical: 16,
@@ -1159,8 +1146,31 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 12,
   },
+  acceptButton: {
+    backgroundColor: '#17803A',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  acceptButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  rejectButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E03A3A',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  rejectButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#E03A3A',
+  },
   secondaryButton: {
-    flex: 1,
     backgroundColor: '#F7F8FB',
     borderWidth: 1,
     borderColor: '#E7EAF0',
@@ -1172,5 +1182,50 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
     color: '#070A12',
+  },
+  matchedButton: {
+    backgroundColor: '#EAF5EE',
+    borderWidth: 1,
+    borderColor: '#17803A',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  matchedButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#17803A',
+  },
+  rejectedButton: {
+    backgroundColor: '#FDF2F2',
+    borderWidth: 1,
+    borderColor: '#E03A3A',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  rejectedButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#E03A3A',
+  },
+  nikkahCard: {
+    backgroundColor: '#EAF5EE',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#17803A',
+  },
+  nikkahText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#070A12',
+    marginBottom: 8,
+  },
+  nikkahLink: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 15,
+    color: '#17803A',
   },
 });

@@ -1,6 +1,6 @@
 // app/(auth)/index.tsx
 import { findMatchesForBrother, findMatchesForSister } from '@/lib/embeddingService';
-import { ETHNICITIES, getCountryByName, getEthnicityByName } from '@/lib/locationData';
+import { COUNTRIES, ETHNICITIES, getCountryByName, getEthnicityByName } from '@/lib/locationData';
 import { supabase } from '@/lib/supabase';
 import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import { useRouter } from 'expo-router';
@@ -23,21 +23,18 @@ type Tab = 'local' | 'discover' | 'featured';
 interface Profile {
   id: string;
   username: string;
-  slug: string;
-  location: string;
+  location_country: string;
+  location_city: string;
   ethnicity: string;
   marital_status: string;
   build?: string;
-  physical_fitness?: string;
-  polygyny_willingness?: boolean;
-  polygyny_acceptance?: boolean;
-  prayer_consistency?: string;
-  memorization_quran?: string;
-  hijab_commitment?: string;
   date_of_birth?: string;
+  prayer_consistency?: string;
+  // Sister-only fields
+  open_to_polygyny?: boolean;
+  hijab_commitment?: string;
+  // Enriched from joins
   similarity_score?: number;
-  imam_verified?: boolean;
-  references_verified?: boolean;
   masjid_name?: string;
   imam_name?: string;
   masjid_id?: string;
@@ -45,10 +42,10 @@ interface Profile {
 
 interface Filters {
   searchText: string;
-  location: string;
+  country: string[];
+  city: string;
   ethnicity: string[];
   build: string[];
-  fitnessLevel: string[];
   covering: string;
   polygyny: 'any' | 'open' | 'monogamy';
   maritalStatus: string[];
@@ -210,10 +207,10 @@ export default function SearchScreen() {
   
   const [filters, setFilters] = useState<Filters>({
     searchText: '',
-    location: '',
+    country: [],
+    city: '',
     ethnicity: [],
     build: [],
-    fitnessLevel: [],
     covering: '',
     polygyny: 'any',
     maritalStatus: [],
@@ -299,16 +296,13 @@ export default function SearchScreen() {
 
   const calculateAge = (dateOfBirth: string | undefined): number | null => {
     if (!dateOfBirth) return null;
-    
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
     return age;
   };
 
@@ -348,18 +342,12 @@ export default function SearchScreen() {
       const profileIds = matchData.map((m: any) => m.id);
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
       const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
-      const polygynyField = targetTable === 'sister' ? 'polygyny_acceptance' : 'polygyny_willingness';
-      const coveringField = targetTable === 'sister' ? 'hijab_commitment' : 'beard_commitment';
-      
+      const sisterFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment' : '';
+
       // Fetch basic profile data
       const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`
-          id, username, slug, location, ethnicity, marital_status, build, 
-          physical_fitness, ${polygynyField}, ${coveringField}, 
-          prayer_consistency, memorization_quran, date_of_birth, 
-          imam_verified, references_verified
-        `)
+        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency${sisterFields}`)
         .in('id', profileIds);
 
       if (error) throw error;
@@ -422,22 +410,16 @@ export default function SearchScreen() {
       const profileIds = matchData.map((m: any) => m.id);
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
       const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
-      const polygynyField = targetTable === 'sister' ? 'polygyny_acceptance' : 'polygyny_willingness';
-      const coveringField = targetTable === 'sister' ? 'hijab_commitment' : 'beard_commitment';
-      
+      const sisterFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment' : '';
+
       // Fetch basic profile data
       const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`
-          id, username, slug, location, ethnicity, marital_status, build, 
-          physical_fitness, ${polygynyField}, ${coveringField}, 
-          prayer_consistency, memorization_quran, date_of_birth, 
-          imam_verified, references_verified
-        `)
+        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency${sisterFields}`)
         .in('id', profileIds);
-  
+
       if (error) throw error;
-  
+
       // Fetch verification data with masjid info
       const { data: verifications } = await supabase
         .from('imam_verification')
@@ -475,49 +457,38 @@ export default function SearchScreen() {
 
     if (filters.searchText) {
       const search = filters.searchText.toLowerCase();
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.username.toLowerCase().includes(search) ||
-        p.location.toLowerCase().includes(search)
+        p.location_country?.toLowerCase().includes(search) ||
+        p.location_city?.toLowerCase().includes(search)
       );
     }
 
-    if (filters.location) {
-      filtered = filtered.filter(p => 
-        p.location.toLowerCase().includes(filters.location.toLowerCase())
+    if (filters.country.length > 0) {
+      filtered = filtered.filter(p => filters.country.includes(p.location_country));
+    }
+
+    if (filters.city) {
+      filtered = filtered.filter(p =>
+        p.location_city?.toLowerCase().includes(filters.city.toLowerCase())
       );
     }
 
     if (filters.ethnicity.length > 0) {
-      filtered = filtered.filter(p => {
-        const profileEthnicity = Array.isArray(p.ethnicity) ? p.ethnicity : [p.ethnicity];
-        return profileEthnicity.some(e => filters.ethnicity.includes(e));
-      });
+      filtered = filtered.filter(p => filters.ethnicity.includes(p.ethnicity));
     }
 
     if (filters.build.length > 0) {
       filtered = filtered.filter(p => p.build && filters.build.includes(p.build));
     }
 
-    if (filters.fitnessLevel.length > 0) {
-      filtered = filtered.filter(p => p.physical_fitness && filters.fitnessLevel.includes(p.physical_fitness));
+    if (filters.covering && accountType === 'brother') {
+      filtered = filtered.filter(p => p.hijab_commitment === filters.covering);
     }
 
-    if (filters.covering) {
-      filtered = filtered.filter(p => {
-        if (accountType === 'brother') {
-          return (p as any).hijab_commitment === filters.covering;
-        } else {
-          return (p as any).beard_commitment === filters.covering;
-        }
-      });
-    }
-
-    if (filters.polygyny !== 'any') {
+    if (filters.polygyny !== 'any' && accountType === 'brother') {
       const acceptsPolygyny = filters.polygyny === 'open';
-      filtered = filtered.filter(p => {
-        const polyField = accountType === 'brother' ? p.polygyny_acceptance : p.polygyny_willingness;
-        return polyField === acceptsPolygyny;
-      });
+      filtered = filtered.filter(p => p.open_to_polygyny === acceptsPolygyny);
     }
 
     if (filters.maritalStatus.length > 0) {
@@ -542,10 +513,10 @@ export default function SearchScreen() {
   const getActiveFilterCount = () => {
     let count = 0;
     if (filters.searchText) count++;
-    if (filters.location) count++;
+    if (filters.country.length > 0) count++;
+    if (filters.city) count++;
     if (filters.ethnicity.length > 0) count++;
     if (filters.build.length > 0) count++;
-    if (filters.fitnessLevel.length > 0) count++;
     if (filters.covering) count++;
     if (filters.polygyny !== 'any') count++;
     if (filters.maritalStatus.length > 0) count++;
@@ -557,10 +528,10 @@ export default function SearchScreen() {
   const clearAllFilters = () => {
     setFilters({
       searchText: '',
-      location: '',
+      country: [],
+      city: '',
       ethnicity: [],
       build: [],
-      fitnessLevel: [],
       covering: '',
       polygyny: 'any',
       maritalStatus: [],
@@ -603,44 +574,15 @@ export default function SearchScreen() {
     return labels[build] || build;
   };
 
-  const getPhysicalFitnessLabel = (fitness: string) => {
-    const labels: Record<string, string> = {
-      athlete: 'Athlete',
-      very_fit: 'Very Fit',
-      fit: 'Fit',
-      moderately_fit: 'Moderately Fit',
-      light_exercise: 'Light Exercise',
-    };
-    return labels[fitness] || fitness;
-  };
-
-  const getPhysicalFitnessColor = (fitness?: string) => {
-    switch (fitness) {
-      case 'athlete':
-        return styles.athleteTag;
-      case 'very_fit':
-        return styles.veryFitTag;
-      case 'fit':
-        return styles.fitTag;
-      default:
-        return styles.defaultTag;
-    }
-  };
-
-  const getLocationFlag = (location: string) => {
-    if (!location) return '🌍';
-    const parts = location.split(',');
-    if (parts.length < 2) return '🌍';
-    const countryName = parts[parts.length - 1].trim();
+  const getLocationFlag = (countryName: string) => {
+    if (!countryName) return '🌍';
     const country = getCountryByName(countryName);
     return country?.flag || '🌍';
   };
 
-  const getEthnicityFlag = (ethnicity: string | string[]) => {
+  const getEthnicityFlag = (ethnicity: string) => {
     if (!ethnicity) return '🌍';
-    const ethnicityName = Array.isArray(ethnicity) ? ethnicity[0] : ethnicity;
-    if (!ethnicityName) return '🌍';
-    const eth = getEthnicityByName(ethnicityName);
+    const eth = getEthnicityByName(ethnicity);
     return eth?.flag || '🌍';
   };
 
@@ -649,20 +591,11 @@ export default function SearchScreen() {
     const sisterBuilds = ['athletic', 'curvaceous', 'curvy_athletic', 'hourglass', 'heavyset', 'average'];
     const builds = accountType === 'brother' ? sisterBuilds : brotherBuilds;
 
-    const sisterCovering = [
+    const hijabOptions = [
       { value: 'niqab', label: 'Niqab' },
-      { value: 'hijab_abaya', label: 'Hijab + Abaya' },
-      { value: 'hijab_western_clothing', label: 'Hijab + Western' },
+      { value: 'hijab', label: 'Hijab' },
       { value: 'open_hair', label: 'Open Hair' },
     ];
-
-    const brotherBeard = [
-      { value: 'full_sunnah_beard', label: 'Full Sunnah Beard' },
-      { value: 'trimmed_beard', label: 'Trimmed Beard' },
-      { value: 'clean_shaven', label: 'Clean Shaven' },
-    ];
-
-    const coveringOptions = accountType === 'brother' ? sisterCovering : brotherBeard;
 
     return (
       <Modal
@@ -687,7 +620,7 @@ export default function SearchScreen() {
               </Svg>
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search by username or location..."
+                placeholder="Search by username, country, or city..."
                 placeholderTextColor="#C0C7D1"
                 value={filters.searchText}
                 onChangeText={(text) => setFilters({ ...filters, searchText: text })}
@@ -710,12 +643,32 @@ export default function SearchScreen() {
                 <Text style={styles.filterSectionLabel}>LOCATION</Text>
                 <View style={styles.filterBox}>
                   <Text style={styles.filterBoxLabel}>Country</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.ethnicityList}>
+                      {COUNTRIES.map((c) => (
+                        <TouchableOpacity
+                          key={c.code}
+                          style={[
+                            styles.ethnicityOption,
+                            filters.country.includes(c.name) && styles.ethnicityOptionSelected
+                          ]}
+                          onPress={() => toggleArrayFilter('country', c.name)}
+                        >
+                          <Text style={styles.ethnicityOptionText}>
+                            {c.flag} {c.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+
+                  <Text style={[styles.filterBoxLabel, { marginTop: 12 }]}>City</Text>
                   <TextInput
                     style={styles.filterInput}
                     placeholder="Any"
                     placeholderTextColor="#C0C7D1"
-                    value={filters.location}
-                    onChangeText={(text) => setFilters({ ...filters, location: text })}
+                    value={filters.city}
+                    onChangeText={(text) => setFilters({ ...filters, city: text })}
                   />
                 </View>
               </View>
@@ -768,89 +721,72 @@ export default function SearchScreen() {
                     ))}
                   </View>
 
-                  <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>Fitness Level</Text>
-                  <View style={styles.chipRow}>
-                    {['light_exercise', 'moderately_fit', 'fit', 'very_fit', 'athlete'].map((level) => (
+                  {accountType === 'brother' && (
+                    <>
+                      <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>Hijab Commitment</Text>
+                      <View style={styles.filterInput}>
+                        <TouchableOpacity
+                          onPress={() => setFilters({ ...filters, covering: '' })}
+                          style={styles.coveringOption}
+                        >
+                          <Text style={filters.covering === '' ? styles.coveringTextSelected : styles.coveringText}>
+                            Any
+                          </Text>
+                        </TouchableOpacity>
+                        {hijabOptions.map((option) => (
+                          <TouchableOpacity
+                            key={option.value}
+                            onPress={() => setFilters({ ...filters, covering: option.value })}
+                            style={styles.coveringOption}
+                          >
+                            <Text style={filters.covering === option.value ? styles.coveringTextSelected : styles.coveringText}>
+                              {option.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </>
+                  )}
+                </View>
+              </View>
+
+              {accountType === 'brother' && (
+                <View style={styles.filterSection}>
+                  <Text style={styles.filterSectionLabel}>POLYGYNY</Text>
+                  <View style={styles.filterBox}>
+                    <View style={styles.chipRow}>
                       <TouchableOpacity
-                        key={level}
                         style={[
-                          styles.chip,
-                          filters.fitnessLevel.includes(level) && styles.chipSelected
+                          styles.chipLarge,
+                          filters.polygyny === 'open' && styles.chipSelected
                         ]}
-                        onPress={() => toggleArrayFilter('fitnessLevel', level)}
+                        onPress={() => setFilters({ ...filters, polygyny: 'open' })}
                       >
                         <Text style={[
                           styles.chipText,
-                          filters.fitnessLevel.includes(level) && styles.chipTextSelected
+                          filters.polygyny === 'open' && styles.chipTextSelected
                         ]}>
-                          {getPhysicalFitnessLabel(level)}
+                          Open to Polygyny
                         </Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>
-                    {accountType === 'brother' ? 'Covering' : 'Beard'}
-                  </Text>
-                  <View style={styles.filterInput}>
-                    <TouchableOpacity
-                      onPress={() => setFilters({ ...filters, covering: '' })}
-                      style={styles.coveringOption}
-                    >
-                      <Text style={filters.covering === '' ? styles.coveringTextSelected : styles.coveringText}>
-                        Any
-                      </Text>
-                    </TouchableOpacity>
-                    {coveringOptions.map((option) => (
                       <TouchableOpacity
-                        key={option.value}
-                        onPress={() => setFilters({ ...filters, covering: option.value })}
-                        style={styles.coveringOption}
+                        style={[
+                          styles.chipLarge,
+                          filters.polygyny === 'monogamy' && styles.chipSelected
+                        ]}
+                        onPress={() => setFilters({ ...filters, polygyny: 'monogamy' })}
                       >
-                        <Text style={filters.covering === option.value ? styles.coveringTextSelected : styles.coveringText}>
-                          {option.label}
+                        <Text style={[
+                          styles.chipText,
+                          filters.polygyny === 'monogamy' && styles.chipTextSelected
+                        ]}>
+                          Monogamy Only
                         </Text>
                       </TouchableOpacity>
-                    ))}
+                    </View>
                   </View>
                 </View>
-              </View>
-
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionLabel}>POLYGYNY</Text>
-                <View style={styles.filterBox}>
-                  <View style={styles.chipRow}>
-                    <TouchableOpacity
-                      style={[
-                        styles.chipLarge,
-                        filters.polygyny === 'open' && styles.chipSelected
-                      ]}
-                      onPress={() => setFilters({ ...filters, polygyny: 'open' })}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        filters.polygyny === 'open' && styles.chipTextSelected
-                      ]}>
-                        Open to Polygyny
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.chipLarge,
-                        filters.polygyny === 'monogamy' && styles.chipSelected
-                      ]}
-                      onPress={() => setFilters({ ...filters, polygyny: 'monogamy' })}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        filters.polygyny === 'monogamy' && styles.chipTextSelected
-                      ]}>
-                        Monogamy Only
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+              )}
 
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>MARITAL STATUS</Text>
@@ -919,18 +855,13 @@ export default function SearchScreen() {
   };
 
   const renderProfileCard = ({ item }: { item: Profile }) => {
-    const hasPolygyny = accountType === 'brother' 
-      ? item.polygyny_acceptance 
-      : item.polygyny_willingness;
-
     const unlockPercentage = item.similarity_score
       ? Math.round(item.similarity_score * 100)
       : 60;
-
     const age = calculateAge(item.date_of_birth);
 
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.profileCard}
         onPress={() => router.push({
           pathname: `/profile/${item.id}`,
@@ -941,7 +872,7 @@ export default function SearchScreen() {
           <Text style={styles.unlockText}>
             Compatibility: {unlockPercentage}%
           </Text>
-          {hasPolygyny && (
+          {item.open_to_polygyny && (
             <View style={styles.polygynyBadge}>
               <Text style={styles.polygynyText}>Polygyny-Open</Text>
             </View>
@@ -959,21 +890,14 @@ export default function SearchScreen() {
               <Text style={styles.ageText}>{age}</Text>
             </View>
           )}
-          <Text style={styles.flag}>{getLocationFlag(item.location)}</Text>
+          <Text style={styles.flag}>{getLocationFlag(item.location_country)}</Text>
         </View>
 
-        {(item.imam_verified || item.references_verified) && (
+        {item.masjid_name && (
           <View style={styles.verificationRow}>
-            {item.imam_verified && item.masjid_name && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
-              </View>
-            )}
-            {item.references_verified && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>✓ Reference Verified</Text>
-              </View>
-            )}
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
+            </View>
           </View>
         )}
 
@@ -985,11 +909,11 @@ export default function SearchScreen() {
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
-            {getLocationFlag(item.location)} {item.location || 'Location not set'}
+            {getLocationFlag(item.location_country)} {item.location_city ? `${item.location_city}, ${item.location_country}` : item.location_country || 'Location not set'}
           </Text>
           {item.ethnicity && (
             <Text style={styles.infoText}>
-              {getEthnicityFlag(item.ethnicity)} {Array.isArray(item.ethnicity) ? item.ethnicity[0] : item.ethnicity}
+              {getEthnicityFlag(item.ethnicity)} {item.ethnicity}
             </Text>
           )}
         </View>
@@ -1009,10 +933,10 @@ export default function SearchScreen() {
             </View>
           )}
           
-          {item.physical_fitness && (
-            <View style={[styles.tag, getPhysicalFitnessColor(item.physical_fitness)]}>
-              <Text style={[styles.tagText, (item.physical_fitness === 'athlete' || item.physical_fitness === 'very_fit') && styles.greenTagText]}>
-                {getPhysicalFitnessLabel(item.physical_fitness)}
+          {item.prayer_consistency && (
+            <View style={[styles.tag, styles.defaultTag]}>
+              <Text style={styles.tagText}>
+                {item.prayer_consistency === '5x_daily' ? '5x a Day' : item.prayer_consistency === 'as_much_as_possible' ? 'Prays Regularly' : item.prayer_consistency}
               </Text>
             </View>
           )}
@@ -1358,15 +1282,6 @@ const styles = StyleSheet.create({
   },
   defaultTag: {
     backgroundColor: '#F8F1DA',
-  },
-  veryFitTag: {
-    backgroundColor: '#EAF5EE',
-  },
-  fitTag: {
-    backgroundColor: '#E7EAF0',
-  },
-  athleteTag: {
-    backgroundColor: '#EAF5EE',
   },
   greenTag: {
     backgroundColor: '#EAF5EE',

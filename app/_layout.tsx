@@ -1,5 +1,6 @@
-// app/_layout.tsx - UPDATED WITH IMAM ROUTING
+// app/_layout.tsx - UPDATED WITH IMAM ROUTING + PAYMENT INIT
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { initializePayments } from '@/lib/paymentService';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -62,12 +63,19 @@ export default function RootLayout() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
+      if (session?.user?.id) {
+        initializePayments(session.user.id);
+      }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setIsImam(null); // Reset imam status when auth changes
+      queryClient.clear(); // Clear stale cache when user changes
+      if (session?.user?.id) {
+        initializePayments(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -203,12 +211,19 @@ export default function RootLayout() {
               animation: 'fade',
             }} 
           />
-          <Stack.Screen 
-            name="(imam)" 
-            options={{ 
+          <Stack.Screen
+            name="(imam)"
+            options={{
               headerShown: false,
               animation: 'fade',
-            }} 
+            }}
+          />
+          <Stack.Screen
+            name="(onboarding)"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+            }}
           />
           <Stack.Screen 
             name="modal" 

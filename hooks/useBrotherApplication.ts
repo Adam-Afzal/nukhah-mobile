@@ -7,23 +7,11 @@ import { Alert } from 'react-native';
 interface BrotherApplicationData {
   first_name: string;
   last_name: string;
+  nationality: string;
   email: string;
   phone_number: string;
-  where_is_allah: string;
-  knowledge_source: string;
-  aqeedah: string;
-  marital_status: string;
-  divorce_reason: string;
-  physical_fitness: string;
-  wives_goal: string;
-  current_location: string;
-  preferred_region: string;
-  annual_income: string;
-  polygyny_justice_knowledge: string;
-  ethnicity: string[],
-  preferred_ethnicity: string[],
   password: string;
-  date_of_birth: string
+  date_of_birth: string;
 }
 
 interface SubmitResponse {
@@ -48,9 +36,9 @@ const submitBrotherApplication = async (
   }
 
   console.log("Making request to submit application...");
-  
+
   const response = await fetch(
-    `${supabaseUrl}/functions/v1/rapid-endpoint`, // Changed from rapid-endpoint
+    `${supabaseUrl}/functions/v1/rapid-endpoint`,
     {
       method: 'POST',
       headers: {
@@ -62,7 +50,7 @@ const submitBrotherApplication = async (
   );
 
   console.log("Response status:", response.status);
-  
+
   // Parse the response body
   const data = await response.json();
   console.log("Response data:", data);
@@ -81,7 +69,7 @@ export const useBrotherApplication = () => {
     mutationFn: submitBrotherApplication,
     onSuccess: (data) => {
       console.log("Mutation success with data:", data);
-      
+
       if (data.message === 'check_email') {
         // User already applied - generic message for security
         Alert.alert(
@@ -98,13 +86,12 @@ export const useBrotherApplication = () => {
         // New application submitted successfully
         Alert.alert(
           'Application Submitted!',
-          'Your application has been submitted for review. You can now log in to check your status.',
+          'Your application has been submitted for review. Please check your email to confirm your account before logging in.',
           [
             {
               text: 'OK',
               onPress: () => {
-                // Navigate to login or auth check
-                router.replace('/login'); // Send them to login!
+                router.replace('/login');
               },
             },
           ]

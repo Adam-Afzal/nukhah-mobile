@@ -20,62 +20,90 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import Svg, { Path } from 'react-native-svg';
 
 type AccountType = 'brother' | 'sister';
-type Section = 'username' | 'basic' | 'personal' | 'physical' | 'deen' | 'family' | 'preferences' | 'questions';
+type Section = 'username' | 'basic' | 'personal' | 'preferences';
 
 interface ProfileData {
-  // Common fields
+  // Identity
   username: string;
   first_name: string;
   last_name: string;
   phone: string;
   slug: string;
-  birth_day: string;
-  birth_month: string;
-  birth_year: string;
+  date_of_birth: string;
+  location_country: string;
+  location_city: string;
+
+  // Basic info
+  build: string;
+  ethnicity: string;
+  occupation: string;
+  marital_status: string;
+
+  // Personal
   children: boolean;
   revert: boolean;
-  marital_status: string;
-  ethnicity: string[]
-  location: string;
   disabilities: string;
-  build: string;
-  physical_fitness: string;
-  deen: string;
+  hobbies_and_interests: string;
   personality: string;
-  lifestyle: string;
-  memorization_quran: string;
-  islamic_education: string;
+
+  // Deen
   prayer_consistency: string;
-  islamic_knowledge_level: string;
-  charity_habits: string;
-  financial_responsibility: string;
-  family_involvement: string;
-  conflict_resolution: string;
-  spouse_criteria: string;
+
+  // Preferences
+  open_to_hijrah: boolean;
+  open_to_reverts: boolean;
+  living_arrangements: string;
+  preferred_ethnicity: string[];
+  other_spouse_criteria: string;
   dealbreakers: string;
-  preferred_ethnicity: string[]
-  
-  // Questions for interested parties
-  question_deen: string;
-  question_lifestyle: string;
-  question_fitness: string;
-  question_marital_life: string;
-  question_children_legacy: string;
-  
-  // Brother-specific
-  beard_commitment?: string;
-  polygyny_willingness?: boolean;
-  
+
   // Sister-specific
+  open_to_polygyny?: boolean;
   hijab_commitment?: string;
-  polygyny_acceptance?: boolean;
-  wali_approval?: boolean;
-  wali_name?: string;
-  wali_relationship?: string;
-  wali_email?: string;
-  wali_phone?: string;
-  wali_preferred_contact?: string;
+  beard_commitment?: string;
 }
+
+const BROTHER_BUILD_OPTIONS = [
+  { label: 'Select build', value: '' },
+  { label: 'Skinny', value: 'skinny' },
+  { label: 'Slim', value: 'slim' },
+  { label: 'Muscular', value: 'muscular' },
+  { label: 'Bulky', value: 'bulky' },
+  { label: 'Heavyset', value: 'heavyset' },
+];
+
+const SISTER_BUILD_OPTIONS = [
+  { label: 'Select build', value: '' },
+  { label: 'Skinny', value: 'skinny' },
+  { label: 'Slim', value: 'slim' },
+  { label: 'Hourglass', value: 'hourglass' },
+  { label: 'Curvy', value: 'curvy' },
+  { label: 'Heavyset', value: 'heavyset' },
+];
+
+const BROTHER_MARITAL_OPTIONS = [
+  { label: 'Select status', value: '' },
+  { label: 'Never Married', value: 'never_married' },
+  { label: 'Married', value: 'married' },
+  { label: 'Divorced', value: 'divorced' },
+  { label: 'Widowed', value: 'widowed' },
+  { label: 'Annulled', value: 'annulled' },
+];
+
+const SISTER_MARITAL_OPTIONS = [
+  { label: 'Select status', value: '' },
+  { label: 'Never Married', value: 'never_married' },
+  { label: 'Divorced', value: 'divorced' },
+  { label: 'Widowed', value: 'widowed' },
+  { label: 'Annulled', value: 'annulled' },
+];
+
+const HIJAB_COMMITMENT_OPTIONS = [
+  { label: 'Select hijab commitment', value: '' },
+  { label: 'Niqab', value: 'niqab' },
+  { label: 'Hijab', value: 'hijab' },
+  { label: 'Open Hair', value: 'open_hair' },
+];
 
 export default function ProfileSetup() {
   const router = useRouter();
@@ -86,50 +114,10 @@ export default function ProfileSetup() {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameError, setUsernameError] = useState('');
+  const [ethnicityPickerVisible, setEthnicityPickerVisible] = useState(false);
+  const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
-const [ethnicityPickerVisible, setEthnicityPickerVisible] = useState(false);
-const [isLoggingOut, setIsLoggingOut] = useState(false);
-const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
-const [errors, setErrors] = useState<Record<string, string>>({});
-
-const handleLogout = async () => {
-  Alert.alert(
-    'Log Out',
-    'Are you sure you want to log out?',
-    [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setIsLoggingOut(true);
-            await supabase.auth.signOut();
-            router.replace('/welcome');
-          } catch (error) {
-            console.error('Error logging out:', error);
-            Alert.alert('Error', 'Failed to log out. Please try again.');
-          } finally {
-            setIsLoggingOut(false);
-          }
-        },
-      },
-    ],
-  );
-};
-
-
-const locationItems = COUNTRIES.flatMap(country => 
-    country.majorCities.map(city => ({
-      label: `${city}, ${country.name}`,
-      value: `${city}, ${country.name}`,
-      flag: country.flag,
-      subtitle: country.name,
-    }))
-  );
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const ethnicityItems = ETHNICITIES.map(eth => ({
     label: eth.name,
@@ -137,74 +125,73 @@ const locationItems = COUNTRIES.flatMap(country =>
     flag: eth.flag,
     subtitle: eth.description,
   }));
-  
+
+  const locationItems = COUNTRIES.flatMap(country =>
+    country.majorCities.map(city => ({
+      label: `${city}, ${country.name}`,
+      value: `${city}|${country.name}`,
+      flag: country.flag,
+      subtitle: country.name,
+    }))
+  );
+
   const [profileData, setProfileData] = useState<ProfileData>({
     username: '',
     first_name: '',
     last_name: '',
     phone: '',
     slug: '',
-    birth_day: '',
-    birth_month: '',
-    birth_year: '',
+    date_of_birth: '',
+    location_country: '',
+    location_city: '',
+    build: '',
+    ethnicity: '',
+    occupation: '',
+    marital_status: '',
     children: false,
     revert: false,
-    marital_status:'',
-    ethnicity: [],
-    location: '',
     disabilities: '',
-    build: '',
-    physical_fitness: '',
-    deen: '',
+    hobbies_and_interests: '',
     personality: '',
-    lifestyle: '',
-    memorization_quran: '',
-    islamic_education: '',
     prayer_consistency: '',
-    islamic_knowledge_level: '',
-    charity_habits: '',
-    financial_responsibility: '',
-    family_involvement: '',
-    conflict_resolution: '',
-    spouse_criteria: '',
-    dealbreakers: '',
+    open_to_hijrah: false,
+    open_to_reverts: true,
+    living_arrangements: '',
     preferred_ethnicity: [],
-    question_deen: '',
-    question_lifestyle: '',
-    question_fitness: '',
-    question_marital_life: '',
-    question_children_legacy: ''
-
+    other_spouse_criteria: '',
+    dealbreakers: '',
+    open_to_polygyny: false,
+    hijab_commitment: '',
+    beard_commitment: '',
   });
 
-  // Calculate age from date of birth
-  const calculateAge = (day: string, month: string, year: string) => {
-    if (!day || !month || !year) return null;
-    
-    const birthDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  // Format date for display
-  const formatDate = (day: string, month: string, year: string) => {
-    if (!day || !month || !year) return '';
-    
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    return date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsLoggingOut(true);
+              await supabase.auth.signOut();
+              router.replace('/welcome');
+            } catch (error) {
+              console.error('Error logging out:', error);
+              Alert.alert('Error', 'Failed to log out. Please try again.');
+            } finally {
+              setIsLoggingOut(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   useEffect(() => {
-    console.log("loading account type!")
     loadAccountType();
   }, []);
 
@@ -218,98 +205,52 @@ const locationItems = COUNTRIES.flatMap(country =>
       }
 
       // Check brother application
-      const { data: brotherApp } = await supabase
+      const { data: brotherApp, error: brotherError } = await supabase
         .from('brother_application')
-        .select('first_name, last_name, phone_number, current_location, marital_status, ethnicity, preferred_ethnicity, date_of_birth')
+        .select('first_name, last_name, phone_number, nationality, date_of_birth')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-        if (brotherApp) {
-            console.log("account type is brother!")
-            console.log("Marital status from DB:", brotherApp.marital_status)
-            
-            setAccountType('brother');
-            
-            const validMaritalStatuses = ['never_married', 'divorced', 'widowed', 'married'];
-            const maritalStatus = validMaritalStatuses.includes(brotherApp.marital_status) 
-              ? brotherApp.marital_status 
-              : '';
-            
-            // Parse date_of_birth if available
-            let birthDay = '';
-            let birthMonth = '';
-            let birthYear = '';
-            
-            if (brotherApp.date_of_birth) {
-              const date = new Date(brotherApp.date_of_birth);
-              birthDay = date.getDate().toString().padStart(2, '0');
-              birthMonth = (date.getMonth() + 1).toString().padStart(2, '0');
-              birthYear = date.getFullYear().toString();
-            }
-            
-            setProfileData(prev => ({
-              ...prev,
-              first_name: brotherApp.first_name || '',
-              last_name: brotherApp.last_name || '',
-              phone: brotherApp.phone_number || '',
-              location: brotherApp.current_location || '',
-              birth_day: birthDay,
-              birth_month: birthMonth,
-              birth_year: birthYear,
-              polygyny_willingness: false,
-              marital_status: maritalStatus,
-              ethnicity: brotherApp.ethnicity,
-              preferred_ethnicity: brotherApp.preferred_ethnicity
-            }));
-            
-            setIsLoading(false);
-            return;
-          }
+      if (brotherError) {
+        console.error('Error fetching brother application:', brotherError);
+      }
 
-      // Check sister application
-      const { data: sisterApp } = await supabase
-        .from('sister_application')
-        .select('first_name, last_name, phone_number, current_location, marital_status, ethnicity, preferred_ethnicity, date_of_birth')
-        .eq('user_id', user.id)
-        .single();
-
-      if (sisterApp) {
-        console.log("sister app found on profile setup")
-        setAccountType('sister');
-        console.log(`ethnicity: ${sisterApp.ethnicity}`)
-        
-        // Parse date_of_birth if available
-        let birthDay = '';
-        let birthMonth = '';
-        let birthYear = '';
-        
-        if (sisterApp.date_of_birth) {
-          const date = new Date(sisterApp.date_of_birth);
-          birthDay = date.getDate().toString().padStart(2, '0');
-          birthMonth = (date.getMonth() + 1).toString().padStart(2, '0');
-          birthYear = date.getFullYear().toString();
-        }
-        
+      if (brotherApp) {
+        setAccountType('brother');
         setProfileData(prev => ({
           ...prev,
-          first_name: sisterApp.first_name || '',
-          last_name: sisterApp.last_name || '',
-          phone: sisterApp.phone_number || '',
-          location: sisterApp.current_location || '',
-          birth_day: birthDay,
-          birth_month: birthMonth,
-          birth_year: birthYear,
-          polygyny_acceptance: false,
-          wali_approval: true,
-          marital_status: sisterApp.marital_status || ``,
-          ethnicity: sisterApp.ethnicity,
-          preferred_ethnicity: sisterApp.preferred_ethnicity
+          first_name: brotherApp.first_name || '',
+          last_name: brotherApp.last_name || '',
+          phone: brotherApp.phone_number || '',
+          date_of_birth: brotherApp.date_of_birth || '',
         }));
         setIsLoading(false);
         return;
       }
 
-      console.log("no application found!")
+      // Check sister application
+      const { data: sisterApp, error: sisterError } = await supabase
+        .from('sister_application')
+        .select('first_name, last_name, phone_number, nationality, date_of_birth')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (sisterError) {
+        console.error('Error fetching sister application:', sisterError);
+      }
+
+      if (sisterApp) {
+        setAccountType('sister');
+        setProfileData(prev => ({
+          ...prev,
+          first_name: sisterApp.first_name || '',
+          last_name: sisterApp.last_name || '',
+          phone: sisterApp.phone_number || '',
+          date_of_birth: sisterApp.date_of_birth || '',
+        }));
+        setIsLoading(false);
+        return;
+      }
 
       Alert.alert('Error', 'No application found');
       router.replace('/welcome');
@@ -344,7 +285,7 @@ const locationItems = COUNTRIES.flatMap(country =>
       ]);
 
       const exists = brotherCheck.data || sisterCheck.data;
-      
+
       if (exists) {
         setUsernameAvailable(false);
         setUsernameError('Username already taken');
@@ -381,10 +322,10 @@ const locationItems = COUNTRIES.flatMap(country =>
       return;
     }
 
-    if (currentSection === 'questions') {
+    if (currentSection === 'preferences') {
       await handleFinalSave();
     } else {
-      const sections: Section[] = ['username', 'basic', 'personal', 'physical', 'deen', 'family', 'preferences', 'questions'];
+      const sections: Section[] = ['username', 'basic', 'personal', 'preferences'];
       const currentIndex = sections.indexOf(currentSection);
       if (currentIndex < sections.length - 1) {
         setCurrentSection(sections[currentIndex + 1]);
@@ -393,11 +334,20 @@ const locationItems = COUNTRIES.flatMap(country =>
   };
 
   const validateSection = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    let isValid = true;
-    
     switch (currentSection) {
       case 'username':
+        if (!profileData.first_name.trim()) {
+          Alert.alert('Missing Information', 'Please enter your first name');
+          return false;
+        }
+        if (!profileData.last_name.trim()) {
+          Alert.alert('Missing Information', 'Please enter your last name');
+          return false;
+        }
+        if (!profileData.location_country) {
+          Alert.alert('Missing Information', 'Please select your location');
+          return false;
+        }
         if (!profileData.username) {
           Alert.alert('Missing Information', 'Please choose a username');
           return false;
@@ -408,120 +358,39 @@ const locationItems = COUNTRIES.flatMap(country =>
         }
         break;
       case 'basic':
-        if (!profileData.first_name || !profileData.last_name || !profileData.phone) {
-          Alert.alert('Missing Information', 'Please fill in all required fields');
+        if (!profileData.build) {
+          Alert.alert('Missing Information', 'Please select your build');
           return false;
         }
-        
-        // Date of birth validation
-        if (!profileData.birth_day.trim()) {
-          newErrors.birth_day = 'Required';
-        } else if (parseInt(profileData.birth_day) < 1 || parseInt(profileData.birth_day) > 31) {
-          newErrors.birth_day = 'Invalid day';
+        if (!profileData.ethnicity) {
+          Alert.alert('Missing Information', 'Please select your ethnicity');
+          return false;
         }
-        
-        if (!profileData.birth_month.trim()) {
-          newErrors.birth_month = 'Required';
-        } else if (parseInt(profileData.birth_month) < 1 || parseInt(profileData.birth_month) > 12) {
-          newErrors.birth_month = 'Invalid month';
+        if (!profileData.marital_status) {
+          Alert.alert('Missing Information', 'Please select your marital status');
+          return false;
         }
-        
-        if (!profileData.birth_year.trim()) {
-          newErrors.birth_year = 'Required';
-        } else if (parseInt(profileData.birth_year) < 1924 || parseInt(profileData.birth_year) > new Date().getFullYear()) {
-          newErrors.birth_year = 'Invalid year';
+        if (!profileData.prayer_consistency) {
+          Alert.alert('Missing Information', 'Please select your prayer consistency');
+          return false;
         }
-        
-        // Validate age if all fields are filled
-        if (profileData.birth_day && profileData.birth_month && profileData.birth_year && 
-            !newErrors.birth_day && !newErrors.birth_month && !newErrors.birth_year) {
-          const age = calculateAge(profileData.birth_day, profileData.birth_month, profileData.birth_year);
-          if (age !== null && age < 18) {
-            newErrors.birth_year = 'You must be at least 18 years old';
-          } else if (age !== null && age > 100) {
-            newErrors.birth_year = 'Please enter a valid date of birth';
-          }
+        if (accountType === 'brother' && !profileData.beard_commitment) {
+          Alert.alert('Missing Information', 'Please select your beard commitment');
+          return false;
         }
-        
-        if (Object.keys(newErrors).length > 0) {
-          setErrors(newErrors);
-          Alert.alert('Invalid Date', 'Please enter a valid date of birth');
+        if (accountType === 'sister' && !profileData.hijab_commitment) {
+          Alert.alert('Missing Information', 'Please select your hijab commitment');
           return false;
         }
         break;
       case 'personal':
-        if (!profileData.marital_status || !profileData.location) {
-          Alert.alert('Missing Information', 'Please fill in all required fields');
+        if (!profileData.personality.trim()) {
+          Alert.alert('Missing Information', 'Please describe your personality');
           return false;
         }
         break;
-      case 'physical':
-        if (!profileData.build || !profileData.physical_fitness) {
-          Alert.alert('Missing Information', 'Please select your build and physical fitness level');
-          return false;
-        }
-        break;
-      case 'family':
-        if (accountType === 'sister') {
-          if (!profileData.wali_name || profileData.wali_name.trim() === '') {
-            newErrors.wali_name = 'Wali name is required';
-            isValid = false;
-          }
-          
-          if (!profileData.wali_relationship) {
-            newErrors.wali_relationship = 'Wali relationship is required';
-            isValid = false;
-          }
-          
-          if (!profileData.wali_phone || profileData.wali_phone.trim() === '') {
-            newErrors.wali_phone = 'Wali phone number is required';
-            isValid = false;
-          } else if (!/^\+?[\d\s()-]+$/.test(profileData.wali_phone)) {
-            newErrors.wali_phone = 'Please enter a valid phone number';
-            isValid = false;
-          }
-          
-          if (!profileData.wali_email || profileData.wali_email.trim() === '') {
-            newErrors.wali_email = 'Wali email is required';
-            isValid = false;
-          } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileData.wali_email)) {
-            newErrors.wali_email = 'Please enter a valid email address';
-            isValid = false;
-          }
-          
-          if (!profileData.wali_preferred_contact) {
-            newErrors.wali_preferred_contact = 'Preferred contact method is required';
-            isValid = false;
-          }
-
-          if (!isValid) {
-            setErrors(newErrors);
-            Alert.alert('Missing Wali Information', 'Please fill in all wali contact details');
-            return false;
-          }
-        }
-        break;
-      case 'questions':
-        if (!profileData.question_deen.trim()) {
-          Alert.alert('Missing Information', 'Please provide a question about Deen');
-          return false;
-        }
-        if (!profileData.question_lifestyle.trim()) {
-          Alert.alert('Missing Information', 'Please provide a question about Lifestyle');
-          return false;
-        }
-        if (!profileData.question_fitness.trim()) {
-          Alert.alert('Missing Information', 'Please provide a question about Fitness');
-          return false;
-        }
-        if (!profileData.question_marital_life.trim()) {
-          Alert.alert('Missing Information', 'Please provide a question about Marital Life');
-          return false;
-        }
-        if (!profileData.question_children_legacy.trim()) {
-          Alert.alert('Missing Information', 'Please provide a question about Children & Legacy');
-          return false;
-        }
+      case 'preferences':
+        // No required fields in preferences
         break;
     }
     return true;
@@ -538,9 +407,6 @@ const locationItems = COUNTRIES.flatMap(country =>
 
       const slug = profileData.slug || generateSlug(profileData.first_name, profileData.last_name);
 
-      // Format date as YYYY-MM-DD for database
-      const date_of_birth = `${profileData.birth_year}-${profileData.birth_month.padStart(2, '0')}-${profileData.birth_day.padStart(2, '0')}`;
-
       const baseProfile = {
         user_id: user.id,
         username: profileData.username,
@@ -548,61 +414,72 @@ const locationItems = COUNTRIES.flatMap(country =>
         first_name: profileData.first_name,
         last_name: profileData.last_name,
         phone: profileData.phone,
-        date_of_birth,
+        date_of_birth: profileData.date_of_birth || null,
+        location_country: profileData.location_country,
+        location_city: profileData.location_city,
+        build: profileData.build,
+        ethnicity: profileData.ethnicity,
+        occupation: profileData.occupation,
+        marital_status: profileData.marital_status,
         children: profileData.children,
         revert: profileData.revert,
-        marital_status: profileData.marital_status,
-        ethnicity: profileData.ethnicity,
-        location: profileData.location,
         disabilities: profileData.disabilities,
-        build: profileData.build,
-        physical_fitness: profileData.physical_fitness,
-        deen: profileData.deen,
+        hobbies_and_interests: profileData.hobbies_and_interests,
         personality: profileData.personality,
-        lifestyle: profileData.lifestyle,
-        memorization_quran: profileData.memorization_quran,
-        islamic_education: profileData.islamic_education,
         prayer_consistency: profileData.prayer_consistency,
-        islamic_knowledge_level: profileData.islamic_knowledge_level,
-        charity_habits: profileData.charity_habits,
-        financial_responsibility: profileData.financial_responsibility,
-        family_involvement: profileData.family_involvement,
-        conflict_resolution: profileData.conflict_resolution,
-        spouse_criteria: profileData.spouse_criteria,
+        open_to_hijrah: profileData.open_to_hijrah,
+        open_to_reverts: profileData.open_to_reverts,
+        living_arrangements: profileData.living_arrangements,
+        preferred_ethnicity: profileData.preferred_ethnicity,
+        other_spouse_criteria: profileData.other_spouse_criteria,
         dealbreakers: profileData.dealbreakers,
-        question_deen: profileData.question_deen,
-        question_lifestyle: profileData.question_lifestyle,
-        question_fitness: profileData.question_fitness,
-        question_marital_life: profileData.question_marital_life,
-        question_children_legacy: profileData.question_children_legacy,
+      };
+
+      const embeddingData = {
+        personality: profileData.personality,
+        hobbies_and_interests: profileData.hobbies_and_interests,
+        location_country: profileData.location_country,
+        location_city: profileData.location_city,
+        ethnicity: profileData.ethnicity,
+        preferred_ethnicity: profileData.preferred_ethnicity,
+        marital_status: profileData.marital_status,
+        children: profileData.children,
+        revert: profileData.revert,
+        open_to_hijrah: profileData.open_to_hijrah,
+        open_to_reverts: profileData.open_to_reverts,
+        living_arrangements: profileData.living_arrangements,
+        other_spouse_criteria: profileData.other_spouse_criteria,
+        dealbreakers: profileData.dealbreakers,
+        date_of_birth: profileData.date_of_birth,
+        build: profileData.build,
+        prayer_consistency: profileData.prayer_consistency,
       };
 
       if (accountType === 'brother') {
-        const { data, error } = await supabase.from('brother').insert({
+        const brotherProfile = {
           ...baseProfile,
           beard_commitment: profileData.beard_commitment,
-          polygyny_willingness: profileData.polygyny_willingness,
-        }).select('id').single();
-
+        };
+        const { data, error } = await supabase.from('brother').insert(brotherProfile).select('id').single();
         if (error) throw error;
-
-        await updateBrotherEmbedding(data.id, profileData);
+        await updateBrotherEmbedding(data.id, {
+          ...embeddingData,
+          beard_commitment: profileData.beard_commitment,
+        });
       } else if (accountType === 'sister') {
-        const { data, error } = await supabase.from('sister').insert({
+        const sisterProfile = {
           ...baseProfile,
+          open_to_polygyny: profileData.open_to_polygyny,
           hijab_commitment: profileData.hijab_commitment,
-          polygyny_acceptance: profileData.polygyny_acceptance,
-          wali_approval: profileData.wali_approval,
-          wali_name: profileData.wali_name,
-          wali_relationship: profileData.wali_relationship,
-          wali_email: profileData.wali_email,
-          wali_phone: profileData.wali_phone,
-          wali_preferred_contact: profileData.wali_preferred_contact,
-        }).select('id').single();
-
+        };
+        console.log('Sister profile insert payload:', JSON.stringify(sisterProfile, null, 2));
+        const { data, error } = await supabase.from('sister').insert(sisterProfile).select('id').single();
         if (error) throw error;
-
-        await updateSisterEmbedding(data.id, profileData);
+        await updateSisterEmbedding(data.id, {
+          ...embeddingData,
+          open_to_polygyny: profileData.open_to_polygyny,
+          hijab_commitment: profileData.hijab_commitment,
+        });
       }
 
       Alert.alert(
@@ -620,14 +497,10 @@ const locationItems = COUNTRIES.flatMap(country =>
 
   const updateField = (field: keyof ProfileData, value: any) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
-    // Clear error when field is updated
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
   };
 
   const renderProgressBar = () => {
-    const sections: Section[] = ['username', 'basic', 'personal', 'physical', 'deen', 'family', 'preferences', 'questions'];
+    const sections: Section[] = ['username', 'basic', 'personal', 'preferences'];
     const currentIndex = sections.indexOf(currentSection);
     const progress = ((currentIndex + 1) / sections.length) * 100;
 
@@ -643,11 +516,91 @@ const locationItems = COUNTRIES.flatMap(country =>
     );
   };
 
+  const handleLocationSelect = (value: string) => {
+    const [city, country] = value.split('|');
+    setProfileData(prev => ({
+      ...prev,
+      location_city: city,
+      location_country: country,
+    }));
+  };
+
+  const getLocationDisplayValue = () => {
+    if (profileData.location_city && profileData.location_country) {
+      return `${profileData.location_city}|${profileData.location_country}`;
+    }
+    return '';
+  };
+
+  const getLocationDisplayText = () => {
+    if (profileData.location_city && profileData.location_country) {
+      const country = COUNTRIES.find(c => c.name === profileData.location_country);
+      return `${country?.flag || ''} ${profileData.location_city}, ${profileData.location_country}`;
+    }
+    return '';
+  };
+
   const renderUsernameSection = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Choose Your Username</Text>
-      <Text style={styles.sectionSubtitle}>This will be your unique identifier</Text>
-  
+      <Text style={styles.sectionTitle}>Your Identity</Text>
+      <Text style={styles.sectionSubtitle}>Let's start with your basic information</Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>First Name *</Text>
+        <TextInput
+          style={styles.input}
+          value={profileData.first_name}
+          onChangeText={(text) => updateField('first_name', text)}
+          placeholder="Enter your first name"
+          placeholderTextColor="#7B8799"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Last Name *</Text>
+        <TextInput
+          style={styles.input}
+          value={profileData.last_name}
+          onChangeText={(text) => updateField('last_name', text)}
+          placeholder="Enter your last name"
+          placeholderTextColor="#7B8799"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Date of Birth</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: '#F0F0F0', color: '#7B8799' }]}
+          value={profileData.date_of_birth}
+          editable={false}
+          placeholder="Set during application"
+          placeholderTextColor="#7B8799"
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Location *</Text>
+        <TouchableOpacity
+          style={styles.pickerTrigger}
+          onPress={() => setLocationPickerVisible(true)}
+        >
+          <Text style={profileData.location_country ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+            {getLocationDisplayText() || 'Select your location'}
+          </Text>
+          <Text style={styles.pickerArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <SearchablePicker
+        visible={locationPickerVisible}
+        onClose={() => setLocationPickerVisible(false)}
+        onSelect={handleLocationSelect}
+        items={locationItems}
+        title="Select Location"
+        placeholder="Search city or country..."
+        selectedValue={getLocationDisplayValue()}
+      />
+
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Username *</Text>
         <View style={styles.usernameInputContainer}>
@@ -674,18 +627,13 @@ const locationItems = COUNTRIES.flatMap(country =>
             <Text style={styles.usernameX}>✗</Text>
           )}
         </View>
-        {usernameError && (
-          <Text style={styles.errorText}>{usernameError}</Text>
-        )}
-        {usernameAvailable === true && (
-          <Text style={styles.successText}>Username is available!</Text>
-        )}
+        {usernameError && <Text style={styles.errorText}>{usernameError}</Text>}
+        {usernameAvailable === true && <Text style={styles.successText}>Username is available!</Text>}
         <Text style={styles.helperText}>
           3+ characters, letters, numbers, hyphens, and underscores only
         </Text>
       </View>
-  
-      {/* Logout Button */}
+
       <TouchableOpacity
         style={styles.logoutButton}
         onPress={handleLogout}
@@ -709,253 +657,14 @@ const locationItems = COUNTRIES.flatMap(country =>
     </View>
   );
 
-  const renderBasicSection = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Basic Information</Text>
-      <Text style={styles.sectionSubtitle}>Confirm your details</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>First Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={profileData.first_name}
-          onChangeText={(text) => updateField('first_name', text)}
-          placeholder="Enter your first name"
-          placeholderTextColor="#7B8799"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Last Name *</Text>
-        <TextInput
-          style={styles.input}
-          value={profileData.last_name}
-          onChangeText={(text) => updateField('last_name', text)}
-          placeholder="Enter your last name"
-          placeholderTextColor="#7B8799"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Phone Number *</Text>
-        <TextInput
-          style={styles.input}
-          value={profileData.phone}
-          onChangeText={(text) => updateField('phone', text)}
-          placeholder="+1234567890"
-          placeholderTextColor="#7B8799"
-          keyboardType="phone-pad"
-        />
-      </View>
-
-      {/* Date of Birth - Three Input Fields */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Date of Birth *</Text>
-        <Text style={styles.hint}>You must be at least 18 years old</Text>
-        <View style={styles.dateInputRow}>
-          <View style={styles.dateInputWrapper}>
-            <TextInput
-              style={[styles.dateInput, errors.birth_day && styles.inputError]}
-              placeholder="DD"
-              placeholderTextColor="#7B8799"
-              value={profileData.birth_day}
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '').slice(0, 2);
-                setProfileData({ ...profileData, birth_day: cleaned });
-                if (errors.birth_day) setErrors({ ...errors, birth_day: '' });
-              }}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            {errors.birth_day && <Text style={styles.errorTextSmall}>{errors.birth_day}</Text>}
-          </View>
-          
-          <View style={styles.dateInputWrapper}>
-            <TextInput
-              style={[styles.dateInput, errors.birth_month && styles.inputError]}
-              placeholder="MM"
-              placeholderTextColor="#7B8799"
-              value={profileData.birth_month}
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '').slice(0, 2);
-                setProfileData({ ...profileData, birth_month: cleaned });
-                if (errors.birth_month) setErrors({ ...errors, birth_month: '' });
-              }}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            {errors.birth_month && <Text style={styles.errorTextSmall}>{errors.birth_month}</Text>}
-          </View>
-          
-          <View style={styles.dateInputWrapper}>
-            <TextInput
-              style={[styles.dateInput, errors.birth_year && styles.inputError]}
-              placeholder="YYYY"
-              placeholderTextColor="#7B8799"
-              value={profileData.birth_year}
-              onChangeText={(text) => {
-                const cleaned = text.replace(/[^0-9]/g, '').slice(0, 4);
-                setProfileData({ ...profileData, birth_year: cleaned });
-                if (errors.birth_year) setErrors({ ...errors, birth_year: '' });
-              }}
-              keyboardType="number-pad"
-              maxLength={4}
-            />
-            {errors.birth_year && <Text style={styles.errorTextSmall}>{errors.birth_year}</Text>}
-          </View>
-        </View>
-        {profileData.birth_day && profileData.birth_month && profileData.birth_year && 
-         !errors.birth_day && !errors.birth_month && !errors.birth_year && (
-          <Text style={styles.ageDisplay}>
-            {formatDate(profileData.birth_day, profileData.birth_month, profileData.birth_year)} 
-            ({calculateAge(profileData.birth_day, profileData.birth_month, profileData.birth_year)} years old)
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.inputGroup}>
-  <Text style={styles.label}>Location *</Text>
-  <TouchableOpacity
-    style={styles.pickerTrigger}
-    onPress={() => setLocationPickerVisible(true)}
-  >
-    <Text style={profileData.location ? styles.pickerTriggerText : styles.pickerPlaceholder}>
-      {profileData.location || 'Select your location'}
-    </Text>
-    <Text style={styles.pickerArrow}>›</Text>
-  </TouchableOpacity>
-</View>
-
-<View style={styles.inputGroup}>
-  <Text style={styles.label}>Ethnicity</Text>
-  <TouchableOpacity
-    style={styles.pickerTrigger}
-    onPress={() => setEthnicityPickerVisible(true)}
-  >
-    <Text style={profileData.ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
-      {profileData.ethnicity.length > 0 ? profileData.ethnicity[0] : 'Select your ethnicity'}
-    </Text>
-    <Text style={styles.pickerArrow}>›</Text>
-  </TouchableOpacity>
-</View>
-
- {/* Location Picker Modal */}
- <SearchablePicker
-     visible={locationPickerVisible}
-     onClose={() => setLocationPickerVisible(false)}
-     onSelect={(value) => updateField('location', value)}
-     items={locationItems}
-     title="Select Location"
-     placeholder="Search city or country..."
-     selectedValue={profileData.location}
-   />
- 
-   {/* Ethnicity Picker Modal */}
-<SearchablePicker
-  visible={ethnicityPickerVisible}
-  onClose={() => setEthnicityPickerVisible(false)}
-  onSelect={(value) => updateField('ethnicity', [value])} // Wrap in array
-  items={ethnicityItems}
-  title="Select Ethnicity"
-  placeholder="Search ethnicity..."
-  selectedValue={Array.isArray(profileData.ethnicity) ? profileData.ethnicity[0] : profileData.ethnicity} // Show first item if array
-/>
-    </View>
-
-    
-  );
-
-  const renderPersonalSection = () => {
-    if (!accountType) {
-      return (
-        <View style={styles.section}>
-          <ActivityIndicator size="large" color="#F2CC66" />
-        </View>
-      );
-    }
+  const renderBasicSection = () => {
+    const buildOptions = accountType === 'brother' ? BROTHER_BUILD_OPTIONS : SISTER_BUILD_OPTIONS;
+    const maritalOptions = accountType === 'brother' ? BROTHER_MARITAL_OPTIONS : SISTER_MARITAL_OPTIONS;
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Personal Details</Text>
-        <Text style={styles.sectionSubtitle}>Tell us more about yourself</Text>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Marital Status *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={profileData.marital_status}
-              onValueChange={(value) => updateField('marital_status', value)}
-              itemStyle={{
-                height: 150,
-                fontSize: 16,
-                color: '#070A12',
-              }}
-            >
-              <Picker.Item label="Select status" value="" />
-              <Picker.Item label="Never Married" value="never_married" />
-              <Picker.Item label="Divorced" value="divorced" />
-              <Picker.Item label="Widowed" value="widowed" />
-              {accountType === 'brother' && (
-                <Picker.Item label="Married (seeking polygyny)" value="married" />
-              )}
-            </Picker>
-          </View>
-        </View>
-
-        <View style={styles.switchGroup}>
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Do you have children?</Text>
-            <Switch
-              value={profileData.children}
-              onValueChange={(value) => updateField('children', value)}
-              trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-              thumbColor={profileData.children ? '#070A12' : '#7B8799'}
-            />
-          </View>
-        </View>
-
-        <View style={styles.switchGroup}>
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Are you a revert?</Text>
-            <Switch
-              value={profileData.revert}
-              onValueChange={(value) => updateField('revert', value)}
-              trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-              thumbColor={profileData.revert ? '#070A12' : '#7B8799'}
-            />
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Disabilities (if any)</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={profileData.disabilities}
-            onChangeText={(text) => updateField('disabilities', text)}
-            placeholder="Any physical or health conditions to mention"
-            placeholderTextColor="#7B8799"
-            multiline
-            numberOfLines={3}
-          />
-        </View>
-      </View>
-    );
-  };
-
-  const renderPhysicalSection = () => {
-    console.log(`inside physical section: ${accountType}`)
-    if (!accountType) {
-      return (
-        <View style={styles.section}>
-          <ActivityIndicator size="large" color="#F2CC66" />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Physical Attributes</Text>
-        <Text style={styles.sectionSubtitle}>Describe your physical characteristics</Text>
+        <Text style={styles.sectionTitle}>Basic Information</Text>
+        <Text style={styles.sectionSubtitle}>Tell us about yourself</Text>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Build *</Text>
@@ -963,171 +672,154 @@ const locationItems = COUNTRIES.flatMap(country =>
             <Picker
               selectedValue={profileData.build}
               onValueChange={(value) => updateField('build', value)}
-              itemStyle={{
-                height: 150,
-                fontSize: 16,
-                color: '#070A12',
-              }}
+              itemStyle={styles.pickerItem}
             >
-              <Picker.Item label="Select build" value="" />
-              {accountType === 'sister' && <Picker.Item label="Athletic" value="athletic" />}
-{accountType === 'sister' && <Picker.Item label="Curvaceous" value="curvaceous" />}
-{accountType === 'sister' && <Picker.Item label="Curvy Athletic" value="curvy_athletic" />}
-{accountType === 'sister' && <Picker.Item label="Hourglass" value="hourglass" />}
-{accountType === 'sister' && <Picker.Item label="Heavyset" value="heavyset" />}
-{accountType === 'sister' && <Picker.Item label="Average" value="average" />}
-{accountType === 'brother' && <Picker.Item label="Lean" value="lean" />}
-{accountType === 'brother' && <Picker.Item label="Muscular" value="muscular" />}
-{accountType === 'brother' && <Picker.Item label="Bulky" value="bulky" />}
-{accountType === 'brother' && <Picker.Item label="Heavyset" value="heavyset" />}
-{accountType === 'brother' && <Picker.Item label="Average" value="average" />}
+              {buildOptions.map((option) => (
+                <Picker.Item key={option.value} label={option.label} value={option.value} />
+              ))}
             </Picker>
           </View>
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Physical Fitness *</Text>
+          <Text style={styles.label}>Ethnicity *</Text>
+          <TouchableOpacity
+            style={styles.pickerTrigger}
+            onPress={() => setEthnicityPickerVisible(true)}
+          >
+            <Text style={profileData.ethnicity ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+              {profileData.ethnicity || 'Select your ethnicity'}
+            </Text>
+            <Text style={styles.pickerArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        <SearchablePicker
+          visible={ethnicityPickerVisible}
+          onClose={() => setEthnicityPickerVisible(false)}
+          onSelect={(value) => updateField('ethnicity', value)}
+          items={ethnicityItems}
+          title="Select Ethnicity"
+          placeholder="Search ethnicity..."
+          selectedValue={profileData.ethnicity}
+        />
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Occupation</Text>
+          <TextInput
+            style={styles.input}
+            value={profileData.occupation}
+            onChangeText={(text) => updateField('occupation', text)}
+            placeholder="e.g., Software Engineer, Student, Unemployed"
+            placeholderTextColor="#7B8799"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Marital Status *</Text>
           <View style={styles.pickerContainer}>
             <Picker
-              selectedValue={profileData.physical_fitness}
-              onValueChange={(value) => updateField('physical_fitness', value)}
-              itemStyle={{
-                height: 150,
-                fontSize: 16,
-                color: '#070A12',
-              }}
+              selectedValue={profileData.marital_status}
+              onValueChange={(value) => updateField('marital_status', value)}
+              itemStyle={styles.pickerItem}
             >
-              <Picker.Item label="Select fitness level" value="" />
-              <Picker.Item label="Athlete - Trains regularly, high physical performance" value="athlete" />
-              <Picker.Item label="Very Fit - Consistent workouts, strong conditioning" value="very_fit" />
-              <Picker.Item label="Fit - Exercises several times a week" value="fit" />
-              <Picker.Item label="Moderately Fit - Some exercise, balanced" value="moderately_fit" />
-              <Picker.Item label="Light Exercise - Occasional activity" value="light_exercise" />
+              {maritalOptions.map((option) => (
+                <Picker.Item key={option.value} label={option.label} value={option.value} />
+              ))}
             </Picker>
           </View>
         </View>
+
+        {accountType === 'brother' && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Beard Commitment *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={profileData.beard_commitment}
+                onValueChange={(value) => updateField('beard_commitment', value)}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="Select beard commitment" value="" />
+                <Picker.Item label="Full Sunnah Beard" value="full_sunnah_beard" />
+                <Picker.Item label="Trimmed Beard" value="trimmed_beard" />
+                <Picker.Item label="Clean Shaven" value="clean_shaven" />
+              </Picker>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Prayer Consistency *</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={profileData.prayer_consistency}
+              onValueChange={(value) => updateField('prayer_consistency', value)}
+              itemStyle={styles.pickerItem}
+            >
+              <Picker.Item label="Select prayer consistency" value="" />
+              <Picker.Item label="5x a Day" value="5x_daily" />
+              <Picker.Item label="As Much as Possible" value="as_much_as_possible" />
+              <Picker.Item label="Never" value="never" />
+            </Picker>
+          </View>
+        </View>
+
+        {accountType === 'sister' && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Hijab Commitment *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={profileData.hijab_commitment}
+                onValueChange={(value) => updateField('hijab_commitment', value)}
+                itemStyle={styles.pickerItem}
+              >
+                {HIJAB_COMMITMENT_OPTIONS.map((option) => (
+                  <Picker.Item key={option.value} label={option.label} value={option.value} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        )}
       </View>
     );
   };
 
-  const renderDeenSection = () => (
+  const renderPersonalSection = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Deen & Character</Text>
-      <Text style={styles.sectionSubtitle}>Share your Islamic journey</Text>
+      <Text style={styles.sectionTitle}>Personal Details</Text>
+      <Text style={styles.sectionSubtitle}>Share more about yourself</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Prayer Consistency</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={profileData.prayer_consistency}
-            onValueChange={(value) => updateField('prayer_consistency', value)}
-            itemStyle={{
-              height: 150,
-              fontSize: 16,
-              color: '#070A12',
-            }}
-          >
-            <Picker.Item label="Select consistency" value="" />
-            <Picker.Item label="5x a day" value="5_times_a_day" />
-            <Picker.Item label="As much as possible" value="as_much_as_possible" />
-            <Picker.Item label="Occasionally" value="occasionally" />
-          </Picker>
+      <View style={styles.switchGroup}>
+        <View style={styles.switchRow}>
+          <Text style={styles.label}>Do you have children?</Text>
+          <Switch
+            value={profileData.children}
+            onValueChange={(value) => updateField('children', value)}
+            trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+            thumbColor={profileData.children ? '#070A12' : '#7B8799'}
+          />
+        </View>
+      </View>
+
+      <View style={styles.switchGroup}>
+        <View style={styles.switchRow}>
+          <Text style={styles.label}>Are you a revert?</Text>
+          <Switch
+            value={profileData.revert}
+            onValueChange={(value) => updateField('revert', value)}
+            trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+            thumbColor={profileData.revert ? '#070A12' : '#7B8799'}
+          />
         </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Quran Memorization</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={profileData.memorization_quran}
-            onValueChange={(value) => updateField('memorization_quran', value)}
-            itemStyle={{
-              height: 150,
-              fontSize: 16,
-              color: '#070A12',
-            }}
-          >
-            <Picker.Item label="Select level" value="" />
-            <Picker.Item label="None" value="none" />
-            <Picker.Item label="Few Surahs" value="few_surahs" />
-            <Picker.Item label="Multiple Juz" value="multiple_juz" />
-            <Picker.Item label={accountType === 'sister' ? 'Hafidha' : 'Hafidh'} value={accountType === 'sister' ? 'hafidha' : 'hafidh'} />
-          </Picker>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Ilm Seeking Level</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={profileData.islamic_knowledge_level}
-            onValueChange={(value) => updateField('islamic_knowledge_level', value)}
-            itemStyle={{
-              height: 150,
-              fontSize: 16,
-              color: '#070A12',
-            }}
-          >
-            <Picker.Item label="Select level" value="" />
-            <Picker.Item label="1-3 Years " value="1-3-years" />
-            <Picker.Item label="3-5 Years" value="3-5-years" />
-            <Picker.Item label="5+ Years" value="5-plus-years" />
-          </Picker>
-        </View>
-      </View>
-
-      {accountType === 'brother' && (
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Beard</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={profileData.beard_commitment}
-              onValueChange={(value) => updateField('beard_commitment', value)}
-              itemStyle={{
-                height: 150,
-                fontSize: 16,
-                color: '#070A12',
-              }}
-            >
-              <Picker.Item label="Select style" value="" />
-              <Picker.Item label="Full Sunnah Beard" value="full_sunnah_beard" />
-              <Picker.Item label="Trimmed Beard" value="trimmed_beard" />
-              <Picker.Item label="Clean Shaven" value="clean_shaven" />
-            </Picker>
-          </View>
-        </View>
-      )}
-
-      {accountType === 'sister' && (
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Hijab Commitment</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={profileData.hijab_commitment}
-              onValueChange={(value) => updateField('hijab_commitment', value)}
-              itemStyle={{
-                height: 150,
-                fontSize: 16,
-                color: '#070A12',
-              }}
-            >
-              <Picker.Item label="Select style" value="" />
-              <Picker.Item label="Niqab" value="niqab" />
-              <Picker.Item label="Khimar (Hijab) + Abaya" value="hijab_abaya" />
-              <Picker.Item label="Khimar (Hijab) + Western Clothing" value="hijab_western_clothing" />
-              <Picker.Item label="Open Hair" value="open_hair" />
-            </Picker>
-          </View>
-        </View>
-      )}
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Islamic Education</Text>
+        <Text style={styles.label}>Disabilities (if any)</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          value={profileData.islamic_education}
-          onChangeText={(text) => updateField('islamic_education', text)}
-          placeholder="Describe your Islamic education background"
+          value={profileData.disabilities}
+          onChangeText={(text) => updateField('disabilities', text)}
+          placeholder="Any physical or health conditions to mention"
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={3}
@@ -1135,12 +827,12 @@ const locationItems = COUNTRIES.flatMap(country =>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Deen Description</Text>
+        <Text style={styles.label}>Hobbies & Interests</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          value={profileData.deen}
-          onChangeText={(text) => updateField('deen', text)}
-          placeholder="Describe your relationship with your deen"
+          value={profileData.hobbies_and_interests}
+          onChangeText={(text) => updateField('hobbies_and_interests', text)}
+          placeholder="What do you enjoy doing in your free time?"
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={3}
@@ -1148,7 +840,7 @@ const locationItems = COUNTRIES.flatMap(country =>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Personality</Text>
+        <Text style={styles.label}>Personality *</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={profileData.personality}
@@ -1156,220 +848,140 @@ const locationItems = COUNTRIES.flatMap(country =>
           placeholder="Describe your personality"
           placeholderTextColor="#7B8799"
           multiline
-          numberOfLines={3}
+          numberOfLines={4}
         />
       </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Lifestyle</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.lifestyle}
-          onChangeText={(text) => updateField('lifestyle', text)}
-          placeholder="Describe your lifestyle"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-    </View>
-  );
-
-  const renderFamilySection = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Family & Relationships</Text>
-      <Text style={styles.sectionSubtitle}>How you approach family life</Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Family Involvement</Text>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={profileData.family_involvement}
-            onValueChange={(value) => updateField('family_involvement', value)}
-            itemStyle={{
-              height: 150,
-              fontSize: 16,
-              color: '#070A12',
-            }}
-          >
-            <Picker.Item label="Select level" value="" />
-            <Picker.Item label="High" value="high" />
-            <Picker.Item label="Moderate" value="moderate" />
-            <Picker.Item label="Low" value="low" />
-          </Picker>
-        </View>
-      </View>
-
-      {accountType === "brother" &&   <View style={styles.inputGroup}>
-        <Text style={styles.label}>Financial Responsibility</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.financial_responsibility}
-          onChangeText={(text) => updateField('financial_responsibility', text)}
-          placeholder="How do you handle finances?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>}
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Conflict Resolution</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.conflict_resolution}
-          onChangeText={(text) => updateField('conflict_resolution', text)}
-          placeholder="How do you handle conflicts?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      {accountType === 'brother' && profileData.marital_status !== "married" && (
-        <View style={styles.switchGroup}>
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Open to Polygyny?</Text>
-            <Switch
-              value={profileData.polygyny_willingness}
-              onValueChange={(value) => updateField('polygyny_willingness', value)}
-              trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-              thumbColor={profileData.polygyny_willingness ? '#070A12' : '#7B8799'}
-            />
-          </View>
-        </View>
-      )}
-
-      {accountType === 'sister' && (
-        <>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderTitle}>Wali (Guardian) Information</Text>
-            <Text style={styles.sectionHeaderDescription}>
-              Required. Your wali will be contacted when mutual interest is confirmed.
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Wali Name *</Text>
-            <TextInput
-              style={[styles.input, errors.wali_name && styles.inputError]}
-              value={profileData.wali_name}
-              onChangeText={(text) => updateField('wali_name', text)}
-              placeholder="Full name of your wali"
-              placeholderTextColor="#7B8799"
-            />
-            {errors.wali_name && (
-              <Text style={styles.errorText}>{errors.wali_name}</Text>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Relationship to You *</Text>
-            <View style={[styles.pickerContainer, errors.wali_relationship && styles.inputError]}>
-              <Picker
-                selectedValue={profileData.wali_relationship}
-                onValueChange={(value) => updateField('wali_relationship', value)}
-                itemStyle={{
-                  height: 150,
-                  fontSize: 16,
-                  color: '#070A12',
-                }}
-              >
-                <Picker.Item label="Select relationship..." value="" />
-                <Picker.Item label="Father" value="Father" />
-                <Picker.Item label="Brother" value="Brother" />
-                <Picker.Item label="Uncle (paternal)" value="Uncle" />
-                <Picker.Item label="Grandfather" value="Grandfather" />
-                <Picker.Item label="Other" value="Other" />
-              </Picker>
-            </View>
-            {errors.wali_relationship && (
-              <Text style={styles.errorText}>{errors.wali_relationship}</Text>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Wali Phone Number *</Text>
-            <TextInput
-              style={[styles.input, errors.wali_phone && styles.inputError]}
-              value={profileData.wali_phone}
-              onChangeText={(text) => updateField('wali_phone', text)}
-              placeholder="+44 7XXX XXXXXX"
-              placeholderTextColor="#7B8799"
-              keyboardType="phone-pad"
-            />
-            <Text style={styles.helperText}>Include country code (e.g., +44 for UK)</Text>
-            {errors.wali_phone && (
-              <Text style={styles.errorText}>{errors.wali_phone}</Text>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Wali Email Address *</Text>
-            <TextInput
-              style={[styles.input, errors.wali_email && styles.inputError]}
-              value={profileData.wali_email}
-              onChangeText={(text) => updateField('wali_email', text)}
-              placeholder="wali@example.com"
-              placeholderTextColor="#7B8799"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {errors.wali_email && (
-              <Text style={styles.errorText}>{errors.wali_email}</Text>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Wali's Preferred Contact Method *</Text>
-            <View style={[styles.pickerContainer, errors.wali_preferred_contact && styles.inputError]}>
-              <Picker
-                selectedValue={profileData.wali_preferred_contact}
-                onValueChange={(value) => updateField('wali_preferred_contact', value)}
-                itemStyle={{
-                  height: 150,
-                  fontSize: 16,
-                  color: '#070A12',
-                }}
-              >
-                <Picker.Item label="Select preference..." value="" />
-                <Picker.Item label="Phone" value="Phone" />
-                <Picker.Item label="Email" value="Email" />
-                <Picker.Item label="Either (Phone or Email)" value="Both" />
-              </Picker>
-            </View>
-            {errors.wali_preferred_contact && (
-              <Text style={styles.errorText}>{errors.wali_preferred_contact}</Text>
-            )}
-          </View>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoBoxIcon}>ℹ️</Text>
-            <Text style={styles.infoBoxText}>
-              Your wali's contact information will only be shared with brothers after mutual interest 
-              is confirmed (both parties complete questions and accept).
-            </Text>
-          </View>
-        </>
-      )}
     </View>
   );
 
   const renderPreferencesSection = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Spouse Preferences</Text>
+      <Text style={styles.sectionTitle}>Preferences</Text>
       <Text style={styles.sectionSubtitle}>What are you looking for?</Text>
 
+      <View style={styles.switchGroup}>
+        <View style={styles.switchRow}>
+          <Text style={styles.label}>Open to hijrah?</Text>
+          <Switch
+            value={profileData.open_to_hijrah}
+            onValueChange={(value) => updateField('open_to_hijrah', value)}
+            trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+            thumbColor={profileData.open_to_hijrah ? '#070A12' : '#7B8799'}
+          />
+        </View>
+      </View>
+
+      <View style={styles.switchGroup}>
+        <View style={styles.switchRow}>
+          <Text style={styles.label}>Open to reverts?</Text>
+          <Switch
+            value={profileData.open_to_reverts}
+            onValueChange={(value) => updateField('open_to_reverts', value)}
+            trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+            thumbColor={profileData.open_to_reverts ? '#070A12' : '#7B8799'}
+          />
+        </View>
+      </View>
+
+      {accountType === 'sister' && (
+        <View style={styles.switchGroup}>
+          <View style={styles.switchRow}>
+            <Text style={styles.label}>Open to polygyny?</Text>
+            <Switch
+              value={profileData.open_to_polygyny}
+              onValueChange={(value) => updateField('open_to_polygyny', value)}
+              trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+              thumbColor={profileData.open_to_polygyny ? '#070A12' : '#7B8799'}
+            />
+          </View>
+        </View>
+      )}
+
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Spouse Criteria</Text>
+        <Text style={styles.label}>Living Arrangements</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          value={profileData.spouse_criteria}
-          onChangeText={(text) => updateField('spouse_criteria', text)}
-          placeholder="Describe your ideal spouse in detail"
+          value={profileData.living_arrangements}
+          onChangeText={(text) => updateField('living_arrangements', text)}
+          placeholder="Describe your ideal living arrangements after marriage"
           placeholderTextColor="#7B8799"
           multiline
-          numberOfLines={5}
+          numberOfLines={3}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Preferred Ethnicity</Text>
+        <Text style={styles.hint}>Select "Any" or choose specific ethnicities</Text>
+
+        <TouchableOpacity
+          style={[
+            styles.radioOption,
+            profileData.preferred_ethnicity.includes('Any') && styles.radioOptionSelected,
+          ]}
+          onPress={() => {
+            setProfileData(prev => ({
+              ...prev,
+              preferred_ethnicity: prev.preferred_ethnicity.includes('Any') ? [] : ['Any']
+            }));
+          }}
+        >
+          <View style={styles.radio}>
+            {profileData.preferred_ethnicity.includes('Any') && <View style={styles.radioInner} />}
+          </View>
+          <Text style={styles.radioText}>Any Ethnicity</Text>
+        </TouchableOpacity>
+
+        {!profileData.preferred_ethnicity.includes('Any') && (
+          <TouchableOpacity
+            style={styles.pickerTrigger}
+            onPress={() => setPreferredEthnicityPickerVisible(true)}
+          >
+            <Text style={profileData.preferred_ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
+              {profileData.preferred_ethnicity.length > 0
+                ? `${profileData.preferred_ethnicity.length} selected: ${profileData.preferred_ethnicity.slice(0, 2).join(', ')}${profileData.preferred_ethnicity.length > 2 ? '...' : ''}`
+                : 'Select specific ethnicities'}
+            </Text>
+            <Text style={styles.pickerArrow}>›</Text>
+          </TouchableOpacity>
+        )}
+
+        {profileData.preferred_ethnicity.includes('Any') && (
+          <Text style={styles.hint}>✓ Open to all ethnicities</Text>
+        )}
+      </View>
+
+      <SearchablePicker
+        visible={preferredEthnicityPickerVisible}
+        onClose={() => setPreferredEthnicityPickerVisible(false)}
+        onSelect={(value) => {
+          setProfileData(prev => {
+            const isSelected = prev.preferred_ethnicity.includes(value);
+            return {
+              ...prev,
+              preferred_ethnicity: isSelected
+                ? prev.preferred_ethnicity.filter(e => e !== value)
+                : [...prev.preferred_ethnicity, value]
+            };
+          });
+        }}
+        items={ethnicityItems}
+        title="Select Preferred Ethnicities"
+        placeholder="Search ethnicity..."
+        selectedValue={profileData.preferred_ethnicity}
+        multiSelect={true}
+      />
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Other Spouse Criteria</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          value={profileData.other_spouse_criteria}
+          onChangeText={(text) => updateField('other_spouse_criteria', text)}
+          placeholder="What else are you looking for in a spouse?"
+          placeholderTextColor="#7B8799"
+          multiline
+          numberOfLines={4}
         />
       </View>
 
@@ -1382,176 +994,8 @@ const locationItems = COUNTRIES.flatMap(country =>
           placeholder="What are your non-negotiables?"
           placeholderTextColor="#7B8799"
           multiline
-          numberOfLines={5}
+          numberOfLines={4}
         />
-      </View>
-
-       {/* Preferred Ethnicity - Multi-select */}
-<View style={styles.inputGroup}>
-  <Text style={styles.label}>Preferred Ethnicity</Text>
-  <Text style={styles.hint}>Select "Any" or choose specific ethnicities</Text>
-  
-  {/* "Any" option as a separate button */}
-  <TouchableOpacity
-    style={[
-      styles.radioOption,
-      profileData.preferred_ethnicity.includes('Any') && styles.radioOptionSelected,
-    ]}
-    onPress={() => {
-      // If "Any" is selected, clear all others and set only "Any"
-      setProfileData(prev => ({
-        ...prev,
-        preferred_ethnicity: prev.preferred_ethnicity.includes('Any') ? [] : ['Any']
-      }));
-    }}
-  >
-    <View style={styles.radio}>
-      {profileData.preferred_ethnicity.includes('Any') && <View style={styles.radioInner} />}
-    </View>
-    <Text style={styles.radioText}>Any Ethnicity</Text>
-  </TouchableOpacity>
-
-  {/* Only show the picker if "Any" is NOT selected */}
-  {!profileData.preferred_ethnicity.includes('Any') && (
-    <TouchableOpacity
-      style={styles.pickerTrigger}
-      onPress={() => setPreferredEthnicityPickerVisible(true)}
-    >
-      <Text style={profileData.preferred_ethnicity.length > 0 ? styles.pickerTriggerText : styles.pickerPlaceholder}>
-        {profileData.preferred_ethnicity.length > 0 
-          ? `${profileData.preferred_ethnicity.length} selected: ${profileData.preferred_ethnicity.slice(0, 2).join(', ')}${profileData.preferred_ethnicity.length > 2 ? '...' : ''}`
-          : 'Select specific ethnicities'}
-      </Text>
-      <Text style={styles.pickerArrow}>›</Text>
-    </TouchableOpacity>
-  )}
-  
-  {profileData.preferred_ethnicity.includes('Any') && (
-    <Text style={styles.hint}>✓ Open to all ethnicities</Text>
-  )}
-</View>
-
- {/* Preferred Ethnicity Picker Modal - Multi-select */}
- <SearchablePicker
-  visible={preferredEthnicityPickerVisible}
-  onClose={() => setPreferredEthnicityPickerVisible(false)}
-  onSelect={(value) => {
-    // Toggle selection for multi-select
-    setProfileData(prev => {
-      const isSelected = prev.preferred_ethnicity.includes(value);
-      return {
-        ...prev,
-        preferred_ethnicity: isSelected
-          ? prev.preferred_ethnicity.filter(e => e !== value)
-          : [...prev.preferred_ethnicity, value]
-      };
-    });
-  }}
-  items={ethnicityItems}
-  title="Select Preferred Ethnicities"
-  placeholder="Search ethnicity..."
-  selectedValue={profileData.preferred_ethnicity}
-  multiSelect={true}
-/>
-
-      {accountType === "sister" && (
-        <View style={styles.switchGroup}>
-        <View style={styles.switchRow}>
-          <Text style={styles.label}>Open To Polygyny?</Text>
-          <Switch
-            value={profileData.polygyny_acceptance}
-            onValueChange={(value) => updateField('polygyny_acceptance', value)}
-            trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-            thumbColor={profileData.polygyny_acceptance ? '#070A12' : '#7B8799'}
-          />
-        </View>
-      </View>
-      )}
-    </View>
-  );
-
-  const renderQuestionsSection = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Your Questions</Text>
-      <Text style={styles.sectionSubtitle}>
-        Create 5 questions to ask people who express interest in you. These help you understand their values and compatibility.
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>1. Deen Question *</Text>
-        <Text style={styles.hint}>Ask about their relationship with Islam, prayer, knowledge seeking, etc.</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.question_deen}
-          onChangeText={(text) => updateField('question_deen', text)}
-          placeholder="Example: How would you describe your relationship with the Quran?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>2. Lifestyle Question *</Text>
-        <Text style={styles.hint}>Ask about their daily routine, habits, interests, or way of living</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.question_lifestyle}
-          onChangeText={(text) => updateField('question_lifestyle', text)}
-          placeholder="Example: What does a typical day look like for you?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>3. Fitness Question *</Text>
-        <Text style={styles.hint}>Ask about their approach to health, exercise, and physical wellbeing</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.question_fitness}
-          onChangeText={(text) => updateField('question_fitness', text)}
-          placeholder="Example: How do you prioritize your physical health and fitness?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>4. Marital Life Question *</Text>
-        <Text style={styles.hint}>Ask about their expectations, roles, or vision for marriage</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.question_marital_life}
-          onChangeText={(text) => updateField('question_marital_life', text)}
-          placeholder="Example: What does an ideal marriage look like to you?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>5. Children & Legacy Question *</Text>
-        <Text style={styles.hint}>Ask about their views on raising children, family goals, or long-term vision</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.question_children_legacy}
-          onChangeText={(text) => updateField('question_children_legacy', text)}
-          placeholder="Example: How do you envision raising righteous Muslim children?"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
-      </View>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoBoxIcon}>💡</Text>
-        <Text style={styles.infoBoxText}>
-          These questions will be asked to anyone who expresses interest in your profile. Choose thoughtful questions that reveal character and compatibility.
-        </Text>
       </View>
     </View>
   );
@@ -1567,8 +1011,8 @@ const locationItems = COUNTRIES.flatMap(country =>
 
   return (
     <View style={styles.container}>
-      <KeyboardAwareScrollView 
-        style={styles.scrollView} 
+      <KeyboardAwareScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         enableOnAndroid={true}
         extraScrollHeight={20}
@@ -1586,18 +1030,14 @@ const locationItems = COUNTRIES.flatMap(country =>
         {currentSection === 'username' && renderUsernameSection()}
         {currentSection === 'basic' && renderBasicSection()}
         {currentSection === 'personal' && renderPersonalSection()}
-        {currentSection === 'physical' && renderPhysicalSection()}
-        {currentSection === 'deen' && renderDeenSection()}
-        {currentSection === 'family' && renderFamilySection()}
         {currentSection === 'preferences' && renderPreferencesSection()}
-        {currentSection === 'questions' && renderQuestionsSection()}
 
         <View style={styles.buttonContainer}>
           {currentSection !== 'username' && (
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => {
-                const sections: Section[] = ['username', 'basic', 'personal', 'physical', 'deen', 'family', 'preferences', 'questions'];
+                const sections: Section[] = ['username', 'basic', 'personal', 'preferences'];
                 const currentIndex = sections.indexOf(currentSection);
                 if (currentIndex > 0) {
                   setCurrentSection(sections[currentIndex - 1]);
@@ -1617,7 +1057,7 @@ const locationItems = COUNTRIES.flatMap(country =>
               <ActivityIndicator color="#F2CC66" />
             ) : (
               <Text style={styles.nextButtonText}>
-                {currentSection === 'questions' ? 'Complete Profile' : 'Continue →'}
+                {currentSection === 'preferences' ? 'Complete Profile' : 'Continue →'}
               </Text>
             )}
           </TouchableOpacity>
@@ -1637,12 +1077,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FDFDFD',
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
   },
   loadingText: {
     marginTop: 16,
@@ -1712,22 +1146,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7B8799',
     marginBottom: 24,
-  },
-  sectionHeader: {
-    marginBottom: 20,
-  },
-  sectionHeaderTitle: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 20,
-    lineHeight: 27,
-    color: '#070A12',
-    marginBottom: 8,
-  },
-  sectionHeaderDescription: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#7B8799',
   },
   inputGroup: {
     marginBottom: 20,
@@ -1802,6 +1220,13 @@ const styles = StyleSheet.create({
     color: '#7B8799',
     marginTop: 4,
   },
+  hint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: '#7B8799',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
   pickerContainer: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -1810,24 +1235,40 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     height: 150,
   },
-  picker: {
-    height: 50
+  pickerItem: {
+    height: 150,
+    fontSize: 16,
+    color: '#070A12',
+  },
+  pickerTrigger: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerTriggerText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#070A12',
+    flex: 1,
+  },
+  pickerPlaceholder: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    color: '#7B8799',
+    flex: 1,
+  },
+  pickerArrow: {
+    fontSize: 24,
+    color: '#7B8799',
   },
   switchGroup: {
     marginBottom: 20,
-  },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconContainerDanger: {
-    backgroundColor: '#F8E5E5',
-  },
-  iconContainerWarning: {
-    backgroundColor: '#FEF3E5',
   },
   switchRow: {
     flexDirection: 'row',
@@ -1839,6 +1280,42 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  radioOptionSelected: {
+    backgroundColor: 'rgba(242, 204, 102, 0.1)',
+    borderColor: '#F2CC66',
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F2CC66',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F2CC66',
+  },
+  radioText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#070A12',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -1875,72 +1352,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#F2CC66',
   },
-
-  pickerTrigger: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E7EAF0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  pickerTriggerText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: '#070A12',
-    flex: 1,
-  },
-  pickerPlaceholder: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: '#7B8799',
-    flex: 1,
-  },
-  pickerArrow: {
-    fontSize: 24,
-    color: '#7B8799',
-  },
-  settingContent: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 15,
-    lineHeight: 18,
-    color: '#070A12',
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-  settingTitleDanger: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 15,
-    lineHeight: 18,
-    color: '#B7312C',
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-  settingTitleWarning: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 15,
-    lineHeight: 18,
-    color: '#F2994A',
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-  settingDescription: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    lineHeight: 15,
-    color: '#7B8799',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E7EAF0',
-    marginLeft: 60,
-  },
   logoutButton: {
     marginTop: 32,
     backgroundColor: '#FFFFFF',
@@ -1960,119 +1371,5 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
     color: '#E03A3A',
-  },
-  radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: '#E7EAF0',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  radioOptionSelected: {
-    backgroundColor: 'rgba(242, 204, 102, 0.1)',
-    borderColor: '#F2CC66',
-  },
-  radioRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  radioOptionInline: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: '#E7EAF0',
-    borderRadius: 8,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#F2CC66',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#F2CC66',
-  },
-  radioText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: '#F7E099',
-  },
-  hint: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    color: '#7B8799',
-    fontStyle: 'italic',
-  },
-  dateInputRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  dateInputWrapper: {
-    flex: 1,
-    gap: 4,
-  },
-  dateInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E7EAF0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: '#070A12',
-    textAlign: 'center',
-  },
-  errorTextSmall: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 10,
-    color: '#E03A3A',
-    textAlign: 'center',
-  },
-  ageDisplay: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: '#7B8799',
-    marginTop: 8,
-    fontStyle: 'italic',
-  },
-  infoBox: {
-    backgroundColor: '#FFF9E6',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#F2CC66',
-  },
-  infoBoxIcon: {
-    fontSize: 20,
-    marginRight: 12,
-    marginTop: 2,
-  },
-  infoBoxText: {
-    flex: 1,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#070A12',
   },
 });

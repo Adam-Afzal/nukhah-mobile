@@ -45,7 +45,7 @@ const TEST_USER = {
   preferred_region: 'worldwide',
   annual_income: '£20,000',
   polygyny_justice_knowledge: 'yes',
-  ethnicity: ['Pakistani'],
+  ethnicity: 'Pakistani',
   preferred_ethnicity: ['Moroccan'],
 };
 

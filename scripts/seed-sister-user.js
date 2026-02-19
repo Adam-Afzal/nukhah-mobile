@@ -50,7 +50,7 @@ const TEST_USER = {
   personal_covering: 'covering_according_to_shariah',
   listens_to_hijabi_influencers: false,
   open_to_polygyny: true,
-  ethnicity: ['Arab'],
+  ethnicity: 'Arab',
   preferred_ethnicity: ['Pakistani', 'Arab'],
 };
 

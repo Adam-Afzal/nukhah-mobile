@@ -6,6 +6,7 @@ import {
     markAsRead,
     Notification,
 } from '@/lib/notificationService';
+import { supabase } from '@/lib/supabase';
 import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -160,6 +161,22 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     loadNotifications();
+
+    // Real-time: refresh list when new notifications arrive
+    const channel = supabase
+      .channel('notifications-list-refresh')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        () => {
+          loadNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const loadNotifications = async () => {

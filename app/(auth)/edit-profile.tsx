@@ -55,11 +55,12 @@ const BROTHER_BUILD_OPTIONS = [
 
 const SISTER_BUILD_OPTIONS = [
   { label: 'Select build', value: '' },
-  { label: 'Skinny', value: 'skinny' },
-  { label: 'Slim', value: 'slim' },
+  { label: 'Athletic', value: 'athletic' },
+  { label: 'Curvaceous', value: 'curvaceous' },
+  { label: 'Curvy Athletic', value: 'curvy_athletic' },
   { label: 'Hourglass', value: 'hourglass' },
-  { label: 'Curvy', value: 'curvy' },
   { label: 'Heavyset', value: 'heavyset' },
+  { label: 'Average', value: 'average' },
 ];
 
 const BROTHER_MARITAL_OPTIONS = [

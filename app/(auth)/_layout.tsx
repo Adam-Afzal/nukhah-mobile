@@ -53,89 +53,62 @@ export default function AuthLayout() {
       return;
     }
 
-    // Status is 'approved' - now check profile and payment
-    if (userStatus.hasProfile) {
-      console.log("HAS PROFILE!");
+    // Status is 'approved' — route through onboarding steps in order
+    const inOnboarding = segments[0] === '(onboarding)';
+    const onboardingPage = inOnboarding ? segments[1] : null;
 
-      if (!userStatus.paid) {
-        console.log("Has profile but not paid - going to approved screen");
-        if (currentPage !== 'application-approved') {
-          isNavigatingRef.current = true;
-          router.replace('/(auth)/application-approved');
-          setTimeout(() => { isNavigatingRef.current = false; }, 100);
-        }
-        return;
-      }
+    const navigate = (path: string) => {
+      isNavigatingRef.current = true;
+      router.replace(path as any);
+      setTimeout(() => { isNavigatingRef.current = false; }, 100);
+    };
 
-      // They have profile AND paid
-      // Now check onboarding completion status
-      console.log("Profile exists and paid - checking onboarding status");
-      console.log("Onboarding completed:", userStatus.onboardingCompleted);
-      console.log("Has masjid affiliation:", userStatus.hasMasjidAffiliation);
-      console.log("Has references:", userStatus.hasReferences);
-
-      // If onboarding not complete, redirect to appropriate step
-      if (!userStatus.onboardingCompleted) {
-        // Check which step they're on
-        if (!userStatus.hasMasjidAffiliation) {
-          console.log("No masjid affiliation - redirecting to masjid-affiliation");
-          if (currentPage !== 'masjid-affiliation' && segments[0] !== '(onboarding)') {
-            isNavigatingRef.current = true;
-            router.replace('/(onboarding)/masjid-affiliation');
-            setTimeout(() => { isNavigatingRef.current = false; }, 100);
-          }
-          return;
-        }
-
-        if (!userStatus.hasReferences) {
-          console.log("No references - redirecting to references");
-          if (currentPage !== 'references' && segments[0] !== '(onboarding)') {
-            isNavigatingRef.current = true;
-            router.replace('/(onboarding)/references');
-            setTimeout(() => { isNavigatingRef.current = false; }, 100);
-          }
-          return;
-        }
-      }
-
-      // Fully complete (profile + paid + onboarding) → full access to main app
-      if (
-        currentPage === 'pending-approval' || 
-        currentPage === 'application-rejected' ||
-        currentPage === 'application-approved' ||
-        currentPage === 'payment' ||
-        currentPage?.startsWith('(onboarding)')
-      ) {
-        console.log("Onboarding complete - going to main app");
-        isNavigatingRef.current = true;
-        router.replace('/(auth)'); 
-        setTimeout(() => { isNavigatingRef.current = false; }, 100);
+    // Step 1: Payment (skipped if testing mode is on or already paid)
+    if (!userStatus.paid && !userStatus.testingMode) {
+      if (onboardingPage !== 'payment') {
+        console.log('Not paid, no testing mode → payment');
+        navigate('/(onboarding)/payment');
       }
       return;
     }
 
-    // No profile yet - check payment status
-    console.log("Approved but no profile - checking payment status");
-    if (!userStatus.paid) {
-      // Approved but not paid - allow approved screen and payment screen
-      const allowedPages = ['application-approved', 'payment'];
-      if (!allowedPages.includes(currentPage || '')) {
-        console.log("Not paid - going to approved screen");
-        isNavigatingRef.current = true;
-        router.replace('/(auth)/application-approved');
-        setTimeout(() => { isNavigatingRef.current = false; }, 100);
+    // Step 2: Profile setup (profile-intro leads directly into profile-setup)
+    if (!userStatus.hasProfile) {
+      const profilePages = ['profile-intro', 'profile-setup'];
+      if (!profilePages.includes(onboardingPage || '')) {
+        console.log('No profile → profile-intro');
+        navigate('/(onboarding)/profile-intro');
       }
-    } else {
-      // Approved AND paid but no profile yet → show approved screen FIRST
-      // User clicks "Get Started" on approved screen, which then routes to profile-setup
-      const allowedPages = ['application-approved', 'profile-setup', 'masjid-affiliation', 'references'];
-      
-      if (!allowedPages.includes(currentPage || '') && segments[0] !== '(onboarding)') {
-        console.log("Paid but no profile - going to approved screen to click Get Started");
-        isNavigatingRef.current = true;
-        router.replace('/(auth)/application-approved');
-        setTimeout(() => { isNavigatingRef.current = false; }, 100);
+      return;
+    }
+
+    // Step 3: Masjid affiliation
+    if (!userStatus.hasMasjidAffiliation) {
+      if (onboardingPage !== 'masjid-affiliation') {
+        console.log('No masjid affiliation → masjid-affiliation');
+        navigate('/(onboarding)/masjid-affiliation');
       }
+      return;
+    }
+
+    // Step 4: Reference (required before accessing main app)
+    if (!userStatus.hasReferences) {
+      if (onboardingPage !== 'references') {
+        console.log('No references → references');
+        navigate('/(onboarding)/references');
+      }
+      return;
+    }
+
+    // All steps complete → main app
+    if (
+      inOnboarding ||
+      currentPage === 'pending-approval' ||
+      currentPage === 'application-rejected' ||
+      currentPage === 'application-approved'
+    ) {
+      console.log('Onboarding complete → main app');
+      navigate('/(auth)');
     }
   }, [userStatus, isLoading, segments]);
 

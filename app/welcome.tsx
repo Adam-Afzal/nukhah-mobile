@@ -1,113 +1,66 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const CrownIcon = () => (
-  <Svg width={56} height={56} viewBox="0 0 58 56" fill="none">
-    {/* Crown base */}
-    <Path
-      d="M0 40 L58 40 L58 44 L0 44 Z"
-      fill="#F2CC66"
-    />
-    {/* Crown body */}
-    <Path
-      d="M2 20 L10 38 L48 38 L56 20 L40 32 L29 8 L18 32 Z"
-      fill="#F2CC66"
-    />
-    {/* Left point highlight */}
-    <Path
-      d="M5 24 L10 36 L15 28"
-      stroke="#F7E099"
-      strokeWidth={2}
-      fill="none"
-    />
-    {/* Right point highlight */}
-    <Path
-      d="M43 28 L48 36 L53 24"
-      stroke="#F7E099"
-      strokeWidth={2}
-      fill="none"
-    />
-    {/* Center highlight */}
-    <Path
-      d="M24 16 L29 12 L34 16"
-      stroke="#F7E099"
-      strokeWidth={2}
-      fill="none"
-    />
-  </Svg>
-);
+// Place your video file at assets/welcome-bg.mp4
+const VIDEO_SOURCE = require('../assets/welcome-bg.mov');
 
 export default function WelcomeScreen() {
   const router = useRouter();
 
-  const handleApply = () => {
-    // TODO: Navigate to apply/registration screen
-    router.push('/(application)');
-  };
-
-  const handleLogin = () => {
-    // TODO: Navigate to login screen
-    router.push('/login');
-  };
+  const player = useVideoPlayer(VIDEO_SOURCE, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
 
   return (
-    <LinearGradient
-      colors={['#070A12', '#1E2A3B', 'rgba(242, 204, 102, 0.3)']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      locations={[0.0058, 0.4534, 0.9011]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      {/* Full-screen looping video */}
+      <VideoView
+        style={StyleSheet.absoluteFill}
+        player={player}
+        contentFit="cover"
+        nativeControls={false}
+      />
+
+      {/* Dark gradient overlay so text remains readable */}
+      <View style={styles.overlay} />
+
+      {/* Content */}
       <View style={styles.content}>
-        {/* Crown Logo */}
         <View style={styles.logoContainer}>
-          <CrownIcon />
+          <Image source={require('../assets/splash.png')} style={styles.icon} />
         </View>
 
-        {/* App Name */}
-        <Text style={styles.appName}>Mithaq</Text>
-
-        {/* Main Tagline */}
         <Text style={styles.tagline}>
-          Where high value brothers meet high value sisters
+          Find your spouse, without stress.
         </Text>
 
-        {/* Subtitle */}
         <Text style={styles.subtitle}>
-          Exclusive, curated matchmaking for high-performing Muslims
+          Matchmaking you can finally trust.
         </Text>
 
-        {/* Buttons Container */}
         <View style={styles.buttonsContainer}>
-          {/* Apply Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.applyButton}
-            onPress={handleApply}
+            onPress={() => router.push('/(application)')}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={['#F2CC66', '#F2CC66']}
-              style={styles.applyButtonGradient}
-            >
-              <Text style={styles.applyButtonText}>Apply for Membership</Text>
-            </LinearGradient>
+            <Text style={styles.applyButtonText}>Apply for Membership</Text>
           </TouchableOpacity>
 
-          {/* Login Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.loginButton}
-            onPress={handleLogin}
+            onPress={() => router.push('/login')}
             activeOpacity={0.8}
           >
             <Text style={styles.loginButtonText}>Login</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Footer Text */}
         <View style={styles.footerContainer}>
           <Text style={styles.footerText}>
             Membership applications are carefully reviewed
@@ -117,7 +70,7 @@ export default function WelcomeScreen() {
           </Text>
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -126,6 +79,11 @@ const styles = StyleSheet.create({
     flex: 1,
     width,
     height,
+    backgroundColor: '#070A12',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(7, 10, 18, 0.55)',
   },
   content: {
     flex: 1,
@@ -137,13 +95,9 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: 24,
   },
-  appName: {
-    fontFamily: 'PlayfairDisplay_700Bold_Italic',
-    fontSize: 56,
-    lineHeight: 75,
-    textAlign: 'center',
-    color: '#F2CC66',
-    marginBottom: 16,
+  icon: {
+    width: 120,
+    height: 120,
   },
   tagline: {
     fontFamily: 'Inter_400Regular',
@@ -172,10 +126,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 66,
     borderRadius: 8,
-    overflow: 'hidden',
-  },
-  applyButtonGradient: {
-    flex: 1,
+    backgroundColor: '#F2CC66',
     justifyContent: 'center',
     alignItems: 'center',
   },

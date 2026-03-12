@@ -1,4 +1,5 @@
 // app/(onboarding)/masjid-affiliation.tsx
+import OnboardingProgress from '@/components/OnboardingProgress';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -36,6 +37,7 @@ export default function MasjidAffiliationScreen() {
   const [userLocation, setUserLocation] = useState<string>('');
   const [isAffiliated, setIsAffiliated] = useState<boolean | null>(null);
   const [selectedMasjid, setSelectedMasjid] = useState<string | null>(null);
+  const [suggestedMasjidName, setSuggestedMasjidName] = useState('');
   const [masajid, setMasajid] = useState<Masjid[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -185,30 +187,47 @@ const loadMasajid = async (location?: string) => {
     try {
       // Update user profile with masjid affiliation
       const table = accountType === 'brother' ? 'brother' : 'sister';
+
+      // If affiliated but no masjid selected, use suggested name (masjid not in DB)
+      const isSuggestingMasjid = isAffiliated && !selectedMasjid && suggestedMasjidName.trim().length > 0;
+
       const { error: updateError } = await supabase
         .from(table)
         .update({
-          masjid_id: isAffiliated ? selectedMasjid : null,
+          masjid_id: selectedMasjid ?? null,
           is_masjid_affiliated: isAffiliated,
+          suggested_masjid_name: isSuggestingMasjid ? suggestedMasjidName.trim() : null,
         })
         .eq('id', userId);
 
       if (updateError) throw updateError;
 
-      // If affiliated, create imam verification request
+      // If affiliated, create imam verification request and send SMS
       if (isAffiliated && selectedMasjid) {
-        const { error: verificationError } = await supabase
+        const { data: verificationData, error: verificationError } = await supabase
           .from('imam_verification')
           .insert({
             user_id: userId,
             user_type: accountType,
             masjid_id: selectedMasjid,
             status: 'pending',
-          });
+          })
+          .select('id')
+          .single();
 
         if (verificationError) {
           console.error('Error creating verification request:', verificationError);
           // Don't block user, just log the error
+        } else if (verificationData) {
+          // Fire-and-forget — SMS failure should not block onboarding
+          supabase.functions.invoke('send-imam-verification', {
+            body: {
+              imam_verification_id: verificationData.id,
+              user_id: userId,
+              user_type: accountType,
+              masjid_id: selectedMasjid,
+            },
+          }).catch(err => console.error('Error sending imam verification SMS:', err));
         }
       }
 
@@ -242,7 +261,8 @@ const loadMasajid = async (location?: string) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <OnboardingProgress currentStep={3} />
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -327,7 +347,10 @@ const loadMasajid = async (location?: string) => {
                       styles.masjidItem,
                       selectedMasjid === masjid.id && styles.masjidItemSelected
                     ]}
-                    onPress={() => setSelectedMasjid(masjid.id)}
+                    onPress={() => {
+                      setSelectedMasjid(masjid.id);
+                      setSuggestedMasjidName('');
+                    }}
                   >
                     <View style={styles.masjidInfo}>
                       <Text style={styles.masjidName}>{masjid.name}</Text>
@@ -348,10 +371,31 @@ const loadMasajid = async (location?: string) => {
               )}
             </View>
 
+            {/* Not listed fallback */}
+            <View style={styles.notListedContainer}>
+              <Text style={styles.notListedLabel}>My masjid isn&apos;t listed</Text>
+              <TextInput
+                style={styles.notListedInput}
+                placeholder="Enter your masjid name..."
+                placeholderTextColor="#9CA3AF"
+                value={suggestedMasjidName}
+                onChangeText={(text) => {
+                  setSuggestedMasjidName(text);
+                  // Clear list selection if they're typing a custom name
+                  if (text.length > 0) setSelectedMasjid(null);
+                }}
+              />
+              {suggestedMasjidName.length > 0 && (
+                <Text style={styles.notListedHint}>
+                  We&apos;ll note this and work on adding it. You can still complete your profile.
+                </Text>
+              )}
+            </View>
+
             <View style={styles.infoBox}>
               <Text style={styles.infoIcon}>ℹ️</Text>
               <Text style={styles.infoText}>
-                Your imam will be notified to verify your membership through their dashboard.
+                Your imam will receive a text message asking them to confirm your membership. This usually takes 1–3 days.
               </Text>
             </View>
           </View>
@@ -400,7 +444,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingTop: 60,
+    paddingTop: 16,
     paddingBottom: 120,
   },
   header: {
@@ -556,6 +600,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: '#7B8799',
+  },
+  notListedContainer: {
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  notListedLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    lineHeight: 17,
+    color: '#070A12',
+    marginBottom: 8,
+  },
+  notListedInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    lineHeight: 18,
+    color: '#070A12',
+  },
+  notListedHint: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#7B8799',
+    marginTop: 6,
   },
   infoBox: {
     backgroundColor: '#FFF9E6',

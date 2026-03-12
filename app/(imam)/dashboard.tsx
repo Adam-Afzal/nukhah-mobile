@@ -1,4 +1,5 @@
 // app/(imam)/dashboard.tsx - WITH VERIFICATION CHECKLIST
+import { sendPushNotification } from '@/lib/pushService';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -181,6 +182,22 @@ export default function ImamDashboardScreen() {
         .eq('id', selectedRequest.id);
 
       if (verifyError) throw verifyError;
+
+      // Send push notification to the user
+      const { data: profile } = await supabase
+        .from(selectedRequest.userType)
+        .select('push_token')
+        .eq('id', selectedRequest.userId)
+        .maybeSingle();
+
+      if (profile?.push_token) {
+        await sendPushNotification(
+          profile.push_token,
+          'Masjid Affiliation Verified',
+          `${imamData?.masjid?.name || 'Your masjid'} has confirmed your affiliation.`,
+          { screen: 'notifications' }
+        );
+      }
 
       setShowChecklistModal(false);
       setSelectedRequest(null);

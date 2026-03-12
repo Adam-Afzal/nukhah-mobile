@@ -3,46 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-
-const CrownIcon = () => (
-  <Svg width={58} height={56} viewBox="0 0 58 56" fill="none">
-    {/* Crown base */}
-    <Path
-      d="M0 40 L58 40 L58 44 L0 44 Z"
-      fill="#F2CC66"
-    />
-    {/* Crown body */}
-    <Path
-      d="M2 20 L10 38 L48 38 L56 20 L40 32 L29 8 L18 32 Z"
-      fill="#F2CC66"
-    />
-    {/* Left point highlight */}
-    <Path
-      d="M5 24 L10 36 L15 28"
-      stroke="#F7E099"
-      strokeWidth={2}
-      fill="none"
-    />
-    {/* Right point highlight */}
-    <Path
-      d="M43 28 L48 36 L53 24"
-      stroke="#F7E099"
-      strokeWidth={2}
-      fill="none"
-    />
-    {/* Center highlight */}
-    <Path
-      d="M24 16 L29 12 L34 16"
-      stroke="#F7E099"
-      strokeWidth={2}
-      fill="none"
-    />
-  </Svg>
-);
 
 const LoadingDots = () => (
   <View style={styles.dotsContainer}>
@@ -88,18 +51,10 @@ export default function SplashScreen() {
       style={styles.container}
     >
       <View style={styles.content}>
-        {/* Crown Logo */}
+        {/* App Icon */}
         <View style={styles.logoContainer}>
-          <CrownIcon />
+          <Image source={require('../assets/splash.png')} style={styles.icon} />
         </View>
-
-        {/* App Name */}
-        <Text style={styles.appName}>Mithaq</Text>
-
-        {/* Tagline */}
-        <Text style={styles.tagline}>
-          Where high value brothers meet high value sisters
-        </Text>
 
         {/* Loading Dots */}
         <LoadingDots />
@@ -122,6 +77,10 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: 32,
+  },
+  icon: {
+    width: 180,
+    height: 180,
   },
   appName: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',

@@ -35,6 +35,7 @@ interface InterestRequest {
   profile_build?: string;
   profile_date_of_birth?: string;
   profile_prayer_consistency?: string;
+  displayed_profile_id?: string;
 }
 
 // Navigation Icons (same as index.tsx)
@@ -318,6 +319,7 @@ export default function InterestsScreen() {
 
         return {
           ...interest,
+          displayed_profile_id: profileId,
           profile_username: profile?.username,
           profile_location_country: profile?.location_country,
           profile_location_city: profile?.location_city,
@@ -381,7 +383,7 @@ export default function InterestsScreen() {
   };
 
   const renderInterestCard = ({ item }: { item: InterestRequest }) => {
-    const profileId = activeTab === 'expressed' ? item.requester_id : item.recipient_id;
+    const profileId = item.displayed_profile_id ?? (activeTab === 'expressed' ? item.requester_id : item.recipient_id);
     const profileType = activeTab === 'expressed' ? item.requester_type : item.recipient_type;
     
     // Check if wali contact should be shown

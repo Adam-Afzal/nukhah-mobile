@@ -1,12 +1,47 @@
 // app/(auth)/pending-approval.tsx
-// Matches Figma design exactly
-
+import { registerApplicationPushToken } from '@/lib/pushService';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function PendingApprovalScreen() {
   const router = useRouter();
+
+  useEffect(() => {
+    const registerToken = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Determine application type and register token so admin can push on approval
+        const { data: brotherApp } = await supabase
+          .from('brother_application')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (brotherApp) {
+          await registerApplicationPushToken(user.id, 'brother');
+          return;
+        }
+
+        const { data: sisterApp } = await supabase
+          .from('sister_application')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (sisterApp) {
+          await registerApplicationPushToken(user.id, 'sister');
+        }
+      } catch (error) {
+        console.error('Error registering application push token:', error);
+      }
+    };
+
+    registerToken();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

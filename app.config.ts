@@ -10,13 +10,35 @@ export default {
     ios: {
       bundleIdentifier: "com.app.mithaq",
       supportsTablet: true,
+      entitlements: {
+        "aps-environment": "production"
+      }
     },
     android: {
       package: "com.app.mithaq",
+      permissions: [
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     plugins: [
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#F2CC66"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Mithaq uses your location to show you members visiting nearby masjids.",
+          "locationAlwaysUsageDescription": "Mithaq uses your location in the background to detect when you visit a masjid.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ]
     ],
     extra: {
       eas: {

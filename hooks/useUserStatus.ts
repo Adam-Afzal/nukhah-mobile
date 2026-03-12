@@ -10,6 +10,7 @@ interface UserStatus {
   onboardingCompleted: boolean;
   hasMasjidAffiliation: boolean;
   hasReferences: boolean;
+  testingMode: boolean;
 }
 
 export function useUserStatus() {
@@ -17,10 +18,18 @@ export function useUserStatus() {
     queryKey: ['userStatus'],
     queryFn: async (): Promise<UserStatus> => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         throw new Error('No user found');
       }
+
+      // Check testing mode
+      const { data: appSettings } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'testing_mode')
+        .maybeSingle();
+      const testingMode = appSettings?.value === true || appSettings?.value === 'true';
 
       // Check brother application
       const { data: brotherApp, error: brotherError } = await supabase
@@ -73,6 +82,7 @@ export function useUserStatus() {
           onboardingCompleted,
           hasMasjidAffiliation,
           hasReferences,
+          testingMode,
         };
       }
 
@@ -127,6 +137,7 @@ export function useUserStatus() {
           onboardingCompleted,
           hasMasjidAffiliation,
           hasReferences,
+          testingMode,
         };
       }
 

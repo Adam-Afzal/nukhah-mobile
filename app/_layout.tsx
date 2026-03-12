@@ -1,17 +1,30 @@
-// app/_layout.tsx - UPDATED WITH IMAM ROUTING + PAYMENT INIT
+// app/_layout.tsx - UPDATED WITH IMAM ROUTING + PAYMENT INIT + PUSH + GEOFENCING
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { initializePayments } from '@/lib/paymentService';
+import { registerForPushNotifications } from '@/lib/pushService';
 import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Session } from '@supabase/supabase-js';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import 'react-native-reanimated';
+
+// Configure how notifications are presented while the app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 // Import Google Fonts
 import {
@@ -43,6 +56,7 @@ export default function RootLayout() {
   const [isImam, setIsImam] = useState<boolean | null>(null);
   const segments = useSegments();
   const router = useRouter();
+  const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_400Regular,
@@ -57,6 +71,14 @@ export default function RootLayout() {
     Inter_700Bold_Italic,
   });
 
+  // Register push token for a logged-in user
+  const registerPush = async (userId: string) => {
+    const { data: brother } = await supabase.from('brother').select('id').eq('user_id', userId).maybeSingle();
+    if (brother) { registerForPushNotifications(brother.id, 'brother'); return; }
+    const { data: sister } = await supabase.from('sister').select('id').eq('user_id', userId).maybeSingle();
+    if (sister) { registerForPushNotifications(sister.id, 'sister'); }
+  };
+
   // Listen to auth state changes
   useEffect(() => {
     // Get initial session
@@ -65,6 +87,7 @@ export default function RootLayout() {
       setAuthLoading(false);
       if (session?.user?.id) {
         initializePayments(session.user.id);
+        registerPush(session.user.id);
       }
     });
 
@@ -75,6 +98,7 @@ export default function RootLayout() {
       queryClient.clear(); // Clear stale cache when user changes
       if (session?.user?.id) {
         initializePayments(session.user.id);
+        registerPush(session.user.id);
       }
     });
 
@@ -106,6 +130,34 @@ export default function RootLayout() {
     checkIfImam();
   }, [session]);
   
+
+  // Handle notification taps (deep link to relevant screen)
+  useEffect(() => {
+    notificationResponseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, any>;
+      if (!data) return;
+
+      if (data.type === 'geofence_enter') {
+        // Navigate to Local tab
+        router.push('/(auth)');
+        return;
+      }
+
+      const screen = data.screen as string | undefined;
+      if (screen === 'profile' && data.profileId) {
+        router.push(`/profile/${data.profileId}`);
+      } else if (screen === 'interests') {
+        router.push('/(auth)/interests');
+      } else if (screen === 'notifications') {
+        router.push('/(auth)/notifications');
+      }
+    });
+
+    return () => {
+      notificationResponseListener.current?.remove();
+    };
+  }, []);
+
   // Handle routing based on auth state (PROTECTED ROUTES)
   useEffect(() => {
     if (authLoading || !fontsLoaded) return;

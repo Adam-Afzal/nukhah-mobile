@@ -1,6 +1,16 @@
 // lib/notificationService.ts
 import { supabase } from './supabase';
 
+// Dynamically imported to avoid crashing when native modules aren't available
+async function maybeSendPush(token: string, title: string, body: string, data: Record<string, any> = {}) {
+  try {
+    const { sendPushNotification } = await import('./pushService');
+    await sendPushNotification(token, title, body, data);
+  } catch {
+    // Native modules not available in this environment
+  }
+}
+
 export type NotificationType = 
   | 'profile_view'
   | 'interest_expressed'
@@ -70,6 +80,24 @@ export async function createNotification(params: CreateNotificationParams): Prom
 }
 
 /**
+ * Get push token for a profile (null if not registered)
+ */
+async function getPushToken(profileId: string, profileType: 'brother' | 'sister'): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from(profileType)
+      .select('push_token')
+      .eq('id', profileId)
+      .single();
+
+    if (error) throw error;
+    return data?.push_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get user ID from profile ID and type
  */
 async function getUserIdFromProfile(profileId: string, profileType: 'brother' | 'sister'): Promise<string | null> {
@@ -119,9 +147,23 @@ export async function notifyProfileView(
   const userId = await getUserIdFromProfile(viewedProfileId, viewedProfileType);
   if (!userId) return;
 
-  const viewerUsername = await getUsernameFromProfile(viewerProfileId, viewerProfileType);
-  const genderText = viewerProfileType === 'brother' ? 'brother' : 'sister';
+  // Rate limit: this specific viewer can only notify this user once per 24 hours
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: recent } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('type', 'profile_view')
+    .contains('data', { viewer_profile_id: viewerProfileId })
+    .gte('created_at', oneDayAgo)
+    .limit(1)
+    .maybeSingle();
 
+  if (recent) return; // This viewer already notified recently — skip
+
+  const viewerUsername = await getUsernameFromProfile(viewerProfileId, viewerProfileType);
+
+  // In-app only, no push for profile views
   await createNotification({
     userId,
     type: 'profile_view',
@@ -132,7 +174,7 @@ export async function notifyProfileView(
       viewer_profile_type: viewerProfileType,
       viewer_username: viewerUsername,
     },
-    expiresInDays: 7, // Auto-delete after 7 days
+    expiresInDays: 7,
   });
 }
 
@@ -150,7 +192,6 @@ export async function notifyInterestExpressed(
   if (!userId) return;
 
   const requesterUsername = await getUsernameFromProfile(requesterProfileId, requesterProfileType);
-  const genderText = requesterProfileType === 'brother' ? 'brother' : 'sister';
 
   await createNotification({
     userId,
@@ -164,6 +205,15 @@ export async function notifyInterestExpressed(
       requester_username: requesterUsername,
     },
   });
+
+  const pushToken = await getPushToken(recipientProfileId, recipientProfileType);
+  if (pushToken) {
+    await maybeSendPush(pushToken, 'New Interest', `${requesterUsername} is interested in you`, {
+      screen: 'profile',
+      profileId: requesterProfileId,
+      profileType: requesterProfileType,
+    });
+  }
 }
 
 /**
@@ -247,8 +297,8 @@ export async function notifyInterestAccepted(
   await createNotification({
     userId,
     type: 'interest_accepted',
-    title: '✅ Interest Accepted!',
-    message: `${recipientUsername} accepted your interest. You can now message each other!`,
+    title: 'Congratulations!',
+    message: `${recipientUsername} has accepted your request!`,
     data: {
       interest_id: interestId,
       recipient_profile_id: recipientProfileId,
@@ -256,6 +306,15 @@ export async function notifyInterestAccepted(
       recipient_username: recipientUsername,
     },
   });
+
+  const pushToken = await getPushToken(requesterProfileId, requesterProfileType);
+  if (pushToken) {
+    await maybeSendPush(pushToken, 'Congratulations!', `${recipientUsername} has accepted your request!`, {
+      screen: 'profile',
+      profileId: recipientProfileId,
+      profileType: recipientProfileType,
+    });
+  }
 }
 
 /**
@@ -264,21 +323,32 @@ export async function notifyInterestAccepted(
 export async function notifyInterestRejected(
   interestId: string,
   requesterProfileId: string,
-  requesterProfileType: 'brother' | 'sister'
+  requesterProfileType: 'brother' | 'sister',
+  rejecterProfileId: string,
+  rejecterProfileType: 'brother' | 'sister'
 ): Promise<void> {
   const userId = await getUserIdFromProfile(requesterProfileId, requesterProfileType);
   if (!userId) return;
 
+  const rejecterUsername = await getUsernameFromProfile(rejecterProfileId, rejecterProfileType);
+
   await createNotification({
     userId,
     type: 'interest_rejected',
-    title: 'Interest Update',
-    message: 'Your interest was not accepted this time. Keep searching!',
+    title: `${rejecterUsername} - Request Declined`,
+    message: "You will get a better spouse. Keep searching and making dua.",
     data: {
       interest_id: interestId,
     },
     expiresInDays: 7,
   });
+
+  const pushToken = await getPushToken(requesterProfileId, requesterProfileType);
+  if (pushToken) {
+    await maybeSendPush(pushToken, `${rejecterUsername} - Request Declined`, "You will get a better spouse. Keep searching and making dua.", {
+      screen: 'interests',
+    });
+  }
 }
 
 /**

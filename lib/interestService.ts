@@ -401,7 +401,9 @@ export async function rejectInterest(
     await notifyInterestRejected(
       interestId,
       interest.requester_id,
-      interest.requester_type
+      interest.requester_type,
+      interest.recipient_id,
+      interest.recipient_type
     );
 
     return { success: true };

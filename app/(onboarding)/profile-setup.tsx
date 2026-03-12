@@ -61,24 +61,32 @@ interface ProfileData {
   open_to_polygyny?: boolean;
   hijab_commitment?: string;
   beard_commitment?: string;
+
+  // Wali (sister only, auto-populated from application)
+  wali_name?: string;
+  wali_relationship?: string;
+  wali_phone?: string;
+  wali_email?: string;
+  wali_preferred_contact?: string;
 }
 
 const BROTHER_BUILD_OPTIONS = [
   { label: 'Select build', value: '' },
-  { label: 'Skinny', value: 'skinny' },
-  { label: 'Slim', value: 'slim' },
+  { label: 'Lean', value: 'lean' },
   { label: 'Muscular', value: 'muscular' },
   { label: 'Bulky', value: 'bulky' },
   { label: 'Heavyset', value: 'heavyset' },
+  { label: 'Average', value: 'average' },
 ];
 
 const SISTER_BUILD_OPTIONS = [
   { label: 'Select build', value: '' },
-  { label: 'Skinny', value: 'skinny' },
-  { label: 'Slim', value: 'slim' },
+  { label: 'Athletic', value: 'athletic' },
+  { label: 'Curvaceous', value: 'curvaceous' },
+  { label: 'Curvy Athletic', value: 'curvy_athletic' },
   { label: 'Hourglass', value: 'hourglass' },
-  { label: 'Curvy', value: 'curvy' },
   { label: 'Heavyset', value: 'heavyset' },
+  { label: 'Average', value: 'average' },
 ];
 
 const BROTHER_MARITAL_OPTIONS = [
@@ -163,6 +171,11 @@ export default function ProfileSetup() {
     open_to_polygyny: false,
     hijab_commitment: '',
     beard_commitment: '',
+    wali_name: '',
+    wali_relationship: '',
+    wali_phone: '',
+    wali_email: '',
+    wali_preferred_contact: '',
   });
 
   const handleLogout = async () => {
@@ -231,7 +244,7 @@ export default function ProfileSetup() {
       // Check sister application
       const { data: sisterApp, error: sisterError } = await supabase
         .from('sister_application')
-        .select('first_name, last_name, phone_number, nationality, date_of_birth')
+        .select('first_name, last_name, phone_number, nationality, date_of_birth, wali_first_name, wali_last_name, wali_email, wali_phone')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -241,12 +254,16 @@ export default function ProfileSetup() {
 
       if (sisterApp) {
         setAccountType('sister');
+        const waliName = [sisterApp.wali_first_name, sisterApp.wali_last_name].filter(Boolean).join(' ');
         setProfileData(prev => ({
           ...prev,
           first_name: sisterApp.first_name || '',
           last_name: sisterApp.last_name || '',
           phone: sisterApp.phone_number || '',
           date_of_birth: sisterApp.date_of_birth || '',
+          wali_name: waliName,
+          wali_email: sisterApp.wali_email || '',
+          wali_phone: sisterApp.wali_phone || '',
         }));
         setIsLoading(false);
         return;
@@ -471,6 +488,11 @@ export default function ProfileSetup() {
           ...baseProfile,
           open_to_polygyny: profileData.open_to_polygyny,
           hijab_commitment: profileData.hijab_commitment,
+          wali_name: profileData.wali_name || null,
+          wali_relationship: profileData.wali_relationship || null,
+          wali_phone: profileData.wali_phone || null,
+          wali_email: profileData.wali_email || null,
+          wali_preferred_contact: profileData.wali_preferred_contact || null,
         };
         console.log('Sister profile insert payload:', JSON.stringify(sisterProfile, null, 2));
         const { data, error } = await supabase.from('sister').insert(sisterProfile).select('id').single();
@@ -740,8 +762,9 @@ export default function ProfileSetup() {
                 itemStyle={styles.pickerItem}
               >
                 <Picker.Item label="Select beard commitment" value="" />
-                <Picker.Item label="Full Sunnah Beard" value="full_sunnah_beard" />
+                <Picker.Item label="Full Beard" value="full_beard" />
                 <Picker.Item label="Trimmed Beard" value="trimmed_beard" />
+                <Picker.Item label="Mustache Only" value="mustache_only" />
                 <Picker.Item label="Clean Shaven" value="clean_shaven" />
               </Picker>
             </View>
@@ -757,9 +780,10 @@ export default function ProfileSetup() {
               itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Select prayer consistency" value="" />
-              <Picker.Item label="5x a Day" value="5x_daily" />
-              <Picker.Item label="As Much as Possible" value="as_much_as_possible" />
-              <Picker.Item label="Never" value="never" />
+              <Picker.Item label="Always on Time" value="always_on_time" />
+              <Picker.Item label="Usually on Time" value="usually_on_time" />
+              <Picker.Item label="Sometimes Miss" value="sometimes_miss" />
+              <Picker.Item label="Struggling" value="struggling" />
             </Picker>
           </View>
         </View>
@@ -851,6 +875,76 @@ export default function ProfileSetup() {
           numberOfLines={4}
         />
       </View>
+
+      {accountType === 'sister' && (
+        <View>
+          <Text style={[styles.sectionTitle, { fontSize: 18, marginTop: 8, marginBottom: 4 }]}>Wali Details</Text>
+          <Text style={[styles.sectionSubtitle, { marginBottom: 16 }]}>Pre-filled from your application — update if needed</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Wali Name</Text>
+            <TextInput
+              style={styles.input}
+              value={profileData.wali_name}
+              onChangeText={(text) => updateField('wali_name', text)}
+              placeholder="Full name of your wali"
+              placeholderTextColor="#7B8799"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Relationship to Wali</Text>
+            <TextInput
+              style={styles.input}
+              value={profileData.wali_relationship}
+              onChangeText={(text) => updateField('wali_relationship', text)}
+              placeholder="e.g. Father, Brother, Uncle"
+              placeholderTextColor="#7B8799"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Wali Phone</Text>
+            <TextInput
+              style={styles.input}
+              value={profileData.wali_phone}
+              onChangeText={(text) => updateField('wali_phone', text)}
+              placeholder="+44..."
+              placeholderTextColor="#7B8799"
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Wali Email</Text>
+            <TextInput
+              style={styles.input}
+              value={profileData.wali_email}
+              onChangeText={(text) => updateField('wali_email', text)}
+              placeholder="wali@example.com"
+              placeholderTextColor="#7B8799"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Preferred Contact Method</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={profileData.wali_preferred_contact}
+                onValueChange={(value) => updateField('wali_preferred_contact', value)}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="Select preferred contact" value="" />
+                <Picker.Item label="Phone" value="phone" />
+                <Picker.Item label="Email" value="email" />
+                <Picker.Item label="WhatsApp" value="whatsapp" />
+              </Picker>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -899,15 +993,19 @@ export default function ProfileSetup() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Living Arrangements</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={profileData.living_arrangements}
-          onChangeText={(text) => updateField('living_arrangements', text)}
-          placeholder="Describe your ideal living arrangements after marriage"
-          placeholderTextColor="#7B8799"
-          multiline
-          numberOfLines={3}
-        />
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={profileData.living_arrangements}
+            onValueChange={(value) => updateField('living_arrangements', value)}
+            itemStyle={styles.pickerItem}
+          >
+            <Picker.Item label="Select living arrangements" value="" />
+            <Picker.Item label="Own Property" value="own_property" />
+            <Picker.Item label="Renting" value="renting" />
+            <Picker.Item label="With Family" value="with_family" />
+            <Picker.Item label="Flexible" value="flexible" />
+          </Picker>
+        </View>
       </View>
 
       <View style={styles.inputGroup}>

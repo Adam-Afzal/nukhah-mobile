@@ -1,4 +1,5 @@
 // app/(onboarding)/references.tsx
+import OnboardingProgress from '@/components/OnboardingProgress';
 import { supabase } from '@/lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { useQueryClient } from '@tanstack/react-query';
@@ -225,8 +226,9 @@ export default function ReferencesScreen() {
 
       if (referenceError) throw referenceError;
 
-      // 🔥 Invalidate userStatus cache so it refreshes
-      queryClient.invalidateQueries({ queryKey: ['userStatus'] });
+      // Invalidate cached status so the routing effect fetches fresh data
+      // (old cache has hasProfile/hasMasjidAffiliation false from before onboarding started)
+      await queryClient.invalidateQueries({ queryKey: ['userStatus'] });
 
       // Send SMS verification
       const smsSent = await sendSMSVerification(
@@ -277,7 +279,8 @@ export default function ReferencesScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <OnboardingProgress currentStep={4} />
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -422,7 +425,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 28,
-    paddingTop: 60,
+    paddingTop: 16,
     paddingBottom: 120,
   },
   header: {

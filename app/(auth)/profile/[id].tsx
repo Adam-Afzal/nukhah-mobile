@@ -17,7 +17,6 @@ import {
   View
 } from 'react-native';
 
-// Using ONLY fields that exist in your actual schema
 interface ProfileData {
   id: string;
   username: string;
@@ -29,22 +28,22 @@ interface ProfileData {
   ethnicity: string;
   marital_status: string;
   build?: string;
-  physical_fitness?: string;
+  occupation?: string;
   revert?: boolean;
   children?: boolean;
   disabilities?: string;
-  memorization_quran?: string;
-  islamic_education?: string;
   prayer_consistency?: string;
-  islamic_knowledge_level?: string;
-  family_involvement?: string;
   beard_commitment?: string;
   hijab_commitment?: string;
-  charity_habits?: string;
-  conflict_resolution?: string;
-  polygyny_willingness?: boolean;
-  polygyny_acceptance?: boolean;
-  wali_approval?: boolean;
+  open_to_polygyny?: boolean;
+  open_to_hijrah?: boolean;
+  open_to_reverts?: boolean;
+  living_arrangements?: string;
+  preferred_ethnicity?: string[];
+  other_spouse_criteria?: string;
+  dealbreakers?: string;
+  hobbies_and_interests?: string;
+  personality?: string;
   wali_name?: string;
   wali_relationship?: string;
   wali_email?: string;
@@ -53,16 +52,6 @@ interface ProfileData {
   phone?: string;
   masjid_id?: string;
   is_masjid_affiliated?: boolean;
-  imam_verified?: boolean;
-  references_verified?: boolean;
-
-  // Profile text fields (now always visible)
-  deen?: string;
-  personality?: string;
-  lifestyle?: string;
-  spouse_criteria?: string;
-  dealbreakers?: string;
-  financial_responsibility?: string;
 }
 
 interface WaliContact {
@@ -74,6 +63,7 @@ interface WaliContact {
 }
 
 interface MasjidInfo {
+  id: string;
   name: string;
   marriage_service_url?: string;
 }
@@ -98,6 +88,7 @@ export default function ProfileScreen() {
   const [canViewWali, setCanViewWali] = useState(false);
   const [canViewBrotherPhone, setCanViewBrotherPhone] = useState(false);
   const [profileMasjid, setProfileMasjid] = useState<MasjidInfo | null>(null);
+  const [currentUserMasjid, setCurrentUserMasjid] = useState<MasjidInfo | null>(null);
   const [hasNotifiedProfileView, setHasNotifiedProfileView] = useState(false);
 
   useEffect(() => {
@@ -108,7 +99,10 @@ export default function ProfileScreen() {
     setIsLoading(true);
     try {
       const { userId, acctType } = await loadCurrentUser();
-      await loadProfile(userId, acctType);
+      await Promise.all([
+        loadProfile(userId, acctType),
+        userId && acctType ? loadCurrentUserMasjid(userId, acctType) : Promise.resolve(),
+      ]);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -166,11 +160,9 @@ export default function ProfileScreen() {
       if (brotherData) {
         setProfile(brotherData);
         setProfileType('brother');
+        await loadProfileMasjid(id, 'brother');
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'brother');
-
-        if (userId && acctType) {
-          await sendProfileViewNotification(brotherData, 'brother', userId, acctType);
-        }
+        if (userId && acctType) await sendProfileViewNotification(brotherData, 'brother', userId, acctType);
         return;
       }
 
@@ -184,11 +176,9 @@ export default function ProfileScreen() {
       if (sisterData) {
         setProfile(sisterData);
         setProfileType('sister');
+        await loadProfileMasjid(id, 'sister');
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'sister');
-
-        if (userId && acctType) {
-          await sendProfileViewNotification(sisterData, 'sister', userId, acctType);
-        }
+        if (userId && acctType) await sendProfileViewNotification(sisterData, 'sister', userId, acctType);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -261,8 +251,6 @@ export default function ProfileScreen() {
         setCanViewBrotherPhone(true);
       }
 
-      // Fetch masjid info for the profile being viewed (nikkah service)
-      await loadProfileMasjid(recipientId, recipientType);
     }
   };
 
@@ -281,7 +269,7 @@ export default function ProfileScreen() {
 
       const { data: masjid } = await supabase
         .from('masjid')
-        .select('name, marriage_service_url')
+        .select('id, name, marriage_service_url')
         .eq('id', verification.masjid_id)
         .single();
 
@@ -290,6 +278,32 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.error('Error loading profile masjid:', error);
+    }
+  };
+
+  const loadCurrentUserMasjid = async (userId: string, acctType: 'brother' | 'sister') => {
+    try {
+      const { data: verification } = await supabase
+        .from('imam_verification')
+        .select('masjid_id')
+        .eq('user_id', userId)
+        .eq('user_type', acctType)
+        .eq('status', 'verified')
+        .maybeSingle();
+
+      if (!verification?.masjid_id) return;
+
+      const { data: masjid } = await supabase
+        .from('masjid')
+        .select('id, name, marriage_service_url')
+        .eq('id', verification.masjid_id)
+        .single();
+
+      if (masjid) {
+        setCurrentUserMasjid(masjid);
+      }
+    } catch (error) {
+      console.error('Error loading current user masjid:', error);
     }
   };
 
@@ -442,17 +456,6 @@ export default function ProfileScreen() {
     return labels[build] || build;
   };
 
-  const getPhysicalFitnessLabel = (fitness: string) => {
-    const labels: Record<string, string> = {
-      athlete: 'Athlete',
-      very_fit: 'Very Fit',
-      fit: 'Fit',
-      moderately_fit: 'Moderately Fit',
-      light_exercise: 'Light Exercise',
-    };
-    return labels[fitness] || fitness;
-  };
-
   const getCoveringLabel = (covering: string, type: 'hijab' | 'beard') => {
     if (type === 'hijab') {
       const labels: Record<string, string> = {
@@ -522,19 +525,12 @@ export default function ProfileScreen() {
           <Text style={styles.age}>{age}</Text>
         </View>
 
-        {/* Verification Badges */}
-        {(profile.imam_verified || profile.references_verified) && (
+        {/* Verification Badge */}
+        {profileMasjid && (
           <View style={styles.verificationRow}>
-            {profile.imam_verified && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>🕌 Masjid Verified</Text>
-              </View>
-            )}
-            {profile.references_verified && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>✓ Reference Verified</Text>
-              </View>
-            )}
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>🕌 {profileMasjid.name} (Verified)</Text>
+            </View>
           </View>
         )}
 
@@ -548,6 +544,13 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Basic Information</Text>
 
           <View style={styles.infoGrid}>
+            {profile.ethnicity && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Ethnicity</Text>
+                <Text style={styles.infoValue}>{profile.ethnicity}</Text>
+              </View>
+            )}
+
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Marital Status</Text>
               <Text style={styles.infoValue}>{getMaritalStatusLabel(profile.marital_status)}</Text>
@@ -560,16 +563,25 @@ export default function ProfileScreen() {
               </View>
             )}
 
-            {profile.physical_fitness && (
+            {profile.occupation && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Fitness Level</Text>
-                <Text style={styles.infoValue}>{getPhysicalFitnessLabel(profile.physical_fitness)}</Text>
+                <Text style={styles.infoLabel}>Occupation</Text>
+                <Text style={styles.infoValue}>{profile.occupation}</Text>
+              </View>
+            )}
+
+            {profile.prayer_consistency && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Prayer</Text>
+                <Text style={styles.infoValue}>
+                  {profile.prayer_consistency === '5x_daily' ? '5x Daily' : profile.prayer_consistency === 'as_much_as_possible' ? 'As Much as Possible' : profile.prayer_consistency}
+                </Text>
               </View>
             )}
 
             {coveringValue && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Covering</Text>
+                <Text style={styles.infoLabel}>{profileType === 'sister' ? 'Hijab' : 'Beard'}</Text>
                 <Text style={styles.infoValue}>{getCoveringLabel(coveringValue, coveringType)}</Text>
               </View>
             )}
@@ -588,136 +600,75 @@ export default function ProfileScreen() {
               </View>
             )}
 
-            {profile.memorization_quran && (
+            {profile.open_to_hijrah !== undefined && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Quran Memorization</Text>
-                <Text style={styles.infoValue}>{profile.memorization_quran}</Text>
+                <Text style={styles.infoLabel}>Open to Hijrah</Text>
+                <Text style={styles.infoValue}>{profile.open_to_hijrah ? 'Yes' : 'No'}</Text>
               </View>
             )}
 
-            {profile.prayer_consistency && (
+            {profile.open_to_reverts !== undefined && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Prayer Consistency</Text>
-                <Text style={styles.infoValue}>{profile.prayer_consistency}</Text>
+                <Text style={styles.infoLabel}>Open to Reverts</Text>
+                <Text style={styles.infoValue}>{profile.open_to_reverts ? 'Yes' : 'No'}</Text>
               </View>
             )}
 
-            {profile.islamic_knowledge_level && (
+            {profileType === 'sister' && profile.open_to_polygyny !== undefined && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Islamic Knowledge</Text>
-                <Text style={styles.infoValue}>{profile.islamic_knowledge_level}</Text>
+                <Text style={styles.infoLabel}>Open to Polygyny</Text>
+                <Text style={styles.infoValue}>{profile.open_to_polygyny ? 'Yes' : 'No'}</Text>
               </View>
             )}
 
-            {profile.family_involvement && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Family Involvement</Text>
-                <Text style={styles.infoValue}>{profile.family_involvement}</Text>
-              </View>
-            )}
-
-            {profileType === 'brother' && profile.polygyny_willingness !== undefined && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Polygyny Willing</Text>
-                <Text style={styles.infoValue}>{profile.polygyny_willingness ? 'Yes' : 'No'}</Text>
-              </View>
-            )}
-
-            {profileType === 'sister' && profile.polygyny_acceptance !== undefined && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Polygyny Accepting</Text>
-                <Text style={styles.infoValue}>{profile.polygyny_acceptance ? 'Yes' : 'No'}</Text>
-              </View>
-            )}
-
-            {profile.disabilities && (
+            {profile.disabilities ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Disabilities</Text>
                 <Text style={styles.infoValue}>{profile.disabilities}</Text>
               </View>
-            )}
+            ) : null}
           </View>
-        </View>
-
-        {/* DEEN */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Deen</Text>
-          <Text style={styles.longText}>
-            {profile.deen || 'No description provided'}
-          </Text>
-        </View>
-
-        {/* ISLAMIC EDUCATION */}
-        {profile.islamic_education && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Islamic Education</Text>
-            <Text style={styles.longText}>
-              {profile.islamic_education}
-            </Text>
-          </View>
-        )}
-
-        {/* LIFESTYLE */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Lifestyle</Text>
-          <Text style={styles.longText}>
-            {profile.lifestyle || 'No description provided'}
-          </Text>
         </View>
 
         {/* PERSONALITY */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personality</Text>
-          <Text style={styles.longText}>
-            {profile.personality || 'No description provided'}
-          </Text>
-        </View>
-
-        {/* CONFLICT RESOLUTION */}
-        {profile.conflict_resolution && (
+        {profile.personality ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Conflict Resolution</Text>
-            <Text style={styles.longText}>
-              {profile.conflict_resolution}
-            </Text>
+            <Text style={styles.sectionTitle}>Personality</Text>
+            <Text style={styles.longText}>{profile.personality}</Text>
           </View>
-        )}
+        ) : null}
+
+        {/* HOBBIES & INTERESTS */}
+        {profile.hobbies_and_interests ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Hobbies & Interests</Text>
+            <Text style={styles.longText}>{profile.hobbies_and_interests}</Text>
+          </View>
+        ) : null}
+
+        {/* LIVING ARRANGEMENTS */}
+        {profile.living_arrangements ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Living Arrangements</Text>
+            <Text style={styles.longText}>{profile.living_arrangements}</Text>
+          </View>
+        ) : null}
 
         {/* SPOUSE CRITERIA */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Spouse Criteria</Text>
-          <Text style={styles.longText}>
-            {profile.spouse_criteria || 'No criteria provided'}
-          </Text>
-        </View>
+        {profile.other_spouse_criteria ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Spouse Criteria</Text>
+            <Text style={styles.longText}>{profile.other_spouse_criteria}</Text>
+          </View>
+        ) : null}
 
         {/* DEALBREAKERS */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Dealbreakers</Text>
-          <Text style={styles.longText}>
-            {profile.dealbreakers || 'No dealbreakers specified'}
-          </Text>
-        </View>
-
-        {/* FINANCIAL RESPONSIBILITY - Brother only */}
-        {profileType === 'brother' && profile.financial_responsibility && (
+        {profile.dealbreakers ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Financial Responsibility</Text>
-            <Text style={styles.longText}>
-              {profile.financial_responsibility}
-            </Text>
+            <Text style={styles.sectionTitle}>Dealbreakers</Text>
+            <Text style={styles.longText}>{profile.dealbreakers}</Text>
           </View>
-        )}
-
-        {/* CHARITY HABITS */}
-        {profile.charity_habits && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Charity Habits</Text>
-            <Text style={styles.longText}>
-              {profile.charity_habits}
-            </Text>
-          </View>
-        )}
+        ) : null}
 
         {/* WALI CONTACT - Only shows for brothers viewing sisters with accepted interest */}
         {canViewWali && waliContact && profileType === 'sister' && (
@@ -813,6 +764,10 @@ export default function ProfileScreen() {
 
               <View style={styles.waliInfo}>
                 <View style={styles.waliRow}>
+                  <Text style={styles.waliLabel}>Name:</Text>
+                  <Text style={styles.waliValue}>{profile.first_name} {profile.last_name}</Text>
+                </View>
+                <View style={styles.waliRow}>
                   <Text style={styles.waliLabel}>Phone:</Text>
                   <Text style={styles.waliValue}>{profile.phone}</Text>
                 </View>
@@ -832,19 +787,32 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* NIKKAH SERVICE - Shows when matched and profile's masjid offers it */}
-        {profileMasjid?.marriage_service_url && (
+        {/* NIKKAH SERVICES - Only shows when matched, for masjids that offer the service */}
+        {isMatched && (profileMasjid?.marriage_service_url || currentUserMasjid?.marriage_service_url) && (
           <View style={styles.section}>
-            <View style={styles.nikkahCard}>
-              <Text style={styles.nikkahText}>
-                🕌 {profileMasjid.name} offers a nikkah service
-              </Text>
-              <TouchableOpacity
-                onPress={() => Linking.openURL(profileMasjid.marriage_service_url!)}
-              >
-                <Text style={styles.nikkahLink}>Explore it here →</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.sectionTitle}>🕌 Nikkah Services</Text>
+
+            {profileMasjid?.marriage_service_url && (
+              <View style={[styles.nikkahCard, currentUserMasjid?.marriage_service_url ? { marginBottom: 12 } : undefined]}>
+                <Text style={styles.nikkahText}>
+                  {profileMasjid.name} offers a nikkah service
+                </Text>
+                <TouchableOpacity onPress={() => Linking.openURL(profileMasjid.marriage_service_url!)}>
+                  <Text style={styles.nikkahLink}>Explore it here →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {currentUserMasjid?.marriage_service_url && currentUserMasjid.id !== profileMasjid?.id && (
+              <View style={styles.nikkahCard}>
+                <Text style={styles.nikkahText}>
+                  {currentUserMasjid.name} offers a nikkah service
+                </Text>
+                <TouchableOpacity onPress={() => Linking.openURL(currentUserMasjid.marriage_service_url!)}>
+                  <Text style={styles.nikkahLink}>Explore it here →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 

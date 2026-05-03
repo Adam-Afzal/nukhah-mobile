@@ -1,9 +1,9 @@
 // app/(auth)/profile/[id].tsx
 import { acceptInterest, expressInterest, getInterest, rejectInterest, withdrawInterest } from '@/lib/interestService';
 import { getCountryByName } from '@/lib/locationData';
-import { notifyProfileView } from '@/lib/notificationService';
 import { getWaliContact } from '@/lib/profileAccessService';
 import { supabase } from '@/lib/supabase';
+import { useUserStatus } from '@/hooks/useUserStatus';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -37,13 +37,13 @@ interface ProfileData {
   hijab_commitment?: string;
   open_to_polygyny?: boolean;
   open_to_hijrah?: boolean;
-  open_to_reverts?: boolean;
   living_arrangements?: string;
   preferred_ethnicity?: string[];
   other_spouse_criteria?: string;
   dealbreakers?: string;
   hobbies_and_interests?: string;
   personality?: string;
+  applied_by_wali?: boolean;
   wali_name?: string;
   wali_relationship?: string;
   wali_email?: string;
@@ -71,6 +71,7 @@ interface MasjidInfo {
 export default function ProfileScreen() {
   const router = useRouter();
   const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  const { data: userStatus } = useUserStatus();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [profileType, setProfileType] = useState<'brother' | 'sister' | null>(null);
@@ -89,7 +90,7 @@ export default function ProfileScreen() {
   const [canViewBrotherPhone, setCanViewBrotherPhone] = useState(false);
   const [profileMasjid, setProfileMasjid] = useState<MasjidInfo | null>(null);
   const [currentUserMasjid, setCurrentUserMasjid] = useState<MasjidInfo | null>(null);
-  const [hasNotifiedProfileView, setHasNotifiedProfileView] = useState(false);
+  const [hasVerifiedReference, setHasVerifiedReference] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -160,9 +161,11 @@ export default function ProfileScreen() {
       if (brotherData) {
         setProfile(brotherData);
         setProfileType('brother');
-        await loadProfileMasjid(id, 'brother');
+        await Promise.all([
+          loadProfileMasjid(id, 'brother'),
+          loadReferenceVerification(id, 'brother'),
+        ]);
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'brother');
-        if (userId && acctType) await sendProfileViewNotification(brotherData, 'brother', userId, acctType);
         return;
       }
 
@@ -176,37 +179,15 @@ export default function ProfileScreen() {
       if (sisterData) {
         setProfile(sisterData);
         setProfileType('sister');
-        await loadProfileMasjid(id, 'sister');
+        await Promise.all([
+          loadProfileMasjid(id, 'sister'),
+          loadReferenceVerification(id, 'sister'),
+        ]);
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'sister');
-        if (userId && acctType) await sendProfileViewNotification(sisterData, 'sister', userId, acctType);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
     }
-  };
-
-  const sendProfileViewNotification = async (
-    profileData: ProfileData,
-    profileTypeData: 'brother' | 'sister',
-    userIdData: string,
-    accountTypeData: 'brother' | 'sister'
-  ) => {
-    if (
-      from !== 'search' ||
-      hasNotifiedProfileView ||
-      userIdData === profileData.id
-    ) {
-      return;
-    }
-
-    await notifyProfileView(
-      profileData.id,
-      profileTypeData,
-      userIdData,
-      accountTypeData
-    );
-
-    setHasNotifiedProfileView(true);
   };
 
   const checkInterestStatusAndAccess = async (
@@ -251,6 +232,21 @@ export default function ProfileScreen() {
         setCanViewBrotherPhone(true);
       }
 
+    }
+  };
+
+  const loadReferenceVerification = async (profileId: string, profileType: 'brother' | 'sister') => {
+    try {
+      const { count } = await supabase
+        .from('reference')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', profileId)
+        .eq('user_type', profileType)
+        .eq('verification_status', 'verified');
+
+      setHasVerifiedReference((count ?? 0) > 0);
+    } catch (error) {
+      console.error('Error loading reference verification:', error);
     }
   };
 
@@ -310,6 +306,19 @@ export default function ProfileScreen() {
   const handleExpressInterest = async () => {
     if (!currentUserId || !accountType || !id || !profile) return;
 
+    const canAct = userStatus?.testingMode || userStatus?.paid;
+    if (!canAct) {
+      Alert.alert(
+        'Membership Required',
+        'You need an active membership to express interest. Join now for £19.99/month.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Get Membership', onPress: () => router.push('/(auth)/payment') },
+        ]
+      );
+      return;
+    }
+
     setIsExpressing(true);
     try {
       const recipientType = profileType || (accountType === 'brother' ? 'sister' : 'brother');
@@ -349,6 +358,19 @@ export default function ProfileScreen() {
   const handleAcceptInterest = async () => {
     if (!receivedInterestId) return;
 
+    const canAct = userStatus?.testingMode || userStatus?.paid;
+    if (!canAct) {
+      Alert.alert(
+        'Membership Required',
+        'You need an active membership to accept interest. Join now for £19.99/month.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Get Membership', onPress: () => router.push('/(auth)/payment') },
+        ]
+      );
+      return;
+    }
+
     setIsAccepting(true);
     try {
       const result = await acceptInterest(receivedInterestId);
@@ -383,6 +405,19 @@ export default function ProfileScreen() {
 
   const handleRejectInterest = async () => {
     if (!receivedInterestId) return;
+
+    const canAct = userStatus?.testingMode || userStatus?.paid;
+    if (!canAct) {
+      Alert.alert(
+        'Membership Required',
+        'You need an active membership to manage interests. Join now for £19.99/month.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Get Membership', onPress: () => router.push('/(auth)/payment') },
+        ]
+      );
+      return;
+    }
 
     setIsRejecting(true);
     try {
@@ -525,12 +560,28 @@ export default function ProfileScreen() {
           <Text style={styles.age}>{age}</Text>
         </View>
 
-        {/* Verification Badge */}
-        {profileMasjid && (
+        {/* Wali-registered badge */}
+        {profileType === 'sister' && profile.applied_by_wali && (
           <View style={styles.verificationRow}>
-            <View style={styles.verificationBadge}>
-              <Text style={styles.verificationText}>🕌 {profileMasjid.name} (Verified)</Text>
+            <View style={styles.waliBadge}>
+              <Text style={styles.waliBadgeText}>Profile registered by Wali</Text>
             </View>
+          </View>
+        )}
+
+        {/* Verification badges */}
+        {(profileMasjid || hasVerifiedReference) && (
+          <View style={styles.verificationRow}>
+            {profileMasjid && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>🕌 {profileMasjid.name} (Verified)</Text>
+              </View>
+            )}
+            {hasVerifiedReference && (
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>✓ Reference Verified</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -586,13 +637,6 @@ export default function ProfileScreen() {
               </View>
             )}
 
-            {profile.revert !== undefined && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Revert Muslim</Text>
-                <Text style={styles.infoValue}>{profile.revert ? 'Yes' : 'No'}</Text>
-              </View>
-            )}
-
             {profile.children !== undefined && (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Has Children</Text>
@@ -604,13 +648,6 @@ export default function ProfileScreen() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Open to Hijrah</Text>
                 <Text style={styles.infoValue}>{profile.open_to_hijrah ? 'Yes' : 'No'}</Text>
-              </View>
-            )}
-
-            {profile.open_to_reverts !== undefined && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Open to Reverts</Text>
-                <Text style={styles.infoValue}>{profile.open_to_reverts ? 'Yes' : 'No'}</Text>
               </View>
             )}
 
@@ -952,6 +989,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     color: '#17803A',
+  },
+  waliBadge: {
+    backgroundColor: 'rgba(242, 204, 102, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 204, 102, 0.4)',
+  },
+  waliBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#F2CC66',
   },
   locationRow: {
     flexDirection: 'row',

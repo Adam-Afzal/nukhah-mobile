@@ -1,4 +1,5 @@
 // app/(auth)/interests.tsx
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { getMyInterests, getReceivedInterests } from '@/lib/interestService';
 import { getCountryByName, getEthnicityByName } from '@/lib/locationData';
 import { supabase } from '@/lib/supabase';
@@ -655,31 +656,25 @@ export default function InterestsScreen() {
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/interests')}>
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/interests')}>
             <InterestsIcon active={true} />
             <Text style={styles.navLabelActive}>Interests</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(auth)')}>
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)')}>
             <SearchIcon active={false} />
             <Text style={styles.navLabelInactive}>Search</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/notifications')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/notifications')}>
             <NotificationsIcon active={false} count={unreadCount} />
             <Text style={styles.navLabelInactive}>Notifications</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/settings')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/settings')}>
             <SettingsIcon active={false} />
             <Text style={styles.navLabelInactive}>Settings</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         <View style={styles.navbarIndicator} />

@@ -1,7 +1,7 @@
 import SearchablePicker from '@/components/searchablePicker';
 import { useSisterApplication } from '@/hooks/useSisterApplicaton';
 import { COUNTRIES } from '@/lib/locationData';
-import { LinearGradient } from 'expo-linear-gradient';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -9,7 +9,6 @@ import {
   Switch,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -22,6 +21,8 @@ const nationalityItems = COUNTRIES.map(country => ({
 }));
 
 type FormData = {
+  applied_by_wali: boolean;
+  wali_relationship_to_sister: string;
   first_name: string;
   last_name: string;
   nationality: string;
@@ -42,6 +43,8 @@ export default function SisterApplication() {
   const [nationalityPickerVisible, setNationalityPickerVisible] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
+    applied_by_wali: false,
+    wali_relationship_to_sister: '',
     first_name: '',
     last_name: '',
     nationality: '',
@@ -72,6 +75,9 @@ export default function SisterApplication() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    if (formData.applied_by_wali && !formData.wali_relationship_to_sister.trim()) {
+      newErrors.wali_relationship_to_sister = 'Required';
+    }
     if (!formData.first_name.trim()) newErrors.first_name = 'Required';
     if (!formData.last_name.trim()) newErrors.last_name = 'Required';
     if (!formData.nationality) newErrors.nationality = 'Required';
@@ -107,6 +113,8 @@ export default function SisterApplication() {
   const handleSubmit = () => {
     if (validateForm()) {
       const submissionData = {
+        applied_by_wali: formData.applied_by_wali,
+        ...(formData.applied_by_wali && { wali_relationship_to_sister: formData.wali_relationship_to_sister }),
         first_name: formData.first_name,
         last_name: formData.last_name,
         nationality: formData.nationality,
@@ -131,13 +139,7 @@ export default function SisterApplication() {
   };
 
   return (
-    <LinearGradient
-      colors={['#070A12', '#1E2A3B', 'rgba(242, 204, 102, 0.3)']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      locations={[-0.0077, 0.4895, 0.9867]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <KeyboardAwareScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -149,24 +151,75 @@ export default function SisterApplication() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack}>
+          <AnimatedPressable onPress={handleBack}>
             <Text style={styles.backButton}>← Back</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         {/* Title */}
         <Text style={styles.title}>Sister Application</Text>
         <Text style={styles.subtitle}>
-          Create your account to get started
+          {formData.applied_by_wali
+            ? 'Register a sister as her wali'
+            : 'Create your account to get started'}
         </Text>
 
         {/* Form */}
         <View style={styles.form}>
+
+          {/* Wali applying on behalf toggle */}
+          <View style={styles.waliApplyingSection}>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.label}>Applying on behalf of a sister</Text>
+                <Text style={styles.hint}>
+                  {formData.applied_by_wali
+                    ? 'You are registering as a wali on behalf of a sister'
+                    : 'I am registering for myself'}
+                </Text>
+              </View>
+              <Switch
+                value={formData.applied_by_wali}
+                onValueChange={(value) => updateField('applied_by_wali', value)}
+                trackColor={{ false: '#7B8799', true: '#F2CC66' }}
+                thumbColor={formData.applied_by_wali ? '#F7E099' : '#E7EAF0'}
+              />
+            </View>
+          </View>
+
+          <View style={styles.sectionDivider} />
+
+          {formData.applied_by_wali && (
+            <>
+              <View style={styles.waliApplyingBanner}>
+                <Text style={styles.waliApplyingBannerText}>
+                  Please fill in the sister's details below. Her account will be created and she can log in using the email and password you set.
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Your Relationship to the Sister *</Text>
+                <Text style={styles.hint}>e.g. Father, Brother, Uncle, Grandfather</Text>
+                <TextInput
+                  style={[styles.input, errors.wali_relationship_to_sister && styles.inputError]}
+                  placeholder="Enter your relationship"
+                  placeholderTextColor="#7B8799"
+                  value={formData.wali_relationship_to_sister}
+                  onChangeText={(text) => updateField('wali_relationship_to_sister', text)}
+                  autoCapitalize="words"
+                />
+                {errors.wali_relationship_to_sister && (
+                  <Text style={styles.errorText}>{errors.wali_relationship_to_sister}</Text>
+                )}
+              </View>
+            </>
+          )}
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>First Name *</Text>
+            <Text style={styles.label}>{formData.applied_by_wali ? "Sister's First Name *" : 'First Name *'}</Text>
             <TextInput
               style={[styles.input, errors.first_name && styles.inputError]}
-              placeholder="Enter your first name"
+              placeholder={formData.applied_by_wali ? "Enter her first name" : "Enter your first name"}
               placeholderTextColor="#7B8799"
               value={formData.first_name}
               onChangeText={(text) => updateField('first_name', text)}
@@ -176,10 +229,10 @@ export default function SisterApplication() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Last Name *</Text>
+            <Text style={styles.label}>{formData.applied_by_wali ? "Sister's Last Name *" : 'Last Name *'}</Text>
             <TextInput
               style={[styles.input, errors.last_name && styles.inputError]}
-              placeholder="Enter your last name"
+              placeholder={formData.applied_by_wali ? "Enter her last name" : "Enter your last name"}
               placeholderTextColor="#7B8799"
               value={formData.last_name}
               onChangeText={(text) => updateField('last_name', text)}
@@ -189,8 +242,8 @@ export default function SisterApplication() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nationality *</Text>
-            <TouchableOpacity
+            <Text style={styles.label}>{formData.applied_by_wali ? "Sister's Nationality *" : 'Nationality *'}</Text>
+            <AnimatedPressable
               style={[styles.pickerTrigger, errors.nationality && styles.inputError]}
               onPress={() => setNationalityPickerVisible(true)}
             >
@@ -200,7 +253,7 @@ export default function SisterApplication() {
                   'Select your nationality'}
               </Text>
               <Text style={styles.pickerArrow}>›</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
             {errors.nationality && <Text style={styles.errorText}>{errors.nationality}</Text>}
           </View>
 
@@ -215,10 +268,10 @@ export default function SisterApplication() {
           />
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email *</Text>
+            <Text style={styles.label}>{formData.applied_by_wali ? "Sister's Email *" : 'Email *'}</Text>
             <TextInput
               style={[styles.input, errors.email && styles.inputError]}
-              placeholder="your.email@example.com"
+              placeholder={formData.applied_by_wali ? "her.email@example.com" : "your.email@example.com"}
               placeholderTextColor="#7B8799"
               value={formData.email}
               onChangeText={(text) => updateField('email', text)}
@@ -229,7 +282,7 @@ export default function SisterApplication() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number *</Text>
+            <Text style={styles.label}>{formData.applied_by_wali ? "Sister's Phone Number *" : 'Phone Number *'}</Text>
             <TextInput
               style={[styles.input, errors.phone_number && styles.inputError]}
               placeholder="+1 234 567 8900"
@@ -242,7 +295,7 @@ export default function SisterApplication() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Date of Birth *</Text>
+            <Text style={styles.label}>{formData.applied_by_wali ? "Sister's Date of Birth *" : 'Date of Birth *'}</Text>
             <Text style={styles.hint}>Format: YYYY-MM-DD</Text>
             <TextInput
               style={[styles.input, errors.date_of_birth && styles.inputError]}
@@ -256,8 +309,8 @@ export default function SisterApplication() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
-            <Text style={styles.hint}>Must be at least 8 characters</Text>
+            <Text style={styles.label}>{formData.applied_by_wali ? "Account Password *" : 'Password *'}</Text>
+            <Text style={styles.hint}>{formData.applied_by_wali ? "Must be at least 8 characters — share this with the sister" : "Must be at least 8 characters"}</Text>
             <TextInput
               style={[styles.input, errors.password && styles.inputError]}
               placeholder="Enter your password"
@@ -275,7 +328,9 @@ export default function SisterApplication() {
 
           <View style={styles.inputGroup}>
             <View style={styles.switchRow}>
-              <Text style={styles.label}>I have a wali</Text>
+              <Text style={styles.label}>
+                {formData.applied_by_wali ? 'Sister has a wali' : 'I have a wali'}
+              </Text>
               <Switch
                 value={formData.has_wali}
                 onValueChange={(value) => updateField('has_wali', value)}
@@ -285,20 +340,36 @@ export default function SisterApplication() {
             </View>
             <Text style={styles.hint}>
               {formData.has_wali
-                ? 'Please provide your wali\'s contact information below'
-                : 'Wali details are optional if you do not have one'}
+                ? formData.applied_by_wali
+                  ? "Please provide the sister's wali's contact information below"
+                  : "Please provide your wali's contact information below"
+                : formData.applied_by_wali
+                  ? 'Wali details are optional if the sister does not have one'
+                  : 'Wali details are optional if you do not have one'}
             </Text>
+
+            {!formData.has_wali && (
+              <View style={styles.noWaliBanner}>
+                <Text style={styles.noWaliBannerText}>
+                  ⚠️ Speak to your local imam about acquiring a wali if you do not have one. Sisters cannot use Mithaq without a wali. Anyone found using their own details may be subject to a ban.
+                </Text>
+              </View>
+            )}
           </View>
 
           {formData.has_wali && (
             <View style={styles.waliSection}>
-              <Text style={styles.sectionTitle}>Wali Information</Text>
+              <Text style={styles.sectionTitle}>
+                {formData.applied_by_wali ? "Sister's Wali Information" : 'Wali Information'}
+              </Text>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Wali First Name *</Text>
+                <Text style={styles.label}>
+                  {formData.applied_by_wali ? "Sister's Wali First Name *" : 'Wali First Name *'}
+                </Text>
                 <TextInput
                   style={[styles.input, errors.wali_first_name && styles.inputError]}
-                  placeholder="Enter wali's first name"
+                  placeholder={formData.applied_by_wali ? "Enter her wali's first name" : "Enter wali's first name"}
                   placeholderTextColor="#7B8799"
                   value={formData.wali_first_name}
                   onChangeText={(text) => updateField('wali_first_name', text)}
@@ -308,10 +379,12 @@ export default function SisterApplication() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Wali Last Name *</Text>
+                <Text style={styles.label}>
+                  {formData.applied_by_wali ? "Sister's Wali Last Name *" : 'Wali Last Name *'}
+                </Text>
                 <TextInput
                   style={[styles.input, errors.wali_last_name && styles.inputError]}
-                  placeholder="Enter wali's last name"
+                  placeholder={formData.applied_by_wali ? "Enter her wali's last name" : "Enter wali's last name"}
                   placeholderTextColor="#7B8799"
                   value={formData.wali_last_name}
                   onChangeText={(text) => updateField('wali_last_name', text)}
@@ -321,7 +394,9 @@ export default function SisterApplication() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Wali Email *</Text>
+                <Text style={styles.label}>
+                  {formData.applied_by_wali ? "Sister's Wali Email *" : 'Wali Email *'}
+                </Text>
                 <TextInput
                   style={[styles.input, errors.wali_email && styles.inputError]}
                   placeholder="wali.email@example.com"
@@ -335,7 +410,9 @@ export default function SisterApplication() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Wali Phone Number *</Text>
+                <Text style={styles.label}>
+                  {formData.applied_by_wali ? "Sister's Wali Phone Number *" : 'Wali Phone Number *'}
+                </Text>
                 <TextInput
                   style={[styles.input, errors.wali_phone && styles.inputError]}
                   placeholder="+1 234 567 8900"
@@ -351,42 +428,39 @@ export default function SisterApplication() {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity
+        <AnimatedPressable
           style={styles.submitButton}
           onPress={handleSubmit}
-          activeOpacity={0.8}
           disabled={isPending}
         >
-          <LinearGradient
-            colors={['#F2CC66', '#F2CC66']}
-            style={styles.submitButtonGradient}
-          >
-            <Text style={styles.submitButtonText}>
-              {isPending ? 'Submitting...' : 'Submit Application'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
+          <Text style={styles.submitButtonText}>
+            {isPending ? 'Submitting...' : 'Submit Application'}
+          </Text>
+        </AnimatedPressable>
 
         {/* Privacy Note */}
         <Text style={styles.privacyNote}>
           Your information is encrypted and kept confidential
         </Text>
       </KeyboardAwareScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 40,
+    backgroundColor: '#0A0E1A',
   },
   header: {
     flexDirection: 'row',
@@ -397,18 +471,18 @@ const styles = StyleSheet.create({
   backButton: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    color: '#F2CC66',
+    color: '#C9A961',
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
     fontSize: 32,
-    color: '#F2CC66',
+    color: '#C9A961',
     marginBottom: 8,
   },
   subtitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
-    color: '#F7E099',
+    color: '#E8D7B5',
     marginBottom: 32,
   },
   form: {
@@ -420,7 +494,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: 'Inter_500Medium',
     fontSize: 14,
-    color: '#F7E099',
+    color: '#E8D7B5',
   },
   hint: {
     fontFamily: 'Inter_400Regular',
@@ -429,9 +503,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1A1F2E',
     borderWidth: 1,
-    borderColor: '#E7EAF0',
+    borderColor: 'rgba(201, 169, 97, 0.3)',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -448,9 +522,9 @@ const styles = StyleSheet.create({
     color: '#E03A3A',
   },
   pickerTrigger: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1A1F2E',
     borderWidth: 1,
-    borderColor: '#E7EAF0',
+    borderColor: 'rgba(201, 169, 97, 0.3)',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -479,6 +553,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  noWaliBanner: {
+    marginTop: 12,
+    backgroundColor: 'rgba(224, 58, 58, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(224, 58, 58, 0.4)',
+    borderRadius: 8,
+    padding: 12,
+  },
+  noWaliBannerText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#FF6B6B',
+  },
   sectionDivider: {
     height: 1,
     backgroundColor: 'rgba(242, 204, 102, 0.3)',
@@ -487,7 +575,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 18,
-    color: '#F2CC66',
+    color: '#C9A961',
     marginBottom: 16,
   },
   waliSection: {
@@ -498,21 +586,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(242, 204, 102, 0.2)',
   },
+  waliApplyingSection: {
+    backgroundColor: 'rgba(242, 204, 102, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 204, 102, 0.2)',
+  },
+  waliApplyingBanner: {
+    backgroundColor: 'rgba(242, 204, 102, 0.12)',
+    borderRadius: 8,
+    padding: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F2CC66',
+  },
+  waliApplyingBannerText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#F7E099',
+    lineHeight: 20,
+  },
   submitButton: {
     marginTop: 32,
     height: 56,
     borderRadius: 8,
-    overflow: 'hidden',
-  },
-  submitButtonGradient: {
-    flex: 1,
+    backgroundColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitButtonText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
-    color: '#070A12',
+    color: '#0A0E1A',
   },
   privacyNote: {
     fontFamily: 'Inter_400Regular',

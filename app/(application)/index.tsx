@@ -1,6 +1,6 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
@@ -48,19 +48,13 @@ export default function GenderSelectionScreen() {
   };
 
   return (
-    <LinearGradient
-    colors={['#070A12', '#1E2A3B', 'rgba(242, 204, 102, 0.3)']}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 0.5, y: 1 }}
-    locations={[0.0058, 0.4534, 0.9011]}
-    style={styles.container}
-    >
+    <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.content}>
           {/* Back Button */}
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <AnimatedPressable style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
           {/* Crown Logo */}
           <View style={styles.logoContainer}>
@@ -74,33 +68,25 @@ export default function GenderSelectionScreen() {
           {/* Options Container */}
           <View style={styles.optionsContainer}>
             {/* Brother Option */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={styles.brotherButton}
               onPress={handleBrotherApply}
-              activeOpacity={0.9}
             >
-              <LinearGradient
-                colors={['#F2CC66', '#F2CC66']}
-                style={styles.brotherButtonGradient}
-              >
+              <View style={styles.brotherButtonInner}>
                 <View style={styles.buttonContent}>
-                  <View style={styles.iconContainer}>
-                   
-                  </View>
                   <View style={styles.textContainer}>
                     <Text style={styles.buttonTitle}>Brother</Text>
                     <Text style={styles.buttonDescription}>High-value Muslim men</Text>
                   </View>
                   <Text style={styles.arrow}>→</Text>
                 </View>
-              </LinearGradient>
-            </TouchableOpacity>
+              </View>
+            </AnimatedPressable>
 
             {/* Sister Option */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={styles.sisterButton}
               onPress={handleSisterApply}
-              activeOpacity={0.9}
             >
               <View style={styles.sisterButtonInner}>
                 <View style={styles.buttonContent}>
@@ -116,7 +102,7 @@ export default function GenderSelectionScreen() {
                   <Text style={styles.sisterArrow}>→</Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
 
           {/* Info Box */}
@@ -143,13 +129,14 @@ export default function GenderSelectionScreen() {
           </Text>
         </View>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   safeArea: {
     flex: 1,
@@ -166,7 +153,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    color: '#F2CC66',
+    color: '#C9A961',
   },
   logoContainer: {
     alignItems: 'center',
@@ -174,34 +161,30 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
-    fontSize: 40, // Reduced from 48
-    color: '#F2CC66',
+    fontSize: 40,
+    color: '#C9A961',
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
-    color: '#F7E099',
+    color: '#E8D7B5',
     textAlign: 'center',
-    marginBottom: 32, // Reduced from 40
+    marginBottom: 32,
   },
   optionsContainer: {
     gap: 16, // Reduced from 20
   },
   brotherButton: {
-    height: 120, // Reduced from 140
+    height: 120,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: '#C9A961',
   },
-  brotherButtonGradient: {
+  brotherButtonInner: {
     flex: 1,
-    padding: 20, // Reduced from 24
+    padding: 20,
   },
   buttonContent: {
     flexDirection: 'row',
@@ -216,91 +199,86 @@ const styles = StyleSheet.create({
   },
   buttonTitle: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
-    fontSize: 28, // Reduced from 32
-    color: '#070A12',
+    fontSize: 28,
+    color: '#0A0E1A',
     marginBottom: 4,
   },
   buttonDescription: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13, // Reduced from 14
-    color: '#1E2A3B',
+    fontSize: 13,
+    color: '#1A1F2E',
   },
   arrow: {
     fontFamily: 'Inter_400Regular',
     fontSize: 24,
-    color: '#070A12',
+    color: '#0A0E1A',
   },
   sisterButton: {
-    height: 120, // Reduced from 140
+    height: 120,
     borderRadius: 12,
-    backgroundColor: 'rgba(242, 204, 102, 0.15)',
-    borderWidth: 2,
-    borderColor: '#F2CC66',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: 'rgba(201, 169, 97, 0.1)',
+    borderWidth: 1,
+    borderColor: '#C9A961',
   },
   sisterButtonInner: {
     flex: 1,
-    padding: 20, // Reduced from 24
+    padding: 20,
   },
   sisterButtonTitle: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
-    fontSize: 28, // Reduced from 32
-    color: '#F2CC66',
+    fontSize: 28,
+    color: '#C9A961',
     marginBottom: 4,
   },
   sisterButtonDescription: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13, // Reduced from 14
-    color: '#F7E099',
+    fontSize: 13,
+    color: '#E8D7B5',
   },
   sisterArrow: {
     fontFamily: 'Inter_400Regular',
     fontSize: 24,
-    color: '#F2CC66',
+    color: '#C9A961',
   },
   infoBox: {
-    marginTop: 24, // Reduced from 40
+    marginTop: 24,
     flexDirection: 'row',
-    backgroundColor: 'rgba(247, 224, 153, 0.1)',
+    backgroundColor: 'rgba(201, 169, 97, 0.08)',
     borderWidth: 1,
-    borderColor: '#F7E099',
+    borderColor: 'rgba(201, 169, 97, 0.3)',
     borderRadius: 8,
-    padding: 16, // Reduced from 20
+    padding: 16,
   },
   infoIconContainer: {
     marginRight: 12, // Reduced from 16
   },
   infoIconCircle: {
-    width: 22, // Reduced from 24
+    width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#F7E099',
+    borderColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
   },
   infoIconText: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 13, // Reduced from 14
-    color: '#F7E099',
+    fontSize: 13,
+    color: '#C9A961',
   },
   infoTextContainer: {
     flex: 1,
   },
   infoTitle: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13, // Reduced from 14
-    color: '#F7E099',
+    fontSize: 13,
+    color: '#E8D7B5',
     marginBottom: 6,
   },
   infoText: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 11, // Reduced from 12
-    color: '#F7E099',
+    fontSize: 11,
+    color: '#E8D7B5',
     lineHeight: 16,
   },
   spacer: {

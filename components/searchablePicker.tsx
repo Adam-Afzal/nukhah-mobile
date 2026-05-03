@@ -145,13 +145,13 @@ const styles = StyleSheet.create({
     color: '#070A12',
   },
   closeButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 24,
+    fontSize: 22,
     color: '#7B8799',
   },
   searchContainer: {

@@ -1,5 +1,6 @@
 // app/(auth)/index.tsx
-import { clearVisitingStatus, getVisitingMembers, initGeofencing } from '@/lib/beaconService';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
+import { CompatibilityProfile, calculateHardRuleScore, combineCompatibilityScores, findMatchesForBrother, findMatchesForSister, scoreSpecificProfiles } from '@/lib/embeddingService';
 import { COUNTRIES, ETHNICITIES, getCountryByName, getEthnicityByName } from '@/lib/locationData';
 import { registerForPushNotifications } from '@/lib/pushService';
 import { supabase } from '@/lib/supabase';
@@ -31,6 +32,10 @@ interface Profile {
   build?: string;
   date_of_birth?: string;
   prayer_consistency?: string;
+  preferred_ethnicity?: string[];
+  living_arrangements?: string;
+  open_to_hijrah?: boolean;
+  willing_to_relocate?: boolean;
   // Sister-only fields
   open_to_polygyny?: boolean;
   hijab_commitment?: string;
@@ -39,7 +44,8 @@ interface Profile {
   imam_name?: string;
   masjid_id?: string;
   // Visiting status
-  isVisiting?: boolean;
+  // Compatibility
+  compatibility_score?: number;
 }
 
 interface Filters {
@@ -205,8 +211,7 @@ export default function SearchScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserMasjidId, setCurrentUserMasjidId] = useState<string | null>(null);
   const [currentUserMasjidName, setCurrentUserMasjidName] = useState<string | null>(null);
-  const [visitingMasjidId, setVisitingMasjidId] = useState<string | null>(null);
-  const [visitingMasjidName, setVisitingMasjidName] = useState<string | null>(null);
+  const [currentUserCompatProfile, setCurrentUserCompatProfile] = useState<CompatibilityProfile | null>(null);
   const pushSetupDone = useRef(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const { unreadCount } = useUnreadNotifications();
@@ -232,7 +237,7 @@ export default function SearchScreen() {
     if (accountType && currentUserId) {
       loadProfiles();
     }
-  }, [activeTab, accountType, currentUserId, currentUserMasjidId, visitingMasjidId]);
+  }, [activeTab, accountType, currentUserId, currentUserMasjidId]);
 
   useEffect(() => {
     applyFilters();
@@ -245,24 +250,23 @@ export default function SearchScreen() {
 
       const { data: brotherProfile } = await supabase
         .from('brother')
-        .select('id, visiting_masjid_id')
+        .select('id, ethnicity, preferred_ethnicity, living_arrangements, marital_status, open_to_hijrah, willing_to_relocate')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (brotherProfile) {
         setAccountType('brother');
         setCurrentUserId(brotherProfile.id);
-
-        // Load visiting status
-        if (brotherProfile.visiting_masjid_id) {
-          setVisitingMasjidId(brotherProfile.visiting_masjid_id);
-          const { data: vm } = await supabase
-            .from('masjid')
-            .select('name')
-            .eq('id', brotherProfile.visiting_masjid_id)
-            .maybeSingle();
-          setVisitingMasjidName(vm?.name || null);
-        }
+        setCurrentUserCompatProfile({
+          id: brotherProfile.id,
+          type: 'brother',
+          ethnicity: brotherProfile.ethnicity,
+          preferred_ethnicity: brotherProfile.preferred_ethnicity,
+          living_arrangements: brotherProfile.living_arrangements,
+          marital_status: brotherProfile.marital_status,
+          open_to_hijrah: brotherProfile.open_to_hijrah,
+          willing_to_relocate: brotherProfile.willing_to_relocate,
+        });
 
         // Query using PROFILE ID, not auth user ID
         const { data: verification } = await supabase
@@ -278,30 +282,29 @@ export default function SearchScreen() {
           setCurrentUserMasjidName((verification.masjid as any)?.name || null);
         }
 
-        await setupPushAndLocation(brotherProfile.id, 'brother');
+        await setupPush(brotherProfile.id, 'brother');
         return;
       }
 
       const { data: sisterProfile } = await supabase
         .from('sister')
-        .select('id, visiting_masjid_id')
+        .select('id, ethnicity, preferred_ethnicity, living_arrangements, open_to_polygyny, open_to_hijrah, willing_to_relocate')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (sisterProfile) {
         setAccountType('sister');
         setCurrentUserId(sisterProfile.id);
-
-        // Load visiting status
-        if (sisterProfile.visiting_masjid_id) {
-          setVisitingMasjidId(sisterProfile.visiting_masjid_id);
-          const { data: vm } = await supabase
-            .from('masjid')
-            .select('name')
-            .eq('id', sisterProfile.visiting_masjid_id)
-            .maybeSingle();
-          setVisitingMasjidName(vm?.name || null);
-        }
+        setCurrentUserCompatProfile({
+          id: sisterProfile.id,
+          type: 'sister',
+          ethnicity: sisterProfile.ethnicity,
+          preferred_ethnicity: sisterProfile.preferred_ethnicity,
+          living_arrangements: sisterProfile.living_arrangements,
+          open_to_polygyny: sisterProfile.open_to_polygyny,
+          open_to_hijrah: sisterProfile.open_to_hijrah,
+          willing_to_relocate: sisterProfile.willing_to_relocate,
+        });
 
         // Query using PROFILE ID, not auth user ID
         const { data: verification } = await supabase
@@ -317,32 +320,20 @@ export default function SearchScreen() {
           setCurrentUserMasjidName((verification.masjid as any)?.name || null);
         }
 
-        await setupPushAndLocation(sisterProfile.id, 'sister');
+        await setupPush(sisterProfile.id, 'sister');
       }
     } catch (error) {
       console.error('Error loading account type:', error);
     }
   };
 
-  const setupPushAndLocation = async (profileId: string, profileType: 'brother' | 'sister') => {
+  const setupPush = async (profileId: string, profileType: 'brother' | 'sister') => {
     if (pushSetupDone.current) return;
     pushSetupDone.current = true;
     try {
       await registerForPushNotifications(profileId, profileType);
-
-      const Location = await import('expo-location').catch(() => null);
-      if (!Location) return;
-
-      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
-      if (fgStatus !== 'granted') return;
-
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus !== 'granted') return;
-
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      await initGeofencing(loc.coords.latitude, loc.coords.longitude);
     } catch (error) {
-      console.error('Error setting up push/location:', error);
+      console.error('Error setting up push notifications:', error);
     }
   };
 
@@ -374,7 +365,7 @@ export default function SearchScreen() {
   };
 
   const loadLocalMatches = async () => {
-    if (!currentUserId || !accountType || (!currentUserMasjidId && !visitingMasjidId)) {
+    if (!currentUserId || !accountType || !currentUserMasjidId) {
       setProfiles([]);
       return;
     }
@@ -386,7 +377,6 @@ export default function SearchScreen() {
 
       let enrichedProfiles: Profile[] = [];
 
-      // Load affiliated members at user's home masjid
       if (currentUserMasjidId) {
         const { data: verifications, error: verifyError } = await supabase
           .from('imam_verification')
@@ -402,7 +392,7 @@ export default function SearchScreen() {
 
           const { data: profileDetails, error } = await supabase
             .from(targetTable)
-            .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency${extraFields}`)
+            .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate${extraFields}`)
             .in('id', profileIds);
 
           if (error) throw error;
@@ -419,21 +409,23 @@ export default function SearchScreen() {
         }
       }
 
-      // Merge visiting members (if user is currently visiting a masjid)
-      if (visitingMasjidId) {
-        const visitingMembers = await getVisitingMembers(visitingMasjidId, targetTable as 'brother' | 'sister');
-        const affiliatedIds = new Set(enrichedProfiles.map(p => p.id));
+      // Score all local profiles
+      const allIds = enrichedProfiles.map(p => p.id);
+      const vectorScores = await scoreSpecificProfiles(currentUserId, accountType, allIds);
 
-        for (const vm of visitingMembers) {
-          if (vm.id === currentUserId) continue; // skip self
-          if (!affiliatedIds.has(vm.id)) {
-            // Only add as "Visiting" if not already shown as affiliated
-            enrichedProfiles.push({ ...vm, isVisiting: true });
-          }
-        }
-      }
+      const scored = enrichedProfiles.map(profile => {
+        const vectorScore = vectorScores.get(profile.id) ?? null;
+        const hardRuleScore = currentUserCompatProfile
+          ? calculateHardRuleScore(currentUserCompatProfile, profile)
+          : 0.5;
+        return {
+          ...profile,
+          compatibility_score: combineCompatibilityScores(vectorScore, hardRuleScore),
+        };
+      });
 
-      setProfiles(enrichedProfiles);
+      scored.sort((a, b) => (b.compatibility_score ?? 0) - (a.compatibility_score ?? 0));
+      setProfiles(scored);
     } catch (error) {
       console.error('Error loading local matches:', error);
       setProfiles([]);
@@ -441,31 +433,48 @@ export default function SearchScreen() {
   };
 
   const loadRegularProfiles = async () => {
-    if (!currentUserId || !accountType) {
-      return;
-    }
+    if (!currentUserId || !accountType) return;
 
     try {
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
       const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
       const extraFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment' : '';
 
-      // Fetch all profiles (masjid-affiliated and non-affiliated)
+      // Get vector-ranked matches from RPC
+      const matchFn = accountType === 'brother' ? findMatchesForBrother : findMatchesForSister;
+      const matches = await matchFn(currentUserId, 100).catch(() => null);
+
+      let profileIds: string[];
+      const vectorScoreMap = new Map<string, number>();
+
+      if (matches && matches.length > 0) {
+        profileIds = matches.map(m => m.id);
+        matches.forEach(m => vectorScoreMap.set(m.id, m.vector_score));
+      } else {
+        // Fallback: no embeddings yet, fetch all profiles
+        const { data: allIds } = await supabase
+          .from(targetTable)
+          .select('id')
+          .neq('id', currentUserId);
+        profileIds = (allIds || []).map((r: any) => r.id);
+      }
+
+      if (profileIds.length === 0) {
+        setProfiles([]);
+        return;
+      }
+
       const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency${extraFields}`)
-        .neq('id', currentUserId);
+        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate${extraFields}`)
+        .in('id', profileIds);
 
       if (error) throw error;
-
       if (!profileDetails || profileDetails.length === 0) {
         setProfiles([]);
         return;
       }
 
-      const profileIds = profileDetails.map((p: any) => p.id);
-
-      // Fetch verification data with masjid info for profiles that have it
       const { data: verifications } = await supabase
         .from('imam_verification')
         .select('user_id, masjid_id(id, name), imam_id(name)')
@@ -473,18 +482,23 @@ export default function SearchScreen() {
         .eq('user_type', targetUserType)
         .in('user_id', profileIds);
 
-      const enrichedProfiles = profileDetails.map((profile: any) => {
+      const scored = profileDetails.map((profile: any) => {
         const verification = verifications?.find((v: any) => v.user_id === profile.id);
+        const vectorScore = vectorScoreMap.get(profile.id) ?? null;
+        const hardRuleScore = currentUserCompatProfile
+          ? calculateHardRuleScore(currentUserCompatProfile, profile)
+          : 0.5;
         return {
           ...profile,
-          similarity_score: 0,
           masjid_id: (verification?.masjid_id as any)?.id,
           masjid_name: (verification?.masjid_id as any)?.name,
           imam_name: (verification?.imam_id as any)?.name,
+          compatibility_score: combineCompatibilityScores(vectorScore, hardRuleScore),
         };
       });
 
-      setProfiles(enrichedProfiles);
+      scored.sort((a, b) => (b.compatibility_score ?? 0) - (a.compatibility_score ?? 0));
+      setProfiles(scored);
     } catch (error) {
       console.error('Error loading profiles:', error);
       setProfiles([]);
@@ -922,18 +936,11 @@ export default function SearchScreen() {
           <Text style={styles.flag}>{getLocationFlag(item.location_country)}</Text>
         </View>
 
-        {(item.masjid_name || item.isVisiting) && (
+        {item.masjid_name && (
           <View style={styles.verificationRow}>
-            {item.masjid_name && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
-              </View>
-            )}
-            {item.isVisiting && !item.masjid_name && (
-              <View style={styles.visitingBadge}>
-                <Text style={styles.visitingText}>📍 Visiting</Text>
-              </View>
-            )}
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
+            </View>
           </View>
         )}
 
@@ -947,6 +954,22 @@ export default function SearchScreen() {
             </Text>
           )}
         </View>
+
+        {item.compatibility_score !== undefined && (
+          <View style={styles.compatibilityRow}>
+            <View style={styles.compatibilityBarContainer}>
+              <View
+                style={[
+                  styles.compatibilityBarFill,
+                  { width: `${Math.round(item.compatibility_score * 100)}%` as any },
+                ]}
+              />
+            </View>
+            <Text style={styles.compatibilityText}>
+              {Math.round(item.compatibility_score * 100)}% match
+            </Text>
+          </View>
+        )}
 
         <View style={styles.tagsRow}>
           <View style={[styles.tag, item.marital_status === 'never_married' ? styles.greenTag : styles.defaultTag]}>
@@ -974,7 +997,7 @@ export default function SearchScreen() {
   };
 
   const renderEmptyState = () => {
-    const onLocalWithNoMasjid = activeTab === 'local' && !currentUserMasjidId && !visitingMasjidId;
+    const onLocalWithNoMasjid = activeTab === 'local' && !currentUserMasjidId;
 
     return (
       <View style={styles.emptyState}>
@@ -1052,24 +1075,6 @@ export default function SearchScreen() {
         contentContainerStyle={styles.listContainer}
         ListHeaderComponent={
           <>
-            {activeTab === 'local' && visitingMasjidId && (
-              <View style={styles.visitingBanner}>
-                <Text style={styles.visitingBannerText}>
-                  📍 Visiting {visitingMasjidName || 'a masjid'}
-                </Text>
-                <TouchableOpacity
-                  onPress={async () => {
-                    if (currentUserId && accountType) {
-                      await clearVisitingStatus(currentUserId, accountType);
-                      setVisitingMasjidId(null);
-                      setVisitingMasjidName(null);
-                    }
-                  }}
-                >
-                  <Text style={styles.visitingBannerEnd}>End visit</Text>
-                </TouchableOpacity>
-              </View>
-            )}
             {activeTab === 'local' && currentUserMasjidId ? (
               <View style={styles.localBanner}>
                 <Text style={styles.localBannerText}>
@@ -1095,31 +1100,25 @@ export default function SearchScreen() {
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/interests')}>
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/interests')}>
             <InterestsIcon active={false} />
             <Text style={styles.navLabelInactive}>Interests</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+          <AnimatedPressable style={styles.navItem} onPress={() => {}}>
             <SearchIcon active={true} />
             <Text style={styles.navLabelActive}>Search</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/notifications')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/notifications')}>
             <NotificationsIcon active={false} count={unreadCount} />
             <Text style={styles.navLabelInactive}>Notifications</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/settings')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/settings')}>
             <SettingsIcon active={false} />
             <Text style={styles.navLabelInactive}>Settings</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         <View style={styles.navbarIndicator} />
@@ -1204,41 +1203,6 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 28,
     paddingBottom: 100,
-  },
-  visitingBanner: {
-    backgroundColor: '#F2CC66',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  visitingBannerText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-    color: '#070A12',
-  },
-  visitingBannerEnd: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 12,
-    color: '#070A12',
-    textDecorationLine: 'underline',
-  },
-  visitingBadge: {
-    backgroundColor: '#F8F1DA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#F2CC66',
-  },
-  visitingText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    lineHeight: 12,
-    color: '#070A12',
   },
   localBanner: {
     backgroundColor: '#F8F1DA',
@@ -1337,6 +1301,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     color: '#7B8799',
+  },
+  compatibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  compatibilityBarContainer: {
+    flex: 1,
+    height: 4,
+    backgroundColor: '#E7EAF0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  compatibilityBarFill: {
+    height: 4,
+    backgroundColor: '#F2CC66',
+    borderRadius: 2,
+  },
+  compatibilityText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: '#7B8799',
+    minWidth: 60,
+    textAlign: 'right',
   },
   tagsRow: {
     flexDirection: 'row',

@@ -127,13 +127,8 @@ export default function ReferencesScreen() {
     }
   };
   
-  const generateVerificationCode = (): string => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
-
-  const sendSMSVerification = async (phone: string, name: string, code: string) => {
+  const sendReferenceSMS = async (phone: string): Promise<boolean> => {
     try {
-      // Get user's full name for the SMS
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
@@ -143,16 +138,12 @@ export default function ReferencesScreen() {
         .eq('user_id', user.id)
         .single();
 
-      const userName = profile 
-        ? `${profile.first_name} ${profile.last_name}` 
+      const userName = profile
+        ? `${profile.first_name} ${profile.last_name}`.trim()
         : 'A Mithaq user';
 
-      // Call Supabase Edge Function to send SMS
-      const { data, error } = await supabase.functions.invoke('send-sms', {
-        body: {
-          to: phone,
-          message: `Mithaq: ${userName} has listed you as a character reference. Reply with code ${code} to verify. Valid for 48 hours.`,
-        },
+      const { error } = await supabase.functions.invoke('send-sms', {
+        body: { to: phone, userName },
       });
 
       if (error) {
@@ -160,10 +151,9 @@ export default function ReferencesScreen() {
         return false;
       }
 
-      console.log('✅ SMS sent successfully:', data);
       return true;
     } catch (error) {
-      console.error('Error sending SMS:', error);
+      console.error('Error sending reference SMS:', error);
       return false;
     }
   };
@@ -194,6 +184,21 @@ export default function ReferencesScreen() {
     return true;
   };
 
+  const handleSkip = async () => {
+    if (!accountType || !userId) return;
+    try {
+      const table = accountType === 'brother' ? 'brother' : 'sister';
+      await supabase.from(table).update({ references_skipped: true }).eq('id', userId);
+      queryClient.setQueryData(['userStatus'], (old: any) =>
+        old ? { ...old, hasProfile: true, hasMasjidAffiliation: true, hasReferences: true, onboardingCompleted: true } : old
+      );
+      router.replace('/(auth)');
+    } catch (error) {
+      console.error('Error skipping references:', error);
+      router.replace('/(auth)');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateReference()) return;
 
@@ -204,12 +209,6 @@ export default function ReferencesScreen() {
 
     setIsSubmitting(true);
     try {
-      // Generate verification code
-      const verificationCode = generateVerificationCode();
-      const codeExpiresAt = new Date();
-      codeExpiresAt.setHours(codeExpiresAt.getHours() + 48); // 48 hour expiry
-
-      // Save reference to database
       const { error: referenceError } = await supabase
         .from('reference')
         .insert({
@@ -220,47 +219,25 @@ export default function ReferencesScreen() {
           reference_phone: reference.phone.trim(),
           reference_email: reference.email.trim() || null,
           verification_status: 'pending',
-          verification_code: verificationCode,
-          code_expires_at: codeExpiresAt.toISOString(),
         });
 
       if (referenceError) throw referenceError;
 
-      // Invalidate cached status so the routing effect fetches fresh data
-      // (old cache has hasProfile/hasMasjidAffiliation false from before onboarding started)
-      await queryClient.invalidateQueries({ queryKey: ['userStatus'] });
-
-      // Send SMS verification
-      const smsSent = await sendSMSVerification(
-        reference.phone,
-        reference.name,
-        verificationCode
+      // Optimistically update cache so layout doesn't redirect back
+      queryClient.setQueryData(['userStatus'], (old: any) =>
+        old ? { ...old, hasProfile: true, hasMasjidAffiliation: true, hasReferences: true, onboardingCompleted: true } : old
       );
 
-      if (smsSent) {
-        Alert.alert(
-          'Verification Code Sent',
-          `A verification code has been sent to ${reference.phone}. Your reference should receive it shortly.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/(auth)')
-            }
-          ]
-        );
-      } else {
-        // Even if SMS fails, continue (admin can manually verify)
-        Alert.alert(
-          'Reference Saved',
-          'Your reference has been saved. Verification will be completed shortly.',
-          [
-            {
-              text: 'OK',
-              onPress: () => router.replace('/(auth)')
-            }
-          ]
-        );
-      }
+      // Fire-and-forget — SMS failure does not block onboarding
+      sendReferenceSMS(reference.phone.trim()).catch(err =>
+        console.error('Reference SMS failed:', err)
+      );
+
+      Alert.alert(
+        'Reference Submitted',
+        `A message has been sent to ${reference.phone}. We'll notify you once they respond.`,
+        [{ text: 'OK', onPress: () => router.replace('/(auth)') }]
+      );
     } catch (error: any) {
       console.error('Error submitting reference:', error);
       Alert.alert('Error', error.message || 'Failed to submit reference');
@@ -290,7 +267,7 @@ export default function ReferencesScreen() {
           <Text style={styles.title}>Character Reference</Text>
           {isMasjidAffiliated ? (
             <Text style={styles.subtitle}>
-              Your imam will verify your masjid membership. Please provide 1 additional reference:
+              Your imam will verify your masjid affiliation. Please provide 1 additional character reference:
             </Text>
           ) : (
             <Text style={styles.subtitle}>
@@ -299,11 +276,11 @@ export default function ReferencesScreen() {
           )}
         </View>
 
-        {/* Imam Reference (if masjid-affiliated) */}
+        {/* Masjid Affiliation (if masjid-affiliated) */}
         {isMasjidAffiliated && (
           <View style={styles.imamReferenceCard}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>🕌 Imam Reference</Text>
+              <Text style={styles.cardTitle}>🕌 Masjid Affiliation</Text>
               <View style={styles.statusBadge}>
                 <Text style={styles.statusText}>Auto-included</Text>
               </View>
@@ -342,8 +319,6 @@ export default function ReferencesScreen() {
                 style={styles.picker}
               >
                 <Picker.Item label="Select relationship..." value="" />
-                <Picker.Item label="Family Member" value="family" />
-                <Picker.Item label="Friend" value="friend" />
                 <Picker.Item label="Colleague" value="colleague" />
                 <Picker.Item label="Community Member" value="community_member" />
               </Picker>
@@ -385,15 +360,15 @@ export default function ReferencesScreen() {
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>How Verification Works</Text>
             <Text style={styles.infoText}>
-              1. Your reference receives an SMS with a 6-digit code{'\n'}
-              2. They reply with the code to verify{'\n'}
+              1. Your reference receives an SMS asking if they accept{'\n'}
+              2. They reply YES or NO{'\n'}
               3. You get a "Reference Verified" badge on your profile
             </Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Bottom Button */}
+      {/* Bottom Buttons */}
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
@@ -403,6 +378,9 @@ export default function ReferencesScreen() {
           <Text style={styles.submitButtonText}>
             {isSubmitting ? 'Sending...' : 'Send Verification Code'}
           </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+          <Text style={styles.skipButtonText}>Skip for now</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -608,5 +586,14 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: '#070A12',
     fontStyle: 'italic',
+  },
+  skipButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  skipButtonText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#7B8799',
   },
 });

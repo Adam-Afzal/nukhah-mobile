@@ -1,7 +1,9 @@
 // app/(onboarding)/profile-setup.tsx
+import HierarchicalEthnicityPicker from '@/components/HierarchicalEthnicityPicker';
 import SearchablePicker from '@/components/searchablePicker';
 import { updateBrotherEmbedding, updateSisterEmbedding } from '@/lib/embeddingService';
-import { COUNTRIES, ETHNICITIES } from '@/lib/locationData';
+import { COUNTRIES } from '@/lib/locationData';
+import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
@@ -41,7 +43,6 @@ interface ProfileData {
 
   // Personal
   children: boolean;
-  revert: boolean;
   disabilities: string;
   hobbies_and_interests: string;
   personality: string;
@@ -51,7 +52,7 @@ interface ProfileData {
 
   // Preferences
   open_to_hijrah: boolean;
-  open_to_reverts: boolean;
+  willing_to_relocate: boolean;
   living_arrangements: string;
   preferred_ethnicity: string[];
   other_spouse_criteria: string;
@@ -68,6 +69,7 @@ interface ProfileData {
   wali_phone?: string;
   wali_email?: string;
   wali_preferred_contact?: string;
+  applied_by_wali?: boolean;
 }
 
 const BROTHER_BUILD_OPTIONS = [
@@ -95,7 +97,6 @@ const BROTHER_MARITAL_OPTIONS = [
   { label: 'Married', value: 'married' },
   { label: 'Divorced', value: 'divorced' },
   { label: 'Widowed', value: 'widowed' },
-  { label: 'Annulled', value: 'annulled' },
 ];
 
 const SISTER_MARITAL_OPTIONS = [
@@ -103,7 +104,6 @@ const SISTER_MARITAL_OPTIONS = [
   { label: 'Never Married', value: 'never_married' },
   { label: 'Divorced', value: 'divorced' },
   { label: 'Widowed', value: 'widowed' },
-  { label: 'Annulled', value: 'annulled' },
 ];
 
 const HIJAB_COMMITMENT_OPTIONS = [
@@ -126,13 +126,6 @@ export default function ProfileSetup() {
   const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const ethnicityItems = ETHNICITIES.map(eth => ({
-    label: eth.name,
-    value: eth.name,
-    flag: eth.flag,
-    subtitle: eth.description,
-  }));
 
   const locationItems = COUNTRIES.flatMap(country =>
     country.majorCities.map(city => ({
@@ -157,13 +150,12 @@ export default function ProfileSetup() {
     occupation: '',
     marital_status: '',
     children: false,
-    revert: false,
     disabilities: '',
     hobbies_and_interests: '',
     personality: '',
     prayer_consistency: '',
     open_to_hijrah: false,
-    open_to_reverts: true,
+    willing_to_relocate: false,
     living_arrangements: '',
     preferred_ethnicity: [],
     other_spouse_criteria: '',
@@ -244,7 +236,7 @@ export default function ProfileSetup() {
       // Check sister application
       const { data: sisterApp, error: sisterError } = await supabase
         .from('sister_application')
-        .select('first_name, last_name, phone_number, nationality, date_of_birth, wali_first_name, wali_last_name, wali_email, wali_phone')
+        .select('first_name, last_name, phone_number, nationality, date_of_birth, wali_first_name, wali_last_name, wali_email, wali_phone, applied_by_wali')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -264,6 +256,7 @@ export default function ProfileSetup() {
           wali_name: waliName,
           wali_email: sisterApp.wali_email || '',
           wali_phone: sisterApp.wali_phone || '',
+          applied_by_wali: sisterApp.applied_by_wali || false,
         }));
         setIsLoading(false);
         return;
@@ -361,6 +354,10 @@ export default function ProfileSetup() {
           Alert.alert('Missing Information', 'Please enter your last name');
           return false;
         }
+        if (!profileData.date_of_birth) {
+          Alert.alert('Missing Information', 'Please enter your date of birth (YYYY-MM-DD)');
+          return false;
+        }
         if (!profileData.location_country) {
           Alert.alert('Missing Information', 'Please select your location');
           return false;
@@ -439,17 +436,16 @@ export default function ProfileSetup() {
         occupation: profileData.occupation,
         marital_status: profileData.marital_status,
         children: profileData.children,
-        revert: profileData.revert,
         disabilities: profileData.disabilities,
         hobbies_and_interests: profileData.hobbies_and_interests,
         personality: profileData.personality,
         prayer_consistency: profileData.prayer_consistency,
         open_to_hijrah: profileData.open_to_hijrah,
-        open_to_reverts: profileData.open_to_reverts,
+        willing_to_relocate: profileData.willing_to_relocate,
         living_arrangements: profileData.living_arrangements,
-        preferred_ethnicity: profileData.preferred_ethnicity,
         other_spouse_criteria: profileData.other_spouse_criteria,
         dealbreakers: profileData.dealbreakers,
+        preferred_ethnicity: profileData.preferred_ethnicity.length > 0 ? profileData.preferred_ethnicity : ['Any'],
       };
 
       const embeddingData = {
@@ -461,9 +457,8 @@ export default function ProfileSetup() {
         preferred_ethnicity: profileData.preferred_ethnicity,
         marital_status: profileData.marital_status,
         children: profileData.children,
-        revert: profileData.revert,
         open_to_hijrah: profileData.open_to_hijrah,
-        open_to_reverts: profileData.open_to_reverts,
+        willing_to_relocate: profileData.willing_to_relocate,
         living_arrangements: profileData.living_arrangements,
         other_spouse_criteria: profileData.other_spouse_criteria,
         dealbreakers: profileData.dealbreakers,
@@ -493,6 +488,7 @@ export default function ProfileSetup() {
           wali_phone: profileData.wali_phone || null,
           wali_email: profileData.wali_email || null,
           wali_preferred_contact: profileData.wali_preferred_contact || null,
+          applied_by_wali: profileData.applied_by_wali || false,
         };
         console.log('Sister profile insert payload:', JSON.stringify(sisterProfile, null, 2));
         const { data, error } = await supabase.from('sister').insert(sisterProfile).select('id').single();
@@ -505,9 +501,12 @@ export default function ProfileSetup() {
       }
 
       Alert.alert(
-        'Success!',
-        'Profile created successfully',
-        [{ text: 'OK', onPress: () => router.push('/(onboarding)/masjid-affiliation') }]
+        'Profile Created',
+        'Your profile has been set up successfully.',
+        [{ text: 'Continue', onPress: async () => {
+          await queryClient.invalidateQueries({ queryKey: ['userStatus'] });
+          router.push('/(onboarding)/masjid-affiliation');
+        }}]
       );
     } catch (error: any) {
       console.error('Error saving profile:', error);
@@ -590,13 +589,13 @@ export default function ProfileSetup() {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Date of Birth</Text>
+        <Text style={styles.label}>Date of Birth *</Text>
         <TextInput
           style={[styles.input, { backgroundColor: '#F0F0F0', color: '#7B8799' }]}
           value={profileData.date_of_birth}
           editable={false}
-          placeholder="Set during application"
-          placeholderTextColor="#7B8799"
+          placeholder="Not found — contact support"
+          placeholderTextColor="#E03A3A"
         />
       </View>
 
@@ -716,13 +715,11 @@ export default function ProfileSetup() {
           </TouchableOpacity>
         </View>
 
-        <SearchablePicker
+        <HierarchicalEthnicityPicker
           visible={ethnicityPickerVisible}
           onClose={() => setEthnicityPickerVisible(false)}
           onSelect={(value) => updateField('ethnicity', value)}
-          items={ethnicityItems}
           title="Select Ethnicity"
-          placeholder="Search ethnicity..."
           selectedValue={profileData.ethnicity}
         />
 
@@ -821,18 +818,6 @@ export default function ProfileSetup() {
             onValueChange={(value) => updateField('children', value)}
             trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
             thumbColor={profileData.children ? '#070A12' : '#7B8799'}
-          />
-        </View>
-      </View>
-
-      <View style={styles.switchGroup}>
-        <View style={styles.switchRow}>
-          <Text style={styles.label}>Are you a revert?</Text>
-          <Switch
-            value={profileData.revert}
-            onValueChange={(value) => updateField('revert', value)}
-            trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-            thumbColor={profileData.revert ? '#070A12' : '#7B8799'}
           />
         </View>
       </View>
@@ -967,12 +952,12 @@ export default function ProfileSetup() {
 
       <View style={styles.switchGroup}>
         <View style={styles.switchRow}>
-          <Text style={styles.label}>Open to reverts?</Text>
+          <Text style={styles.label}>Willing to relocate?</Text>
           <Switch
-            value={profileData.open_to_reverts}
-            onValueChange={(value) => updateField('open_to_reverts', value)}
+            value={profileData.willing_to_relocate}
+            onValueChange={(value) => updateField('willing_to_relocate', value)}
             trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-            thumbColor={profileData.open_to_reverts ? '#070A12' : '#7B8799'}
+            thumbColor={profileData.willing_to_relocate ? '#070A12' : '#7B8799'}
           />
         </View>
       </View>
@@ -1000,7 +985,8 @@ export default function ProfileSetup() {
             itemStyle={styles.pickerItem}
           >
             <Picker.Item label="Select living arrangements" value="" />
-            <Picker.Item label="Own Property" value="own_property" />
+            <Picker.Item label="Own Property (No Mortgage)" value="own_property_no_mortgage" />
+            <Picker.Item label="Own Property (With Mortgage)" value="own_property_with_mortgage" />
             <Picker.Item label="Renting" value="renting" />
             <Picker.Item label="With Family" value="with_family" />
             <Picker.Item label="Flexible" value="flexible" />
@@ -1049,7 +1035,7 @@ export default function ProfileSetup() {
         )}
       </View>
 
-      <SearchablePicker
+      <HierarchicalEthnicityPicker
         visible={preferredEthnicityPickerVisible}
         onClose={() => setPreferredEthnicityPickerVisible(false)}
         onSelect={(value) => {
@@ -1063,9 +1049,7 @@ export default function ProfileSetup() {
             };
           });
         }}
-        items={ethnicityItems}
         title="Select Preferred Ethnicities"
-        placeholder="Search ethnicity..."
         selectedValue={profileData.preferred_ethnicity}
         multiSelect={true}
       />

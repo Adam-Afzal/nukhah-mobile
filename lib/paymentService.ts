@@ -115,6 +115,23 @@ export async function checkSubscriptionStatus(): Promise<boolean> {
   return data?.subscribed === true;
 }
 
+/**
+ * Returns true if the user can take subscription-gated actions.
+ * Passes when testing mode is on OR the user has an active subscription.
+ */
+export async function hasActiveAccess(): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const [{ data: settings }, { data: subscriber }] = await Promise.all([
+    supabase.from('app_settings').select('value').eq('key', 'testing_mode').maybeSingle(),
+    supabase.from('subscribers').select('subscribed').eq('user_id', user.id).maybeSingle(),
+  ]);
+
+  const testingMode = settings?.value === true || settings?.value === 'true';
+  return testingMode || subscriber?.subscribed === true;
+}
+
 export async function getManagementUrl(): Promise<string | null> {
   if (!Purchases) return null;
 

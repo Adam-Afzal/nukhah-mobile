@@ -10,26 +10,33 @@ interface ProfileData {
   preferred_ethnicity?: string[];
   marital_status?: string;
   children?: boolean;
-  revert?: boolean;
   open_to_hijrah?: boolean;
-  open_to_reverts?: boolean;
+  willing_to_relocate?: boolean;
   living_arrangements?: string;
   other_spouse_criteria?: string;
   dealbreakers?: string;
   date_of_birth?: string;
   build?: string;
   prayer_consistency?: string;
-  // Brother specific
   beard_commitment?: string;
-  // Sister specific
   hijab_commitment?: string;
   open_to_polygyny?: boolean;
 }
 
-/**
- * Generates a comprehensive text representation of a profile for embedding
- */
-export function generateProfileText(profile: ProfileData): string {
+export interface CompatibilityProfile {
+  id: string;
+  type: 'brother' | 'sister';
+  ethnicity?: string;
+  preferred_ethnicity?: string[];
+  living_arrangements?: string;
+  marital_status?: string;
+  open_to_polygyny?: boolean;
+  open_to_hijrah?: boolean;
+  willing_to_relocate?: boolean;
+}
+
+// Self-description — who I am
+export function generateWhoIAmText(profile: ProfileData): string {
   const parts: string[] = [];
 
   if (profile.personality) parts.push(`Personality: ${profile.personality}`);
@@ -52,15 +59,9 @@ export function generateProfileText(profile: ProfileData): string {
   if (profile.marital_status) parts.push(`Marital status: ${profile.marital_status}`);
   if (profile.children !== undefined) parts.push(`Has children: ${profile.children ? 'yes' : 'no'}`);
   if (profile.prayer_consistency) parts.push(`Prayer consistency: ${profile.prayer_consistency}`);
-
   if (profile.open_to_hijrah !== undefined) parts.push(`Open to hijrah: ${profile.open_to_hijrah ? 'yes' : 'no'}`);
-  if (profile.open_to_reverts !== undefined) parts.push(`Open to reverts: ${profile.open_to_reverts ? 'yes' : 'no'}`);
-  if (profile.revert !== undefined) parts.push(`Is a revert: ${profile.revert ? 'yes' : 'no'}`);
-
-  // Brother-specific
+  if (profile.willing_to_relocate !== undefined) parts.push(`Willing to relocate: ${profile.willing_to_relocate ? 'yes' : 'no'}`);
   if (profile.beard_commitment) parts.push(`Beard: ${profile.beard_commitment}`);
-
-  // Sister-specific
   if (profile.hijab_commitment) parts.push(`Hijab: ${profile.hijab_commitment}`);
   if (profile.open_to_polygyny !== undefined) {
     parts.push(`Open to polygyny: ${profile.open_to_polygyny ? 'yes' : 'no'}`);
@@ -68,8 +69,15 @@ export function generateProfileText(profile: ProfileData): string {
   if (profile.marital_status === 'married') {
     parts.push('Currently married and seeking additional spouse through polygyny');
   }
-
   if (profile.living_arrangements) parts.push(`Living arrangements: ${profile.living_arrangements}`);
+
+  return parts.join('. ');
+}
+
+// Preferences — what I want in a spouse
+export function generateWhatIWantText(profile: ProfileData): string {
+  const parts: string[] = [];
+
   if (profile.other_spouse_criteria) parts.push(`Looking for: ${profile.other_spouse_criteria}`);
   if (profile.dealbreakers) parts.push(`Dealbreakers: ${profile.dealbreakers}`);
   if (profile.preferred_ethnicity?.length) {
@@ -79,35 +87,111 @@ export function generateProfileText(profile: ProfileData): string {
   return parts.join('. ');
 }
 
+export function generateProfileText(profile: ProfileData): string {
+  return generateWhoIAmText(profile);
+}
+
+function ethnicityMatches(theirEthnicity: string, myPreferences: string[]): boolean {
+  return myPreferences.some(
+    pref => theirEthnicity === pref || theirEthnicity.startsWith(pref + ' - ')
+  );
+}
+
 /**
- * Generates an embedding vector by calling the edge function
+ * Scores hard rules (polygyny, ethnicity preference, living arrangements) client-side.
+ * Returns a value 0–1 where 0.5 = neutral, 1.0 = ideal match, 0.0 = incompatible.
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export function calculateHardRuleScore(
+  me: CompatibilityProfile,
+  them: { ethnicity?: string; preferred_ethnicity?: string[]; living_arrangements?: string; open_to_polygyny?: boolean; marital_status?: string; open_to_hijrah?: boolean; willing_to_relocate?: boolean }
+): number {
+  const scores: number[] = [];
+
+  // Polygyny — brother marital_status vs sister open_to_polygyny
+  const brotherMaritalStatus = me.type === 'brother' ? me.marital_status : them.marital_status;
+  const sisterOpenToPolygyny = me.type === 'sister' ? me.open_to_polygyny : them.open_to_polygyny;
+
+  if (brotherMaritalStatus === 'married') {
+    scores.push(sisterOpenToPolygyny === true ? 1.0 : 0.0);
+  } else {
+    scores.push(0.5);
+  }
+
+  // My preferred ethnicity vs their ethnicity
+  if (me.preferred_ethnicity && me.preferred_ethnicity.length > 0) {
+    scores.push(them.ethnicity && ethnicityMatches(them.ethnicity, me.preferred_ethnicity) ? 1.0 : 0.2);
+  } else {
+    scores.push(0.5);
+  }
+
+  // Their preferred ethnicity vs my ethnicity
+  if (them.preferred_ethnicity && them.preferred_ethnicity.length > 0) {
+    scores.push(me.ethnicity && ethnicityMatches(me.ethnicity, them.preferred_ethnicity) ? 1.0 : 0.2);
+  } else {
+    scores.push(0.5);
+  }
+
+  // Living arrangements
+  if (me.living_arrangements && them.living_arrangements) {
+    scores.push(me.living_arrangements === them.living_arrangements ? 1.0 : 0.5);
+  } else {
+    scores.push(0.5);
+  }
+
+  // Open to hijrah — strong alignment check (one wants to move to Muslim country, other doesn't = lifestyle mismatch)
+  if (me.open_to_hijrah !== undefined && them.open_to_hijrah !== undefined) {
+    if (me.open_to_hijrah === them.open_to_hijrah) {
+      scores.push(me.open_to_hijrah ? 1.0 : 0.8); // both yes = great, both no = fine
+    } else {
+      scores.push(0.2); // mismatch
+    }
+  } else {
+    scores.push(0.5);
+  }
+
+  // Willing to relocate — if at least one is willing, marriage across locations is possible
+  if (me.willing_to_relocate !== undefined && them.willing_to_relocate !== undefined) {
+    if (me.willing_to_relocate && them.willing_to_relocate) {
+      scores.push(1.0); // both flexible
+    } else if (me.willing_to_relocate || them.willing_to_relocate) {
+      scores.push(0.7); // one can move to the other
+    } else {
+      scores.push(0.4); // neither willing — only works if same location
+    }
+  } else {
+    scores.push(0.5);
+  }
+
+  return scores.reduce((a, b) => a + b, 0) / scores.length;
+}
+
+/**
+ * Combines vector similarity score with hard rule score.
+ * vectorScore is null when embeddings are unavailable — falls back to hard rules only.
+ */
+export function combineCompatibilityScores(vectorScore: number | null, hardRuleScore: number): number {
+  if (vectorScore === null) return hardRuleScore;
+  return Math.min(1, Math.max(0, vectorScore * 0.7 + hardRuleScore * 0.3));
+}
+
+async function generateEmbedding(text: string): Promise<number[]> {
   try {
     const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
-    
-    if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured');
-    }
+
+    if (!supabaseUrl) throw new Error('Supabase URL not configured');
 
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
+    if (!token) throw new Error('No auth session found');
 
-    if (!token) {
-      throw new Error('No auth session found');
-    }
-
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/generate-embedding`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ text }),
-      }
-    );
+    const response = await fetch(`${supabaseUrl}/functions/v1/generate-embedding`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text }),
+    });
 
     const data = await response.json();
 
@@ -122,44 +206,40 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   }
 }
 
-/**
- * Updates a brother's profile embedding
- */
 export async function updateBrotherEmbedding(brotherId: string, profileData: ProfileData) {
   try {
-    const profileText = generateProfileText(profileData);
-    const embedding = await generateEmbedding(profileText);
+    const whoIAmText = generateWhoIAmText(profileData);
+    const whatIWantText = generateWhatIWantText(profileData);
 
-    const { error } = await supabase
-      .from('brother')
-      .update({ profile_embedding: embedding })
-      .eq('id', brotherId);
+    const whoIAmEmbedding = await generateEmbedding(whoIAmText);
+    const updateData: any = { profile_embedding: whoIAmEmbedding };
 
+    if (whatIWantText) {
+      updateData.profile_embedding_want = await generateEmbedding(whatIWantText);
+    }
+
+    const { error } = await supabase.from('brother').update(updateData).eq('id', brotherId);
     if (error) throw error;
-
-    console.log('Brother embedding updated successfully');
   } catch (error) {
     console.error('Error updating brother embedding:', error);
     throw error;
   }
 }
 
-/**
- * Updates a sister's profile embedding
- */
 export async function updateSisterEmbedding(sisterId: string, profileData: ProfileData) {
   try {
-    const profileText = generateProfileText(profileData);
-    const embedding = await generateEmbedding(profileText);
+    const whoIAmText = generateWhoIAmText(profileData);
+    const whatIWantText = generateWhatIWantText(profileData);
 
-    const { error } = await supabase
-      .from('sister')
-      .update({ profile_embedding: embedding })
-      .eq('id', sisterId);
+    const whoIAmEmbedding = await generateEmbedding(whoIAmText);
+    const updateData: any = { profile_embedding: whoIAmEmbedding };
 
+    if (whatIWantText) {
+      updateData.profile_embedding_want = await generateEmbedding(whatIWantText);
+    }
+
+    const { error } = await supabase.from('sister').update(updateData).eq('id', sisterId);
     if (error) throw error;
-
-    console.log('Sister embedding updated successfully');
   } catch (error) {
     console.error('Error updating sister embedding:', error);
     throw error;
@@ -167,41 +247,66 @@ export async function updateSisterEmbedding(sisterId: string, profileData: Profi
 }
 
 /**
- * Find matches for a brother
+ * Fetches vector similarity scores for a specific set of profile IDs.
+ * Used by the local tab to score masjid members without a threshold filter.
+ * Returns a map of profileId → vector_score (null if embeddings missing).
  */
-export async function findMatchesForBrother(brotherId: string, limit: number = 10) {
+export async function scoreSpecificProfiles(
+  myId: string,
+  myType: 'brother' | 'sister',
+  targetIds: string[]
+): Promise<Map<string, number | null>> {
+  if (targetIds.length === 0) return new Map();
+
+  const rpcName = myType === 'brother' ? 'score_sister_profiles' : 'score_brother_profiles';
+  const idParam = myType === 'brother' ? 'brother_id_param' : 'sister_id_param';
+  const idsParam = myType === 'brother' ? 'sister_ids' : 'brother_ids';
+
   try {
-    const { data, error } = await supabase
-      .rpc('find_sister_matches', {
-        brother_id_param: brotherId,
-        match_threshold: 0.60, 
-        match_limit: limit,
-      });
+    const { data, error } = await supabase.rpc(rpcName, {
+      [idParam]: myId,
+      [idsParam]: targetIds,
+    });
 
     if (error) throw error;
 
-    return data;
+    const scoreMap = new Map<string, number | null>();
+    for (const row of (data || [])) {
+      scoreMap.set(row.id, row.vector_score ?? null);
+    }
+    return scoreMap;
+  } catch (error) {
+    console.error('Error scoring profiles:', error);
+    return new Map();
+  }
+}
+
+export async function findMatchesForBrother(brotherId: string, limit: number = 50) {
+  try {
+    const { data, error } = await supabase.rpc('find_sister_matches', {
+      brother_id_param: brotherId,
+      match_threshold: 0.40,
+      match_limit: limit,
+    });
+
+    if (error) throw error;
+    return data as Array<{ id: string; vector_score: number }>;
   } catch (error) {
     console.error('Error finding matches for brother:', error);
     throw error;
   }
 }
 
-/**
- * Find matches for a sister
- */
-export async function findMatchesForSister(sisterId: string, limit: number = 10) {
+export async function findMatchesForSister(sisterId: string, limit: number = 50) {
   try {
-    const { data, error } = await supabase
-      .rpc('find_brother_matches', {
-        sister_id_param: sisterId,
-        match_threshold: 0.60, 
-        match_limit: limit,
-      });
+    const { data, error } = await supabase.rpc('find_brother_matches', {
+      sister_id_param: sisterId,
+      match_threshold: 0.40,
+      match_limit: limit,
+    });
 
     if (error) throw error;
-
-    return data;
+    return data as Array<{ id: string; vector_score: number }>;
   } catch (error) {
     console.error('Error finding matches for sister:', error);
     throw error;

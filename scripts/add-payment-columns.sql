@@ -5,6 +5,7 @@ ALTER TABLE subscribers
   ADD COLUMN IF NOT EXISTS provider text,
   ADD COLUMN IF NOT EXISTS provider_customer_id text,
   ADD COLUMN IF NOT EXISTS provider_subscription_id text,
+  ADD COLUMN IF NOT EXISTS product_id text,
   ADD COLUMN IF NOT EXISTS plan text,
   ADD COLUMN IF NOT EXISTS subscribed_at timestamptz,
   ADD COLUMN IF NOT EXISTS expires_at timestamptz,

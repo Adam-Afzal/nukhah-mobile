@@ -15,15 +15,15 @@ export default {
       }
     },
     android: {
-      package: "com.app.mithaq",
-      permissions: [
-        "ACCESS_BACKGROUND_LOCATION"
-      ]
+      package: "com.app.mithaq"
     },
     plugins: [
       "expo-router",
       "expo-web-browser",
       "expo-video",
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      "expo-image",
       [
         "expo-notifications",
         {
@@ -31,14 +31,6 @@ export default {
           "color": "#F2CC66"
         }
       ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Mithaq uses your location to show you members visiting nearby masjids.",
-          "locationAlwaysUsageDescription": "Mithaq uses your location in the background to detect when you visit a masjid.",
-          "isAndroidBackgroundLocationEnabled": true
-        }
-      ]
     ],
     extra: {
       eas: {

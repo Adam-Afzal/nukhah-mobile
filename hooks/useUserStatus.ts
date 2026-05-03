@@ -42,7 +42,7 @@ export function useUserStatus() {
         // Check if brother profile exists
         const { data: brotherProfile } = await supabase
           .from('brother')
-          .select('id, masjid_id, is_masjid_affiliated')
+          .select('id, masjid_id, is_masjid_affiliated, references_skipped')
           .eq('user_id', user.id)
           .single();
 
@@ -69,7 +69,7 @@ export function useUserStatus() {
             .eq('user_id', brotherProfile.id)
             .eq('user_type', 'brother');
 
-          hasReferences = (refCount || 0) >= 1;
+          hasReferences = (refCount || 0) >= 1 || brotherProfile.references_skipped === true;
         }
 
         const onboardingCompleted = hasMasjidAffiliation && hasReferences;
@@ -97,7 +97,7 @@ export function useUserStatus() {
         // Check if sister profile exists
         const { data: sisterProfile } = await supabase
           .from('sister')
-          .select('id, masjid_id, is_masjid_affiliated')
+          .select('id, masjid_id, is_masjid_affiliated, references_skipped')
           .eq('user_id', user.id)
           .single();
 
@@ -124,7 +124,7 @@ export function useUserStatus() {
             .eq('user_id', sisterProfile.id)
             .eq('user_type', 'sister');
 
-          hasReferences = (refCount || 0) >= 1;
+          hasReferences = (refCount || 0) >= 1 || sisterProfile.references_skipped === true;
         }
 
         const onboardingCompleted = hasMasjidAffiliation && hasReferences;

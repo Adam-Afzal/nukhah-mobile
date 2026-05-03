@@ -34,12 +34,27 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 async function resetUser() {
   console.log(`\nResetting user: ${email}\n`);
 
-  // Find user by email
-  const { data: users } = await supabase.auth.admin.listUsers();
-  const existingUser = users?.users.find((u) => u.email === email);
+  // Find user_id from application tables first (more reliable than paginating auth.users)
+  let existingUserId = null;
 
-  if (existingUser) {
-    const userId = existingUser.id;
+  const { data: brotherAppLookup } = await supabase
+    .from('brother_application').select('user_id').eq('email', email).maybeSingle();
+  if (brotherAppLookup?.user_id) existingUserId = brotherAppLookup.user_id;
+
+  if (!existingUserId) {
+    const { data: sisterAppLookup } = await supabase
+      .from('sister_application').select('user_id').eq('email', email).maybeSingle();
+    if (sisterAppLookup?.user_id) existingUserId = sisterAppLookup.user_id;
+  }
+
+  if (!existingUserId) {
+    const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const found = users?.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (found) existingUserId = found.id;
+  }
+
+  if (existingUserId) {
+    const userId = existingUserId;
     console.log(`Found user: ${userId}`);
 
     // Get brother profile ID

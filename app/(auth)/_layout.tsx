@@ -54,7 +54,7 @@ export default function AuthLayout() {
     }
 
     // Status is 'approved' — route through onboarding steps in order
-    const inOnboarding = segments[0] === '(onboarding)';
+    const inOnboarding = (segments[0] as string) === '(onboarding)';
     const onboardingPage = inOnboarding ? segments[1] : null;
 
     const navigate = (path: string) => {

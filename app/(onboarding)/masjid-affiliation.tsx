@@ -1,5 +1,6 @@
 // app/(onboarding)/masjid-affiliation.tsx
 import OnboardingProgress from '@/components/OnboardingProgress';
+import { queryClient } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -37,7 +38,9 @@ export default function MasjidAffiliationScreen() {
   const [userLocation, setUserLocation] = useState<string>('');
   const [isAffiliated, setIsAffiliated] = useState<boolean | null>(null);
   const [selectedMasjid, setSelectedMasjid] = useState<string | null>(null);
+  const [hasInformedImam, setHasInformedImam] = useState(false);
   const [suggestedMasjidName, setSuggestedMasjidName] = useState('');
+  const [suggestedMasjidCity, setSuggestedMasjidCity] = useState('');
   const [masajid, setMasajid] = useState<Masjid[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -178,6 +181,11 @@ const loadMasajid = async (location?: string) => {
       return;
     }
 
+    if (isAffiliated && selectedMasjid && !hasInformedImam) {
+      Alert.alert('Confirmation Required', 'Please confirm that the imam has been informed to expect your affiliation request');
+      return;
+    }
+
     if (!accountType || !userId) {
       Alert.alert('Error', 'Account information not found');
       return;
@@ -197,6 +205,7 @@ const loadMasajid = async (location?: string) => {
           masjid_id: selectedMasjid ?? null,
           is_masjid_affiliated: isAffiliated,
           suggested_masjid_name: isSuggestingMasjid ? suggestedMasjidName.trim() : null,
+          suggested_masjid_city: isSuggestingMasjid ? suggestedMasjidCity.trim() || null : null,
         })
         .eq('id', userId);
 
@@ -230,6 +239,11 @@ const loadMasajid = async (location?: string) => {
           }).catch(err => console.error('Error sending imam verification SMS:', err));
         }
       }
+
+      // Optimistically update cache so layout doesn't redirect back
+      queryClient.setQueryData(['userStatus'], (old: any) =>
+        old ? { ...old, hasProfile: true, hasMasjidAffiliation: true } : old
+      );
 
       // Continue to references screen
       router.push('/(onboarding)/references');
@@ -350,6 +364,7 @@ const loadMasajid = async (location?: string) => {
                     onPress={() => {
                       setSelectedMasjid(masjid.id);
                       setSuggestedMasjidName('');
+                      setHasInformedImam(false);
                     }}
                   >
                     <View style={styles.masjidInfo}>
@@ -371,17 +386,53 @@ const loadMasajid = async (location?: string) => {
               )}
             </View>
 
+            {/* Imam informed confirmation */}
+            {selectedMasjid && (
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() => setHasInformedImam(prev => !prev)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, hasInformedImam && styles.checkboxChecked]}>
+                  {hasInformedImam && <Text style={styles.checkboxTick}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>
+                  I confirm that I (or my wali) have informed the imam of{' '}
+                  <Text style={styles.checkboxLabelBold}>
+                    {masajid.find(m => m.id === selectedMasjid)?.name || 'this masjid'}
+                  </Text>
+                  {' '}to expect my affiliation request
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* More masjids notice */}
+            <View style={styles.moreMasjidsNotice}>
+              <Text style={styles.moreMasjidsText}>
+                We are onboarding more masajid — if yours isn't listed yet, suggest it below and we'll add it soon.
+              </Text>
+            </View>
+
             {/* Not listed fallback */}
             <View style={styles.notListedContainer}>
               <Text style={styles.notListedLabel}>My masjid isn&apos;t listed</Text>
               <TextInput
                 style={styles.notListedInput}
-                placeholder="Enter your masjid name..."
+                placeholder="Masjid name..."
                 placeholderTextColor="#9CA3AF"
                 value={suggestedMasjidName}
                 onChangeText={(text) => {
                   setSuggestedMasjidName(text);
-                  // Clear list selection if they're typing a custom name
+                  if (text.length > 0) setSelectedMasjid(null);
+                }}
+              />
+              <TextInput
+                style={[styles.notListedInput, { marginTop: 8 }]}
+                placeholder="Town / city..."
+                placeholderTextColor="#9CA3AF"
+                value={suggestedMasjidCity}
+                onChangeText={(text) => {
+                  setSuggestedMasjidCity(text);
                   if (text.length > 0) setSelectedMasjid(null);
                 }}
               />
@@ -600,6 +651,64 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     color: '#7B8799',
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 20,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#F2CC66',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#C0C7D1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: '#F2CC66',
+    borderColor: '#F2CC66',
+  },
+  checkboxTick: {
+    fontSize: 13,
+    color: '#070A12',
+    fontFamily: 'Inter_700Bold',
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#070A12',
+  },
+  checkboxLabelBold: {
+    fontFamily: 'Inter_600SemiBold',
+  },
+  moreMasjidsNotice: {
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(242, 204, 102, 0.08)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 204, 102, 0.2)',
+  },
+  moreMasjidsText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#7B8799',
+    textAlign: 'center',
   },
   notListedContainer: {
     marginTop: 8,

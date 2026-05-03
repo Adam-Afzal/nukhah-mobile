@@ -1,17 +1,14 @@
 import SearchablePicker from '@/components/searchablePicker';
 import { useBrotherApplication } from '@/hooks/useBrotherApplication';
 import { COUNTRIES } from '@/lib/locationData';
-import { LinearGradient } from 'expo-linear-gradient';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 
@@ -94,27 +91,21 @@ export default function BrotherApplication() {
   };
 
   return (
-    <LinearGradient
-      colors={['#070A12', '#1E2A3B', 'rgba(242, 204, 102, 0.3)']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      locations={[0.0058, 0.4534, 0.9011]}
-      style={styles.container}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+    <View style={styles.container}>
+      <KeyboardAwareScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleBack}>
+            <AnimatedPressable onPress={handleBack}>
               <Text style={styles.backButton}>← Back</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
 
           {/* Title */}
@@ -153,7 +144,7 @@ export default function BrotherApplication() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Nationality *</Text>
-              <TouchableOpacity
+              <AnimatedPressable
                 style={[styles.pickerTrigger, errors.nationality && styles.inputError]}
                 onPress={() => setNationalityPickerVisible(true)}
               >
@@ -163,7 +154,7 @@ export default function BrotherApplication() {
                     'Select your nationality'}
                 </Text>
                 <Text style={styles.pickerArrow}>›</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
               {errors.nationality && <Text style={styles.errorText}>{errors.nationality}</Text>}
             </View>
 
@@ -235,46 +226,39 @@ export default function BrotherApplication() {
           </View>
 
           {/* Submit Button */}
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.submitButton}
             onPress={handleSubmit}
-            activeOpacity={0.8}
             disabled={isPending}
           >
-            <LinearGradient
-              colors={['#F2CC66', '#F2CC66']}
-              style={styles.submitButtonGradient}
-            >
-              <Text style={styles.submitButtonText}>
-                {isPending ? 'Submitting...' : 'Submit Application'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            <Text style={styles.submitButtonText}>
+              {isPending ? 'Submitting...' : 'Submit Application'}
+            </Text>
+          </AnimatedPressable>
 
           {/* Privacy Note */}
           <Text style={styles.privacyNote}>
             Your information is encrypted and kept confidential
           </Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 40,
+    backgroundColor: '#0A0E1A',
   },
   header: {
     flexDirection: 'row',
@@ -285,18 +269,18 @@ const styles = StyleSheet.create({
   backButton: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    color: '#F2CC66',
+    color: '#C9A961',
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
     fontSize: 32,
-    color: '#F2CC66',
+    color: '#C9A961',
     marginBottom: 8,
   },
   subtitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
-    color: '#F7E099',
+    color: '#E8D7B5',
     marginBottom: 32,
   },
   form: {
@@ -308,7 +292,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: 'Inter_500Medium',
     fontSize: 14,
-    color: '#F7E099',
+    color: '#E8D7B5',
   },
   hint: {
     fontFamily: 'Inter_400Regular',
@@ -317,9 +301,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1A1F2E',
     borderWidth: 1,
-    borderColor: '#E7EAF0',
+    borderColor: 'rgba(201, 169, 97, 0.3)',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -336,9 +320,9 @@ const styles = StyleSheet.create({
     color: '#E03A3A',
   },
   pickerTrigger: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1A1F2E',
     borderWidth: 1,
-    borderColor: '#E7EAF0',
+    borderColor: 'rgba(201, 169, 97, 0.3)',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -366,17 +350,14 @@ const styles = StyleSheet.create({
     marginTop: 32,
     height: 56,
     borderRadius: 8,
-    overflow: 'hidden',
-  },
-  submitButtonGradient: {
-    flex: 1,
+    backgroundColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitButtonText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
-    color: '#070A12',
+    color: '#0A0E1A',
   },
   privacyNote: {
     fontFamily: 'Inter_400Regular',

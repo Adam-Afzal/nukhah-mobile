@@ -1,12 +1,15 @@
 // app/(auth)/settings.tsx
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { getManagementUrl } from '@/lib/paymentService';
 import { supabase } from '@/lib/supabase';
 import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
+import { useUserStatus } from '@/hooks/useUserStatus';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -104,9 +107,53 @@ const ChevronRightIcon = () => (
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const [username, setUsername] = useState('Mercy-317K'); // TODO: Load from profile
+  const [username, setUsername] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<{
+    subscribed: boolean;
+    expires_at: string | null;
+    cancelled_at: string | null;
+  } | null>(null);
   const { unreadCount } = useUnreadNotifications();
+  const { data: userStatus } = useUserStatus();
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Load username
+    const { data: brother } = await supabase.from('brother').select('username').eq('user_id', user.id).maybeSingle();
+    if (brother) { setUsername(brother.username || ''); return; }
+    const { data: sister } = await supabase.from('sister').select('username').eq('user_id', user.id).maybeSingle();
+    if (sister) setUsername(sister.username || '');
+
+    // Load subscription details
+    const { data: sub } = await supabase
+      .from('subscribers')
+      .select('subscribed, expires_at, cancelled_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (sub) setSubscriptionStatus(sub);
+  };
+
+  const formatDate = (iso: string | null) => {
+    if (!iso) return null;
+    return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  const membershipLabel = () => {
+    if (userStatus?.testingMode) return 'Testing mode — free access';
+    if (!subscriptionStatus?.subscribed) return 'No active membership';
+    if (subscriptionStatus.cancelled_at) {
+      return `Cancelled · Access until ${formatDate(subscriptionStatus.expires_at)}`;
+    }
+    const renewsOn = formatDate(subscriptionStatus.expires_at);
+    return renewsOn ? `Active · Renews ${renewsOn}` : 'Active';
+  };
 
   const handleEditProfile = () => {
     router.push('/(auth)/edit-profile');
@@ -126,12 +173,36 @@ export default function SettingsScreen() {
     if (url) {
       Linking.openURL(url);
     } else {
+      // Fallback: deep link to OS subscription management
+      const iosUrl = 'https://apps.apple.com/account/subscriptions';
+      const androidUrl = 'https://play.google.com/store/account/subscriptions';
+      const fallbackUrl = Platform.OS === 'ios' ? iosUrl : androidUrl;
+      Linking.openURL(fallbackUrl);
+    }
+  };
+
+  const handleCancelMembership = () => {
+    if (subscriptionStatus?.cancelled_at) {
       Alert.alert(
-        'Manage Membership',
-        'To manage your subscription, go to your device Settings > Subscriptions.',
+        'Already Cancelled',
+        `Your membership has been cancelled and will remain active until ${formatDate(subscriptionStatus.expires_at)}.`,
         [{ text: 'OK' }]
       );
+      return;
     }
+
+    Alert.alert(
+      'Cancel Membership',
+      'Your membership will remain active until the end of the current billing period. You can cancel through your App Store or Google Play subscription settings.',
+      [
+        { text: 'Keep Membership', style: 'cancel' },
+        {
+          text: 'Cancel Membership',
+          style: 'destructive',
+          onPress: handleManageMembership,
+        },
+      ]
+    );
   };
 
   const handleLogout = async () => {
@@ -261,8 +332,8 @@ export default function SettingsScreen() {
 
         {/* Subscription Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SUBSCRIPTION</Text>
-          
+          <Text style={styles.sectionTitle}>MEMBERSHIP</Text>
+
           <View style={styles.card}>
             <TouchableOpacity style={styles.settingItem} onPress={handleManageMembership}>
               <View style={styles.iconContainer}>
@@ -277,11 +348,41 @@ export default function SettingsScreen() {
                 </Svg>
               </View>
               <View style={styles.settingContent}>
-                <Text style={styles.settingTitle}>Manage Membership</Text>
-                <Text style={styles.settingDescription}>Active • Renews Dec 15, 2025</Text>
+                <Text style={styles.settingTitle}>Membership Status</Text>
+                <Text style={styles.settingDescription}>{membershipLabel()}</Text>
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
+
+            {subscriptionStatus?.subscribed && !userStatus?.testingMode && (
+              <>
+                <View style={styles.divider} />
+                <TouchableOpacity style={styles.settingItem} onPress={handleCancelMembership}>
+                  <View style={styles.iconContainer}>
+                    <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+                      <Rect width={32} height={32} rx={8} fill="#FEF2F2" />
+                      <Path
+                        d="M20 12L12 20M12 12L20 20"
+                        stroke="#E03A3A"
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                  </View>
+                  <View style={styles.settingContent}>
+                    <Text style={[styles.settingTitle, { color: '#E03A3A' }]}>
+                      {subscriptionStatus.cancelled_at ? 'Membership Cancelled' : 'Cancel Membership'}
+                    </Text>
+                    <Text style={styles.settingDescription}>
+                      {subscriptionStatus.cancelled_at
+                        ? `Active until ${formatDate(subscriptionStatus.expires_at)}`
+                        : 'Cancel via App Store or Google Play'}
+                    </Text>
+                  </View>
+                  {!subscriptionStatus.cancelled_at && <ChevronRightIcon />}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
@@ -365,34 +466,25 @@ export default function SettingsScreen() {
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/interests')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/interests')}>
             <InterestsIcon active={false} />
             <Text style={styles.navLabelInactive}>Interests</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/')}>
             <SearchIcon active={false} />
             <Text style={styles.navLabelInactive}>Search</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/notifications')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/notifications')}>
             <NotificationsIcon active={false} count={unreadCount} />
             <Text style={styles.navLabelInactive}>Notifications</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+          <AnimatedPressable style={styles.navItem} onPress={() => {}}>
             <SettingsIcon active={true} />
             <Text style={styles.navLabelActive}>Settings</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         <View style={styles.navbarIndicator} />

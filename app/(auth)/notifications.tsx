@@ -1,4 +1,5 @@
 // app/(auth)/notifications.tsx
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import {
     deleteNotification,
     getNotifications,
@@ -201,12 +202,6 @@ export default function NotificationsScreen() {
 
     // Navigate based on type
     switch (notification.type) {
-      case 'profile_view':
-        if (notification.data.viewer_profile_id) {
-          router.push(`/(auth)/profile/${notification.data.viewer_profile_id}`);
-        }
-        break;
-
       case 'interest_expressed':
         if (notification.data.requester_profile_id) {
           router.push(`/(auth)/profile/${notification.data.requester_profile_id}`);
@@ -262,7 +257,6 @@ export default function NotificationsScreen() {
 
   const getNotificationIcon = (type: string): string => {
     const icons: Record<string, string> = {
-      profile_view: '👁️',
       interest_expressed: '💕',
       questions_progress: '📝',
       questions_completed: '✅',
@@ -346,34 +340,25 @@ export default function NotificationsScreen() {
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/interests')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/interests')}>
             <InterestsIcon active={false} />
             <Text style={styles.navLabelInactive}>Interests</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)')}>
             <SearchIcon active={false} />
             <Text style={styles.navLabelInactive}>Search</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => {}}>
+          <AnimatedPressable style={styles.navItem} onPress={() => {}}>
             <NotificationsIcon active={true} count={0} />
             <Text style={styles.navLabelActive}>Notifications</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/(auth)/settings')}
-          >
+          <AnimatedPressable style={styles.navItem} onPress={() => router.push('/(auth)/settings')}>
             <SettingsIcon active={false} />
             <Text style={styles.navLabelInactive}>Settings</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         <View style={styles.navbarIndicator} />

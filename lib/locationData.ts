@@ -11,6 +11,7 @@ export interface Country {
     name: string;
     flag: string;
     description?: string;
+    subEthnicities?: string[];
   }
   
   export const COUNTRIES: Country[] = [
@@ -131,44 +132,95 @@ export interface Country {
   
   export const ETHNICITIES: Ethnicity[] = [
     // Arab ethnicities
-    { name: 'Arab - Gulf', flag: '🇸🇦', description: 'Saudi, Emirati, Kuwaiti, Qatari, Bahraini, Omani' },
-    { name: 'Arab - Levantine', flag: '🇯🇴', description: 'Syrian, Lebanese, Jordanian, Palestinian' },
-    { name: 'Arab - North African', flag: '🇲🇦', description: 'Moroccan, Algerian, Tunisian, Libyan' },
-    { name: 'Arab - Egyptian', flag: '🇪🇬', description: 'Egyptian, Sudanese' },
+    {
+      name: 'Arab - Gulf', flag: '🇸🇦', description: 'Saudi, Emirati, Kuwaiti, Qatari, Bahraini, Omani',
+      subEthnicities: ['Saudi', 'Emirati', 'Kuwaiti', 'Qatari', 'Bahraini', 'Omani'],
+    },
+    {
+      name: 'Arab - Levantine', flag: '🇯🇴', description: 'Syrian, Lebanese, Jordanian, Palestinian',
+      subEthnicities: ['Syrian', 'Lebanese', 'Jordanian', 'Palestinian'],
+    },
+    {
+      name: 'Arab - North African', flag: '🇲🇦', description: 'Moroccan, Algerian, Tunisian, Libyan, Mauritanian',
+      subEthnicities: ['Moroccan', 'Algerian', 'Tunisian', 'Libyan', 'Mauritanian'],
+    },
+    {
+      name: 'Arab - Egyptian', flag: '🇪🇬', description: 'Egyptian, Sudanese',
+      subEthnicities: ['Egyptian', 'Sudanese'],
+    },
     { name: 'Arab - Iraqi', flag: '🇮🇶', description: 'Iraqi' },
     { name: 'Arab - Yemeni', flag: '🇾🇪', description: 'Yemeni' },
-  
+
     // South Asian
-    { name: 'Pakistani', flag: '🇵🇰', description: 'Punjabi, Sindhi, Pashtun, Baloch, Muhajir' },
-    { name: 'Indian', flag: '🇮🇳', description: 'North Indian, South Indian, Bengali' },
-    { name: 'Bangladeshi', flag: '🇧🇩', description: 'Bengali from Bangladesh' },
-    { name: 'Afghan', flag: '🇦🇫', description: 'Pashtun, Tajik, Hazara, Uzbek' },
-  
+    {
+      name: 'Pakistani', flag: '🇵🇰', description: 'Punjabi, Mirpuri, Kashmiri, Sindhi, Pashtun, Baloch, Muhajir, Saraiki',
+      subEthnicities: ['Punjabi', 'Mirpuri', 'Kashmiri', 'Sindhi', 'Pashtun', 'Baloch', 'Muhajir', 'Saraiki'],
+    },
+    {
+      name: 'Indian', flag: '🇮🇳', description: 'Gujarati, Punjabi, UP/Bihari, Bengali, Rajasthani, Tamil, Telugu, Kannada, Malayali, Hyderabadi',
+      subEthnicities: ['Gujarati', 'Punjabi (Indian)', 'UP/Bihari', 'Bengali (Indian)', 'Rajasthani', 'Tamil', 'Telugu', 'Kannada', 'Malayali', 'Hyderabadi'],
+    },
+    {
+      name: 'Bangladeshi', flag: '🇧🇩', description: 'Sylheti, Bengali, Chittagonian',
+      subEthnicities: ['Sylheti', 'Bengali (Bangladeshi)', 'Chittagonian'],
+    },
+    {
+      name: 'Afghan', flag: '🇦🇫', description: 'Pashtun, Tajik, Hazara, Uzbek, Nuristani',
+      subEthnicities: ['Pashtun', 'Tajik', 'Hazara', 'Uzbek (Afghan)', 'Nuristani'],
+    },
+
     // Southeast Asian
-    { name: 'Indonesian', flag: '🇮🇩', description: 'Javanese, Sundanese, Malay' },
-    { name: 'Malaysian', flag: '🇲🇾', description: 'Malay, Chinese-Malaysian, Indian-Malaysian' },
+    {
+      name: 'Indonesian', flag: '🇮🇩', description: 'Javanese, Sundanese, Malay',
+      subEthnicities: ['Javanese', 'Sundanese', 'Malay (Indonesian)', 'Minangkabau', 'Acehnese'],
+    },
+    {
+      name: 'Malaysian', flag: '🇲🇾', description: 'Malay, Chinese-Malaysian, Indian-Malaysian',
+      subEthnicities: ['Malay (Malaysian)', 'Chinese-Malaysian', 'Indian-Malaysian'],
+    },
     { name: 'Singaporean', flag: '🇸🇬', description: 'Malay-Singaporean' },
     { name: 'Bruneian', flag: '🇧🇳', description: 'Malay-Bruneian' },
-  
+
     // Turkish & Central Asian
-    { name: 'Turkish', flag: '🇹🇷', description: 'Turkish, Kurdish' },
-    { name: 'Central Asian', flag: '🇺🇿', description: 'Uzbek, Kazakh, Kyrgyz, Tajik, Turkmen' },
+    {
+      name: 'Turkish', flag: '🇹🇷', description: 'Turkish, Kurdish, Circassian',
+      subEthnicities: ['Turkish', 'Kurdish', 'Circassian'],
+    },
+    {
+      name: 'Central Asian', flag: '🇺🇿', description: 'Uzbek, Kazakh, Kyrgyz, Tajik, Turkmen',
+      subEthnicities: ['Uzbek', 'Kazakh', 'Kyrgyz', 'Tajik', 'Turkmen'],
+    },
     { name: 'Azerbaijani', flag: '🇦🇿', description: 'Azeri' },
-  
+
     // African
-    { name: 'West African', flag: '🇳🇬', description: 'Nigerian, Senegalese, Malian, Ghanaian' },
-    { name: 'East African', flag: '🇰🇪', description: 'Somali, Kenyan, Tanzanian, Ethiopian' },
+    {
+      name: 'West African', flag: '🇳🇬', description: 'Nigerian, Senegalese, Malian, Ghanaian, Gambian',
+      subEthnicities: ['Nigerian', 'Senegalese', 'Malian', 'Ghanaian', 'Gambian', 'Ivorian', 'Sierra Leonean'],
+    },
+    {
+      name: 'East African', flag: '🇰🇪', description: 'Somali, Ethiopian, Eritrean, Kenyan, Tanzanian, Ugandan',
+      subEthnicities: ['Somali', 'Ethiopian', 'Eritrean', 'Kenyan', 'Tanzanian', 'Ugandan'],
+    },
     { name: 'North African - Amazigh', flag: '🇲🇦', description: 'Berber/Amazigh' },
     { name: 'South African', flag: '🇿🇦', description: 'Cape Malay, Black South African' },
-  
+
     // European/Western
-    { name: 'White - British', flag: '🇬🇧', description: 'British, English, Scottish, Welsh' },
+    {
+      name: 'White - British', flag: '🇬🇧', description: 'English, Scottish, Welsh, Irish',
+      subEthnicities: ['English', 'Scottish', 'Welsh', 'Irish'],
+    },
     { name: 'White - American', flag: '🇺🇸', description: 'American (Caucasian)' },
-    { name: 'White - European', flag: '🇪🇺', description: 'French, German, Dutch, Scandinavian' },
-    { name: 'White - Balkan', flag: '🇦🇱', description: 'Albanian, Bosnian, Kosovar' },
+    {
+      name: 'White - European', flag: '🇪🇺', description: 'French, German, Dutch, Scandinavian, Eastern European',
+      subEthnicities: ['French', 'German', 'Dutch', 'Scandinavian', 'Eastern European'],
+    },
+    {
+      name: 'White - Balkan', flag: '🇦🇱', description: 'Albanian, Bosnian, Kosovar',
+      subEthnicities: ['Albanian', 'Bosnian', 'Kosovar'],
+    },
     { name: 'Hispanic/Latino', flag: '🇲🇽', description: 'Latin American, Spanish-speaking' },
-  
-    // Revert/Convert (no specific ethnicity)
+
+    // Other
     { name: 'Mixed Heritage', flag: '🌍', description: 'Multiple ethnic backgrounds' },
     { name: 'Other', flag: '🌍', description: 'Not listed above' },
   ];

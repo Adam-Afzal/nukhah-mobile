@@ -53,7 +53,7 @@ export default function SplashScreen() {
       <View style={styles.content}>
         {/* App Icon */}
         <View style={styles.logoContainer}>
-          <Image source={require('../assets/splash.png')} style={styles.icon} />
+          <Image source={require('../assets/images/splash.png')} style={styles.icon} />
         </View>
 
         {/* Loading Dots */}

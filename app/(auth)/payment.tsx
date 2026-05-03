@@ -23,7 +23,7 @@ export default function PaymentScreen() {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [priceString, setPriceString] = useState('$9.99/month');
+  const [priceString, setPriceString] = useState('£19.99/month');
 
   useEffect(() => {
     loadOfferings();

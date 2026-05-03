@@ -1,6 +1,7 @@
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useRouter } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ export default function WelcomeScreen() {
       {/* Content */}
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <Image source={require('../assets/splash.png')} style={styles.icon} />
+          <Image source={require('../assets/images/splash.png')} style={styles.icon} />
         </View>
 
         <Text style={styles.tagline}>
@@ -44,21 +45,19 @@ export default function WelcomeScreen() {
         </Text>
 
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.applyButton}
             onPress={() => router.push('/(application)')}
-            activeOpacity={0.8}
           >
             <Text style={styles.applyButtonText}>Apply for Membership</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.loginButton}
             onPress={() => router.push('/login')}
-            activeOpacity={0.8}
           >
             <Text style={styles.loginButtonText}>Login</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         <View style={styles.footerContainer}>

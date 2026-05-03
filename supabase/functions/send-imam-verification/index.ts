@@ -1,6 +1,6 @@
 // supabase/functions/send-imam-verification/index.ts
-// Called from the app after an imam_verification row is inserted.
-// Looks up the imam's phone, builds an SMS with user details, and sends via Twilio.
+// Called after an imam_verification row is inserted.
+// Texts the imam asking them to confirm the user's affiliation.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -27,7 +27,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Fetch masjid + imam (masjid.imam_id → imam)
+    // Fetch masjid + imam
     const { data: masjid, error: masjidError } = await supabase
       .from('masjid')
       .select('id, name, city, country, imam:imam_id(id, name, phone)')
@@ -35,50 +35,45 @@ serve(async (req) => {
       .single()
 
     if (masjidError || !masjid) {
-      console.error('Masjid not found:', masjidError)
       return json({ error: 'Masjid not found' })
     }
 
-    // Supabase join may return array or object depending on cardinality
     const imam = Array.isArray(masjid.imam) ? masjid.imam[0] : masjid.imam
 
     if (!imam?.phone) {
-      console.log('Imam has no phone on file — skipping SMS for verification', imam_verification_id)
+      console.log('Imam has no phone — skipping SMS for', imam_verification_id)
       return json({ skipped: true, reason: 'no_imam_phone' })
     }
 
     // Fetch user profile
     const table = user_type === 'brother' ? 'brother' : 'sister'
-    const sisterFields = 'full_name, email, wali_name, wali_relationship, wali_phone'
-    const brotherFields = 'full_name, email'
+    const fields = user_type === 'sister'
+      ? 'first_name, last_name, wali_name, wali_relationship, wali_phone'
+      : 'first_name, last_name'
 
     const { data: profile } = await supabase
       .from(table)
-      .select(user_type === 'sister' ? sisterFields : brotherFields)
+      .select(fields)
       .eq('id', user_id)
       .maybeSingle()
 
-    const gender = user_type === 'brother' ? 'Brother' : 'Sister'
-    const userName = profile?.full_name || 'A member'
+    const userName = profile
+      ? `${profile.first_name} ${profile.last_name}`.trim()
+      : 'A member'
 
     let smsBody =
       `Assalamu Alaikum ${imam.name},\n\n` +
-      `${userName} has applied to join Mithaq and listed ${masjid.name} as their masjid.\n\n` +
-      `Gender: ${gender}\n` +
-      `Email: ${profile?.email ?? 'N/A'}`
+      `${userName} has affiliated themselves with ${masjid.name}. ` +
+      `Can you confirm knowledge of this person?`
 
     if (user_type === 'sister' && profile?.wali_name) {
-      smsBody += `\nWali: ${profile.wali_name}`
+      smsBody += `\n\nWali: ${profile.wali_name}`
       if (profile.wali_relationship) smsBody += ` (${profile.wali_relationship})`
       if (profile.wali_phone) smsBody += `, ${profile.wali_phone}`
     }
 
-    smsBody +=
-      '\n\nBy replying YES you confirm that you know this person and can vouch for their ' +
-      'character and regular attendance at your masjid. Reply NO if you cannot confirm this.\n\n' +
-      'JazakAllahu Khairan'
+    smsBody += '\n\nReply YES to confirm or NO if you cannot confirm.\n\nJazakAllahu Khairan'
 
-    // Send via Twilio
     const twilioSid = Deno.env.get('TWILIO_ACCOUNT_SID')!
     const twilioToken = Deno.env.get('TWILIO_AUTH_TOKEN')!
     const twilioFrom = Deno.env.get('TWILIO_PHONE_NUMBER')!
@@ -106,7 +101,6 @@ serve(async (req) => {
       return json({ error: twilioResult.message })
     }
 
-    console.log('SMS sent, Twilio SID:', twilioResult.sid)
     return json({ success: true, sid: twilioResult.sid })
 
   } catch (err) {

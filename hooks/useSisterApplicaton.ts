@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
 interface SisterApplicationData {
+  applied_by_wali: boolean;
+  wali_relationship_to_sister?: string;
   first_name: string;
   last_name: string;
   nationality: string;

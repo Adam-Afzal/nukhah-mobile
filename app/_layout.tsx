@@ -137,12 +137,6 @@ export default function RootLayout() {
       const data = response.notification.request.content.data as Record<string, any>;
       if (!data) return;
 
-      if (data.type === 'geofence_enter') {
-        // Navigate to Local tab
-        router.push('/(auth)');
-        return;
-      }
-
       const screen = data.screen as string | undefined;
       if (screen === 'profile' && data.profileId) {
         router.push(`/profile/${data.profileId}`);

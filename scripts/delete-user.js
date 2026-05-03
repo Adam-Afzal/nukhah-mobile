@@ -32,15 +32,38 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 async function deleteUser() {
   console.log(`\nDeleting user: ${email}\n`);
 
-  const { data: users } = await supabase.auth.admin.listUsers();
-  const existingUser = users?.users.find((u) => u.email === email);
+  // Look up user_id from application tables (more reliable than paginating auth.users)
+  let userId = null;
 
-  if (!existingUser) {
+  const { data: brotherApp } = await supabase
+    .from('brother_application')
+    .select('user_id')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (brotherApp?.user_id) userId = brotherApp.user_id;
+
+  if (!userId) {
+    const { data: sisterApp } = await supabase
+      .from('sister_application')
+      .select('user_id')
+      .eq('email', email)
+      .maybeSingle();
+    if (sisterApp?.user_id) userId = sisterApp.user_id;
+  }
+
+  // Fall back to auth lookup if not in application tables
+  if (!userId) {
+    const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const found = users?.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (found) userId = found.id;
+  }
+
+  if (!userId) {
     console.log('No user found with that email.');
     process.exit(0);
   }
 
-  const userId = existingUser.id;
   console.log(`Found user: ${userId}`);
 
   // Get brother profile ID

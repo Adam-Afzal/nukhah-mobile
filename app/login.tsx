@@ -1,9 +1,9 @@
 // app/login.tsx
 import { supabase } from '@/lib/supabase';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
+import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -70,25 +70,19 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient
-    colors={['#070A12', '#1E2A3B', 'rgba(242, 204, 102, 0.3)']}
-    start={{ x: 0, y: 0 }}
-    end={{ x: 0.5, y: 1 }}
-    locations={[0.0058, 0.4534, 0.9011]}
-    style={styles.container}
-    >
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <View style={styles.content}>
           {/* Back Button */}
-          <TouchableOpacity 
+          <AnimatedPressable 
             style={styles.backButton} 
             onPress={() => router.back()}
           >
             <Text style={styles.backButtonText}>← Back</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
           {/* Title */}
           <Text style={styles.title}>Welcome Back</Text>
@@ -124,24 +118,18 @@ export default function LoginScreen() {
           </View>
 
           {/* Login Button */}
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.loginButton}
             onPress={handleLogin}
             disabled={loading}
-            activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={['#F2CC66', '#F2CC66']}
-              style={styles.loginButtonGradient}
-            >
-              <Text style={styles.loginButtonText}>
-                {loading ? 'Logging in...' : 'Log In'}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            <Text style={styles.loginButtonText}>
+              {loading ? 'Logging in...' : 'Log In'}
+            </Text>
+          </AnimatedPressable>
 
           {/* Forgot Password */}
-          <TouchableOpacity 
+          <AnimatedPressable 
             style={styles.forgotPassword}
             onPress={() => {
               // TODO: Implement forgot password
@@ -149,7 +137,7 @@ export default function LoginScreen() {
             }}
           >
             <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
           {/* Divider */}
           <View style={styles.divider}>
@@ -159,42 +147,36 @@ export default function LoginScreen() {
           </View>
 
           {/* Apply Link */}
-          <TouchableOpacity
+          <AnimatedPressable
             style={styles.applyButton}
             onPress={() => router.push('/(application)')}
           >
             <Text style={styles.applyButtonText}>
               Don't have an account? <Text style={styles.applyButtonTextBold}>Apply Now</Text>
             </Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
-          {/* Imam Portal Link */}
-          <TouchableOpacity
-            style={styles.imamPortalLink}
-            onPress={() => router.push('/(imam)/login')}
-          >
-            <Text style={styles.imamPortalText}>
-              Are you an imam? <Text style={styles.imamPortalTextBold}>Access Imam Portal →</Text>
-            </Text>
-          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   keyboardView: {
     flex: 1,
+    backgroundColor: '#0A0E1A',
   },
   content: {
     flex: 1,
     paddingHorizontal: 28,
     paddingTop: 60,
     justifyContent: 'center',
+    backgroundColor: '#0A0E1A',
   },
   backButton: {
     position: 'absolute',
@@ -204,18 +186,18 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
-    color: '#F2CC66',
+    color: '#C9A961',
   },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
     fontSize: 40,
-    color: '#F2CC66',
+    color: '#C9A961',
     marginBottom: 8,
   },
   subtitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: 16,
-    color: '#F7E099',
+    color: '#E8D7B5',
     marginBottom: 40,
   },
   inputGroup: {
@@ -224,13 +206,13 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: 'Inter_500Medium',
     fontSize: 14,
-    color: '#F7E099',
+    color: '#E8D7B5',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1A1F2E',
     borderWidth: 1,
-    borderColor: '#E7EAF0',
+    borderColor: 'rgba(201, 169, 97, 0.3)',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -241,18 +223,15 @@ const styles = StyleSheet.create({
   loginButton: {
     height: 56,
     borderRadius: 8,
-    overflow: 'hidden',
-    marginTop: 12,
-  },
-  loginButtonGradient: {
-    flex: 1,
+    backgroundColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 12,
   },
   loginButtonText: {
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
-    color: '#070A12',
+    color: '#0A0E1A',
   },
   forgotPassword: {
     alignSelf: 'center',
@@ -261,7 +240,7 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
-    color: '#F7E099',
+    color: '#E8D7B5',
     textDecorationLine: 'underline',
   },
   divider: {
@@ -286,11 +265,11 @@ const styles = StyleSheet.create({
   applyButtonText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
-    color: '#F7E099',
+    color: '#E8D7B5',
   },
   applyButtonTextBold: {
     fontFamily: 'Inter_600SemiBold',
-    color: '#F2CC66',
+    color: '#C9A961',
   },
   imamPortalLink: {
     alignSelf: 'center',
@@ -305,6 +284,6 @@ const styles = StyleSheet.create({
   },
   imamPortalTextBold: {
     fontFamily: 'Inter_600SemiBold',
-    color: '#F2CC66',
+    color: '#C9A961',
   },
 });

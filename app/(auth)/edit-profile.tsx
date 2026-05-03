@@ -1,9 +1,9 @@
 // app/(auth)/edit-profile.tsx
+import HierarchicalEthnicityPicker from '@/components/HierarchicalEthnicityPicker';
 import SearchablePicker from '@/components/searchablePicker';
-import { ETHNICITIES } from '@/lib/locationData';
+import { updateBrotherEmbedding, updateSisterEmbedding } from '@/lib/embeddingService';
 import { supabase } from '@/lib/supabase';
 import { Picker } from '@react-native-picker/picker';
-import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -27,12 +27,11 @@ interface ProfileData {
   occupation: string;
   marital_status: string;
   children: boolean;
-  revert: boolean;
   disabilities: string;
   hobbies_and_interests: string;
   personality: string;
   open_to_hijrah: boolean;
-  open_to_reverts: boolean;
+  willing_to_relocate: boolean;
   living_arrangements: string;
   preferred_ethnicity: string[];
   other_spouse_criteria: string;
@@ -69,7 +68,6 @@ const BROTHER_MARITAL_OPTIONS = [
   { label: 'Married', value: 'married' },
   { label: 'Divorced', value: 'divorced' },
   { label: 'Widowed', value: 'widowed' },
-  { label: 'Annulled', value: 'annulled' },
 ];
 
 const SISTER_MARITAL_OPTIONS = [
@@ -77,7 +75,6 @@ const SISTER_MARITAL_OPTIONS = [
   { label: 'Never Married', value: 'never_married' },
   { label: 'Divorced', value: 'divorced' },
   { label: 'Widowed', value: 'widowed' },
-  { label: 'Annulled', value: 'annulled' },
 ];
 
 export default function EditProfileScreen() {
@@ -92,13 +89,6 @@ export default function EditProfileScreen() {
   const [ethnicityPickerVisible, setEthnicityPickerVisible] = useState(false);
   const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
 
-  const ethnicityItems = ETHNICITIES.map(eth => ({
-    label: eth.name,
-    value: eth.name,
-    flag: eth.flag,
-    subtitle: eth.description,
-  }));
-
   const [formData, setFormData] = useState<ProfileData>({
     username: '',
     build: '',
@@ -106,12 +96,11 @@ export default function EditProfileScreen() {
     occupation: '',
     marital_status: '',
     children: false,
-    revert: false,
     disabilities: '',
     hobbies_and_interests: '',
     personality: '',
     open_to_hijrah: false,
-    open_to_reverts: true,
+    willing_to_relocate: false,
     living_arrangements: '',
     preferred_ethnicity: [],
     other_spouse_criteria: '',
@@ -153,12 +142,11 @@ export default function EditProfileScreen() {
           occupation: brotherData.occupation || '',
           marital_status: brotherData.marital_status || '',
           children: brotherData.children || false,
-          revert: brotherData.revert || false,
           disabilities: brotherData.disabilities || '',
           hobbies_and_interests: brotherData.hobbies_and_interests || '',
           personality: brotherData.personality || '',
           open_to_hijrah: brotherData.open_to_hijrah || false,
-          open_to_reverts: brotherData.open_to_reverts ?? true,
+          willing_to_relocate: brotherData.willing_to_relocate || false,
           living_arrangements: brotherData.living_arrangements || '',
           preferred_ethnicity: brotherData.preferred_ethnicity || [],
           other_spouse_criteria: brotherData.other_spouse_criteria || '',
@@ -188,12 +176,11 @@ export default function EditProfileScreen() {
           occupation: sisterData.occupation || '',
           marital_status: sisterData.marital_status || '',
           children: sisterData.children || false,
-          revert: sisterData.revert || false,
           disabilities: sisterData.disabilities || '',
           hobbies_and_interests: sisterData.hobbies_and_interests || '',
           personality: sisterData.personality || '',
           open_to_hijrah: sisterData.open_to_hijrah || false,
-          open_to_reverts: sisterData.open_to_reverts ?? true,
+          willing_to_relocate: sisterData.willing_to_relocate || false,
           living_arrangements: sisterData.living_arrangements || '',
           preferred_ethnicity: sisterData.preferred_ethnicity || [],
           other_spouse_criteria: sisterData.other_spouse_criteria || '',
@@ -299,12 +286,11 @@ export default function EditProfileScreen() {
         occupation: formData.occupation.trim(),
         marital_status: formData.marital_status,
         children: formData.children,
-        revert: formData.revert,
         disabilities: formData.disabilities.trim(),
         hobbies_and_interests: formData.hobbies_and_interests.trim(),
         personality: formData.personality.trim(),
         open_to_hijrah: formData.open_to_hijrah,
-        open_to_reverts: formData.open_to_reverts,
+        willing_to_relocate: formData.willing_to_relocate,
         living_arrangements: formData.living_arrangements.trim(),
         preferred_ethnicity: formData.preferred_ethnicity,
         other_spouse_criteria: formData.other_spouse_criteria.trim(),
@@ -327,7 +313,7 @@ export default function EditProfileScreen() {
 
       if (error) throw error;
 
-      await regenerateEmbedding();
+      await regenerateEmbedding(profileId, accountType, formData);
 
       Alert.alert('Success', 'Profile updated successfully', [
         { text: 'OK', onPress: () => router.back() }
@@ -340,41 +326,13 @@ export default function EditProfileScreen() {
     }
   };
 
-  const regenerateEmbedding = async () => {
+  const regenerateEmbedding = async (id: string, type: AccountType, data: ProfileData) => {
     try {
-      if (!profileId || !accountType) return;
-
-      const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL;
-      if (!supabaseUrl) {
-        console.error('Supabase URL not configured');
-        return;
+      if (type === 'brother') {
+        await updateBrotherEmbedding(id, data);
+      } else {
+        await updateSisterEmbedding(id, data);
       }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.error('No auth session for embedding regeneration');
-        return;
-      }
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/regenerate-embedding`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ profileId, accountType }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Edge function error:', errorData);
-        return;
-      }
-
-      console.log('Embedding regenerated successfully');
     } catch (error) {
       console.error('Error regenerating embedding:', error);
     }
@@ -483,13 +441,11 @@ export default function EditProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <SearchablePicker
+          <HierarchicalEthnicityPicker
             visible={ethnicityPickerVisible}
             onClose={() => setEthnicityPickerVisible(false)}
             onSelect={(value) => setFormData({ ...formData, ethnicity: value })}
-            items={ethnicityItems}
             title="Select Ethnicity"
-            placeholder="Search ethnicity..."
             selectedValue={formData.ethnicity}
           />
 
@@ -570,18 +526,6 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          <View style={styles.switchGroup}>
-            <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>Are you a revert?</Text>
-              <Switch
-                value={formData.revert}
-                onValueChange={(value) => setFormData({ ...formData, revert: value })}
-                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-                thumbColor={formData.revert ? '#070A12' : '#7B8799'}
-              />
-            </View>
-          </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Disabilities (if any)</Text>
             <TextInput
@@ -643,12 +587,12 @@ export default function EditProfileScreen() {
 
           <View style={styles.switchGroup}>
             <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>Open to reverts?</Text>
+              <Text style={styles.switchLabel}>Willing to relocate?</Text>
               <Switch
-                value={formData.open_to_reverts}
-                onValueChange={(value) => setFormData({ ...formData, open_to_reverts: value })}
+                value={formData.willing_to_relocate}
+                onValueChange={(value) => setFormData({ ...formData, willing_to_relocate: value })}
                 trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
-                thumbColor={formData.open_to_reverts ? '#070A12' : '#7B8799'}
+                thumbColor={formData.willing_to_relocate ? '#070A12' : '#7B8799'}
               />
             </View>
           </View>
@@ -669,16 +613,20 @@ export default function EditProfileScreen() {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Living Arrangements</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={formData.living_arrangements}
-              onChangeText={(text) => setFormData({ ...formData, living_arrangements: text })}
-              placeholder="Describe your ideal living arrangements after marriage"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.living_arrangements}
+                onValueChange={(value) => setFormData({ ...formData, living_arrangements: value })}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="Select living arrangements" value="" />
+                <Picker.Item label="Own Property (No Mortgage)" value="own_property_no_mortgage" />
+                <Picker.Item label="Own Property (With Mortgage)" value="own_property_with_mortgage" />
+                <Picker.Item label="Renting" value="renting" />
+                <Picker.Item label="With Family" value="with_family" />
+                <Picker.Item label="Flexible" value="flexible" />
+              </Picker>
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
@@ -722,7 +670,7 @@ export default function EditProfileScreen() {
             )}
           </View>
 
-          <SearchablePicker
+          <HierarchicalEthnicityPicker
             visible={preferredEthnicityPickerVisible}
             onClose={() => setPreferredEthnicityPickerVisible(false)}
             onSelect={(value) => {
@@ -736,9 +684,7 @@ export default function EditProfileScreen() {
                 };
               });
             }}
-            items={ethnicityItems}
             title="Select Preferred Ethnicities"
-            placeholder="Search ethnicity..."
             selectedValue={formData.preferred_ethnicity}
             multiSelect={true}
           />

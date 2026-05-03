@@ -71,15 +71,12 @@ export async function registerApplicationPushToken(
 async function getExpoPushToken(): Promise<string | null> {
   if (!Notifications || !isDevice) return null;
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+  const existingPerms = await Notifications.getPermissionsAsync() as any;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+  if (!existingPerms.granted) {
+    const perms = await Notifications.requestPermissionsAsync() as any;
+    if (!perms.granted) return null;
   }
-
-  if (finalStatus !== 'granted') return null;
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {

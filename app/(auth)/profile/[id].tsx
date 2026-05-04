@@ -625,7 +625,14 @@ export default function ProfileScreen() {
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Prayer</Text>
                 <Text style={styles.infoValue}>
-                  {profile.prayer_consistency === '5x_daily' ? '5x Daily' : profile.prayer_consistency === 'as_much_as_possible' ? 'As Much as Possible' : profile.prayer_consistency}
+                  {({
+                    always_on_time: 'Always on time',
+                    usually_on_time: 'Usually on time',
+                    sometimes_miss: 'Sometimes misses',
+                    struggling: 'Working on it',
+                    '5x_daily': '5x daily',
+                    as_much_as_possible: 'As much as possible',
+                  } as Record<string, string>)[profile.prayer_consistency] ?? profile.prayer_consistency}
                 </Text>
               </View>
             )}
@@ -687,7 +694,17 @@ export default function ProfileScreen() {
         {profile.living_arrangements ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Living Arrangements</Text>
-            <Text style={styles.longText}>{profile.living_arrangements}</Text>
+            <Text style={styles.longText}>
+              {({
+                with_family: 'With family',
+                renting: 'Renting',
+                own_property: 'Own property',
+                'Own Property (No Mortgage)': 'Own property (no mortgage)',
+                'Own Property (With Mortgage)': 'Own property (with mortgage)',
+                flexible: 'Flexible',
+                student_accommodation: 'Student accommodation',
+              } as Record<string, string>)[profile.living_arrangements] ?? profile.living_arrangements}
+            </Text>
           </View>
         ) : null}
 

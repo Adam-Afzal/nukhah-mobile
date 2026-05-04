@@ -189,14 +189,13 @@ export default function ReferencesScreen() {
     try {
       const table = accountType === 'brother' ? 'brother' : 'sister';
       await supabase.from(table).update({ references_skipped: true }).eq('id', userId);
-      queryClient.setQueryData(['userStatus'], (old: any) =>
-        old ? { ...old, hasProfile: true, hasMasjidAffiliation: true, hasReferences: true, onboardingCompleted: true } : old
-      );
-      router.replace('/(auth)');
     } catch (error) {
       console.error('Error skipping references:', error);
-      router.replace('/(auth)');
     }
+    queryClient.setQueryData(['userStatus'], (old: any) =>
+      old ? { ...old, hasProfile: true, hasMasjidAffiliation: true, hasReferences: true, onboardingCompleted: true } : old
+    );
+    router.replace('/(auth)');
   };
 
   const handleSubmit = async () => {

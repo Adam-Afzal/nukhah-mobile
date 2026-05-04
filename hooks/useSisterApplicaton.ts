@@ -93,7 +93,7 @@ export const useSisterApplication = () => {
         // New application submitted successfully
         Alert.alert(
           'Application Submitted!',
-          'Your application has been submitted for review. Please check your email to confirm your account before logging in.',
+          'Step 1: Check your inbox and confirm your email address — you won\'t be able to log in until this is done.\n\nStep 2: Once confirmed, your application will be reviewed and you\'ll hear back by email.',
           [
             {
               text: 'OK',

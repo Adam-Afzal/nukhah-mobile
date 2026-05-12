@@ -474,10 +474,10 @@ export default function ProfileSetup() {
         };
         const { data, error } = await supabase.from('brother').insert(brotherProfile).select('id').single();
         if (error) throw error;
-        await updateBrotherEmbedding(data.id, {
+        updateBrotherEmbedding(data.id, {
           ...embeddingData,
           beard_commitment: profileData.beard_commitment,
-        });
+        }).catch(err => console.error('Embedding update failed (non-blocking):', err));
       } else if (accountType === 'sister') {
         const sisterProfile = {
           ...baseProfile,
@@ -490,14 +490,13 @@ export default function ProfileSetup() {
           wali_preferred_contact: profileData.wali_preferred_contact || null,
           applied_by_wali: profileData.applied_by_wali || false,
         };
-        console.log('Sister profile insert payload:', JSON.stringify(sisterProfile, null, 2));
         const { data, error } = await supabase.from('sister').insert(sisterProfile).select('id').single();
         if (error) throw error;
-        await updateSisterEmbedding(data.id, {
+        updateSisterEmbedding(data.id, {
           ...embeddingData,
           open_to_polygyny: profileData.open_to_polygyny,
           hijab_commitment: profileData.hijab_commitment,
-        });
+        }).catch(err => console.error('Embedding update failed (non-blocking):', err));
       }
 
       Alert.alert(

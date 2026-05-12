@@ -10,9 +10,11 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -90,7 +92,11 @@ export default function ProfileScreen() {
   const [canViewBrotherPhone, setCanViewBrotherPhone] = useState(false);
   const [profileMasjid, setProfileMasjid] = useState<MasjidInfo | null>(null);
   const [currentUserMasjid, setCurrentUserMasjid] = useState<MasjidInfo | null>(null);
-  const [hasVerifiedReference, setHasVerifiedReference] = useState(false);
+  const [masjidStatus, setMasjidStatus] = useState<'verified' | 'pending' | 'none'>('none');
+  const [referenceStatus, setReferenceStatus] = useState<'verified' | 'pending' | 'none'>('none');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -237,14 +243,16 @@ export default function ProfileScreen() {
 
   const loadReferenceVerification = async (profileId: string, profileType: 'brother' | 'sister') => {
     try {
-      const { count } = await supabase
+      const { data } = await supabase
         .from('reference')
-        .select('id', { count: 'exact', head: true })
+        .select('verification_status')
         .eq('user_id', profileId)
-        .eq('user_type', profileType)
-        .eq('verification_status', 'verified');
+        .eq('user_type', profileType);
 
-      setHasVerifiedReference((count ?? 0) > 0);
+      const refs = data || [];
+      if (refs.some(r => r.verification_status === 'verified')) setReferenceStatus('verified');
+      else if (refs.some(r => r.verification_status === 'pending')) setReferenceStatus('pending');
+      else setReferenceStatus('none');
     } catch (error) {
       console.error('Error loading reference verification:', error);
     }
@@ -252,25 +260,40 @@ export default function ProfileScreen() {
 
   const loadProfileMasjid = async (profileId: string, profileType: 'brother' | 'sister') => {
     try {
-      // Check if profile has a verified masjid affiliation
       const { data: verification } = await supabase
         .from('imam_verification')
-        .select('masjid_id')
+        .select('masjid_id, status')
         .eq('user_id', profileId)
         .eq('user_type', profileType)
-        .eq('status', 'verified')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (!verification?.masjid_id) return;
+      if (!verification) {
+        setMasjidStatus('none');
+        return;
+      }
 
-      const { data: masjid } = await supabase
-        .from('masjid')
-        .select('id, name, marriage_service_url')
-        .eq('id', verification.masjid_id)
-        .single();
+      if (verification.status === 'pending') {
+        setMasjidStatus('pending');
+        // Still load masjid name for pending state
+        const { data: masjid } = await supabase
+          .from('masjid')
+          .select('id, name, marriage_service_url')
+          .eq('id', verification.masjid_id)
+          .single();
+        if (masjid) setProfileMasjid(masjid);
+        return;
+      }
 
-      if (masjid) {
-        setProfileMasjid(masjid);
+      if (verification.status === 'verified') {
+        setMasjidStatus('verified');
+        const { data: masjid } = await supabase
+          .from('masjid')
+          .select('id, name, marriage_service_url')
+          .eq('id', verification.masjid_id)
+          .single();
+        if (masjid) setProfileMasjid(masjid);
       }
     } catch (error) {
       console.error('Error loading profile masjid:', error);
@@ -313,7 +336,7 @@ export default function ProfileScreen() {
         'You need an active membership to express interest. Join now for £19.99/month.',
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Get Membership', onPress: () => router.push('/(auth)/payment') },
+          { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
         ]
       );
       return;
@@ -365,7 +388,7 @@ export default function ProfileScreen() {
         'You need an active membership to accept interest. Join now for £19.99/month.',
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Get Membership', onPress: () => router.push('/(auth)/payment') },
+          { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
         ]
       );
       return;
@@ -413,7 +436,7 @@ export default function ProfileScreen() {
         'You need an active membership to manage interests. Join now for £19.99/month.',
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Get Membership', onPress: () => router.push('/(auth)/payment') },
+          { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
         ]
       );
       return;
@@ -451,6 +474,34 @@ export default function ProfileScreen() {
         `JazakAllahu Khairan`
       );
       Linking.openURL(`mailto:${waliContact.email}?subject=${subject}&body=${body}`);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportReason.trim()) {
+      Alert.alert('Required', 'Please describe the issue before submitting.');
+      return;
+    }
+    setIsSubmittingReport(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+      const { error } = await supabase.functions.invoke('report-user', {
+        body: {
+          reportedUserId: id,
+          reportedUsername: profile?.username,
+          reason: reportReason.trim(),
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (error) throw error;
+      setShowReportModal(false);
+      setReportReason('');
+      Alert.alert('Report Submitted', 'Thank you. We will review this report.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmittingReport(false);
     }
   };
 
@@ -548,12 +599,16 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
+        <View style={styles.topRow}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          {!isOwnProfile && (
+            <TouchableOpacity onPress={() => setShowReportModal(true)}>
+              <Text style={styles.reportButtonText}>Report</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View style={styles.headerRow}>
           <Text style={styles.username}>{profile.username}</Text>
@@ -570,20 +625,34 @@ export default function ProfileScreen() {
         )}
 
         {/* Verification badges */}
-        {(profileMasjid || hasVerifiedReference) && (
-          <View style={styles.verificationRow}>
-            {profileMasjid && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>🕌 {profileMasjid.name} (Verified)</Text>
-              </View>
-            )}
-            {hasVerifiedReference && (
-              <View style={styles.verificationBadge}>
-                <Text style={styles.verificationText}>✓ Reference Verified</Text>
-              </View>
-            )}
-          </View>
-        )}
+        <View style={styles.verificationRow}>
+          {masjidStatus === 'verified' && profileMasjid ? (
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>🕌 {profileMasjid.name} (Verified)</Text>
+            </View>
+          ) : masjidStatus === 'pending' ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>🕌 {profileMasjid?.name ? `${profileMasjid.name} (Pending)` : 'Affiliation Pending'}</Text>
+            </View>
+          ) : (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneBadgeText}>🕌 No Masjid Affiliation</Text>
+            </View>
+          )}
+          {referenceStatus === 'verified' ? (
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>✓ Reference Verified</Text>
+            </View>
+          ) : referenceStatus === 'pending' ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>⏳ Reference Pending</Text>
+            </View>
+          ) : (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneBadgeText}>✗ No References</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.locationRow}>
           <Text style={styles.flag}>{getLocationFlag(profile.location_country)}</Text>
@@ -872,6 +941,50 @@ export default function ProfileScreen() {
 
       </ScrollView>
 
+      {/* Report Modal */}
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Report User</Text>
+            <Text style={styles.modalSubtitle}>
+              Describe the issue with {profile?.username}'s profile. We review all reports.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Describe the issue..."
+              placeholderTextColor="#9CA3AF"
+              value={reportReason}
+              onChangeText={setReportReason}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => { setShowReportModal(false); setReportReason(''); }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmit, isSubmittingReport && { opacity: 0.5 }]}
+                onPress={handleSubmitReport}
+                disabled={isSubmittingReport}
+              >
+                <Text style={styles.modalSubmitText}>
+                  {isSubmittingReport ? 'Submitting...' : 'Submit Report'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Bottom Buttons */}
       {!isOwnProfile && (
         <View style={styles.bottomContainer}>
@@ -961,13 +1074,89 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 140,
   },
-  backButton: {
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
+  backButton: {},
   backButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
     color: '#F2CC66',
+  },
+  reportButtonText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#B7312C',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+  },
+  modalTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold_Italic',
+    fontSize: 22,
+    color: '#070A12',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#7B8799',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  modalInput: {
+    backgroundColor: '#F7F8FB',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    padding: 12,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#070A12',
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: '#7B8799',
+  },
+  modalSubmit: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#B7312C',
+    alignItems: 'center',
+  },
+  modalSubmitText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
   },
   headerRow: {
     flexDirection: 'row',
@@ -1006,6 +1195,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 15,
     color: '#17803A',
+  },
+  pendingBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#B45309',
+  },
+  pendingBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#B45309',
+  },
+  noneBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  noneBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    lineHeight: 15,
+    color: '#94A3B8',
   },
   waliBadge: {
     backgroundColor: 'rgba(242, 204, 102, 0.15)',

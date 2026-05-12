@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "571563239126",
+    "project_id": "mithaq-1fb2b",
+    "storage_bucket": "mithaq-1fb2b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:571563239126:android:a76e08463af1b655df4b77",
+        "android_client_info": {
+          "package_name": "com.app.mithaq"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxB_JUJArvWAQtdE7QGkreCpLRuSJmnWM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

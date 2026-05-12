@@ -9,11 +9,43 @@ require('dotenv').config();
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || '';
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing environment variables!');
   console.error('Make sure you have EXPO_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY in .env or .env.local');
   process.exit(1);
+}
+
+async function stripeRequest(method, path, params) {
+  const url = new URL(`https://api.stripe.com/v1${path}`);
+  const options = {
+    method,
+    headers: {
+      Authorization: `Bearer ${stripeSecretKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  };
+  if (params && method === 'GET') {
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  }
+  const res = await fetch(url.toString(), options);
+  return res.json();
+}
+
+async function deleteStripeCustomer(email) {
+  if (!stripeSecretKey) {
+    console.log('  No STRIPE_SECRET_KEY set — skipping Stripe cleanup');
+    return;
+  }
+  const result = await stripeRequest('GET', '/customers', { email, limit: '1' });
+  if (!result.data || result.data.length === 0) {
+    console.log('  No Stripe customer found for this email');
+    return;
+  }
+  const customerId = result.data[0].id;
+  await stripeRequest('DELETE', `/customers/${customerId}`);
+  console.log(`  Deleted Stripe customer: ${customerId}`);
 }
 
 const email = process.argv[2];
@@ -144,6 +176,8 @@ async function deleteUser() {
 
   await supabase.auth.admin.deleteUser(userId);
   console.log('  Deleted auth user');
+
+  await deleteStripeCustomer(email);
 
   console.log(`\nUser deleted: ${email}\n`);
 }

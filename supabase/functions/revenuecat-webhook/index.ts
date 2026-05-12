@@ -1,10 +1,11 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 // supabase/functions/revenuecat-webhook/index.ts
 // Receives RevenueCat webhook events and keeps the subscribers table in sync.
 // Set the webhook URL in RevenueCat dashboard → Project Settings → Webhooks:
 //   https://<your-project>.supabase.co/functions/v1/revenuecat-webhook
 // Set Authorization header value to REVENUECAT_WEBHOOK_SECRET env var.
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const ACTIVE_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION'])

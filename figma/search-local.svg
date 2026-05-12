@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+
+  <!-- Background -->
+  <rect width="390" height="844" fill="#F7F8FB"/>
+
+  <!-- Status bar -->
+  <text x="28" y="18" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">9:41</text>
+  <text x="362" y="18" font-size="12" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">●●● 100%</text>
+
+  <!-- ── Header ── -->
+  <text x="28" y="72" font-size="24" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Who are you looking for?</text>
+
+  <!-- Filter icon (3 lines) -->
+  <line x1="344" y1="60" x2="362" y2="60" stroke="#070A12" stroke-width="2" stroke-linecap="round"/>
+  <line x1="344" y1="67" x2="362" y2="67" stroke="#070A12" stroke-width="2" stroke-linecap="round"/>
+  <line x1="344" y1="74" x2="362" y2="74" stroke="#070A12" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- ── Tabs ── -->
+  <!-- Local (active) -->
+  <rect x="28" y="90" width="157" height="33" rx="8" fill="#F8F1DA"/>
+  <text x="107" y="111" font-size="13" font-weight="700" font-style="italic" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Local</text>
+  <!-- Discover (inactive) -->
+  <rect x="197" y="90" width="165" height="33" rx="8" fill="#F7F8FB"/>
+  <text x="280" y="111" font-size="13" font-weight="700" font-style="italic" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Discover</text>
+
+  <!-- ── Local banner ── -->
+  <rect x="28" y="143" width="334" height="36" rx="8" fill="#F8F1DA"/>
+  <text x="42" y="165" font-size="13" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Sisters who attend Masjid Sunnah Nelson</text>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- Profile Card 1: Umm_Khalid            -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="28" y="199" width="334" height="162" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Username + age badge + flag -->
+  <text x="44" y="232" font-size="20" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Umm_Khalid</text>
+  <rect x="170" y="218" width="28" height="20" rx="4" fill="#F8F1DA"/>
+  <text x="184" y="232" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">25</text>
+  <text x="205" y="232" font-size="15" font-family="system-ui">🇬🇧</text>
+
+  <!-- Verification badge -->
+  <rect x="44" y="244" width="218" height="20" rx="4" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="52" y="257" font-size="10" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Sunnah Nelson (Verified)</text>
+
+  <!-- Info row -->
+  <text x="44" y="285" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Birmingham, United Kingdom</text>
+  <text x="230" y="285" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Arab</text>
+
+  <!-- Compatibility bar -->
+  <rect x="44" y="298" width="240" height="4" rx="2" fill="#E7EAF0"/>
+  <rect x="44" y="298" width="209" height="4" rx="2" fill="#F2CC66"/>
+  <text x="352" y="302" font-size="11" font-weight="600" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">87% match</text>
+
+  <!-- Tags -->
+  <rect x="44" y="314" width="90" height="24" rx="4" fill="#EAF5EE"/>
+  <text x="89" y="330" font-size="11" fill="#17803A" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Never Married</text>
+  <rect x="142" y="314" width="64" height="24" rx="4" fill="#F8F1DA"/>
+  <text x="174" y="330" font-size="11" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Hourglass</text>
+  <rect x="214" y="314" width="54" height="24" rx="4" fill="#F8F1DA"/>
+  <text x="241" y="330" font-size="11" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">5x a Day</text>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- Profile Card 2: Fatimah_North (polygyny-open) -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="28" y="381" width="334" height="178" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Polygyny-Open badge (top right) -->
+  <rect x="282" y="393" width="70" height="18" rx="4" fill="#F8F1DA" stroke="#F2CC66" stroke-width="1"/>
+  <text x="317" y="405" font-size="10" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Polygyny-Open</text>
+
+  <!-- Username + age + flag -->
+  <text x="44" y="432" font-size="20" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Fatimah_North</text>
+  <rect x="183" y="418" width="28" height="20" rx="4" fill="#F8F1DA"/>
+  <text x="197" y="432" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">23</text>
+  <text x="218" y="432" font-size="15" font-family="system-ui">🇬🇧</text>
+
+  <!-- Verification badge -->
+  <rect x="44" y="444" width="218" height="20" rx="4" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="52" y="457" font-size="10" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Sunnah Nelson (Verified)</text>
+
+  <!-- Info row -->
+  <text x="44" y="485" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Nelson, United Kingdom</text>
+  <text x="213" y="485" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Pakistani</text>
+
+  <!-- Compatibility bar -->
+  <rect x="44" y="498" width="240" height="4" rx="2" fill="#E7EAF0"/>
+  <rect x="44" y="498" width="178" height="4" rx="2" fill="#F2CC66"/>
+  <text x="352" y="502" font-size="11" font-weight="600" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">74% match</text>
+
+  <!-- Tags -->
+  <rect x="44" y="514" width="90" height="24" rx="4" fill="#EAF5EE"/>
+  <text x="89" y="530" font-size="11" fill="#17803A" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Never Married</text>
+  <rect x="142" y="514" width="52" height="24" rx="4" fill="#F8F1DA"/>
+  <text x="168" y="530" font-size="11" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Average</text>
+  <rect x="202" y="514" width="96" height="24" rx="4" fill="#F8F1DA"/>
+  <text x="250" y="530" font-size="11" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Prays Regularly</text>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- Profile Card 3: BintAli_Manc          -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="28" y="579" width="334" height="144" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Username + age + flag -->
+  <text x="44" y="614" font-size="20" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">BintAli_Manc</text>
+  <rect x="172" y="600" width="28" height="20" rx="4" fill="#F8F1DA"/>
+  <text x="186" y="614" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">27</text>
+  <text x="207" y="614" font-size="15" font-family="system-ui">🇬🇧</text>
+
+  <!-- Info row (no verification badge) -->
+  <text x="44" y="644" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Manchester, United Kingdom</text>
+  <text x="237" y="644" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Somali</text>
+
+  <!-- Compatibility bar -->
+  <rect x="44" y="657" width="240" height="4" rx="2" fill="#E7EAF0"/>
+  <rect x="44" y="657" width="139" height="4" rx="2" fill="#F2CC66"/>
+  <text x="352" y="661" font-size="11" font-weight="600" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">58% match</text>
+
+  <!-- Tags -->
+  <rect x="44" y="673" width="52" height="24" rx="4" fill="#F8F1DA"/>
+  <text x="70" y="689" font-size="11" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Divorced</text>
+  <rect x="104" y="673" width="54" height="24" rx="4" fill="#F8F1DA"/>
+  <text x="131" y="689" font-size="11" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Athletic</text>
+
+  <!-- ── Bottom Navbar ── -->
+  <rect x="0" y="756" width="390" height="88" fill="#FFFFFF"/>
+  <line x1="0" y1="756" x2="390" y2="756" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Interests icon (heart, inactive) — centered at x=64 -->
+  <path d="M64 790 L56 782 Q53 779 55.5 776.5 Q58 774 61 776.5 L64 779.5 L67 776.5 Q70 774 72.5 776.5 Q75 779 72 782 Z" fill="none" stroke="#7B8799" stroke-width="1.8" stroke-linejoin="round"/>
+  <text x="64" y="808" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Interests</text>
+
+  <!-- Search icon (active, gold) — centered at x=151 -->
+  <circle cx="149" cy="779" r="7" stroke="#F2CC66" stroke-width="2" fill="none"/>
+  <line x1="154" y1="784" x2="159" y2="789" stroke="#F2CC66" stroke-width="2" stroke-linecap="round"/>
+  <text x="151" y="808" font-size="12" font-weight="700" font-style="italic" fill="#F2CC66" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Search</text>
+
+  <!-- Notifications icon (bell, inactive) — centered at x=239 -->
+  <path d="M239 770 Q231 770 231 778 L229 784 L249 784 L247 778 Q247 770 239 770 Z" fill="none" stroke="#7B8799" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M237 784 Q237 788 239 788 Q241 788 241 784" fill="none" stroke="#7B8799" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Notification dot (unread) -->
+  <circle cx="249" cy="770" r="5" fill="#E03A3A"/>
+  <text x="249" y="774" font-size="8" font-weight="700" fill="#FFFFFF" font-family="system-ui" text-anchor="middle">2</text>
+  <text x="239" y="808" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Notifications</text>
+
+  <!-- Settings icon (gear, inactive) — centered at x=326 -->
+  <circle cx="326" cy="779" r="3.5" stroke="#7B8799" stroke-width="1.8" fill="none"/>
+  <circle cx="326" cy="779" r="8" stroke="#7B8799" stroke-width="1.8" fill="none" stroke-dasharray="2.8 2.42"/>
+  <text x="326" y="808" font-size="12" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Settings</text>
+
+  <!-- Home indicator -->
+  <rect x="155" y="833" width="80" height="4" rx="2" fill="#070A12" fill-opacity="0.15"/>
+
+</svg>

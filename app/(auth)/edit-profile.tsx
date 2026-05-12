@@ -313,7 +313,7 @@ export default function EditProfileScreen() {
 
       if (error) throw error;
 
-      await regenerateEmbedding(profileId, accountType, formData);
+      regenerateEmbedding(profileId, accountType, formData);
 
       Alert.alert('Success', 'Profile updated successfully', [
         { text: 'OK', onPress: () => router.back() }

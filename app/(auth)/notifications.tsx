@@ -221,8 +221,13 @@ export default function NotificationsScreen() {
         router.push('/(auth)/interests');
         break;
 
+      case 'imam_verification':
+      case 'reference_verified':
+        router.push('/(auth)/settings');
+        break;
+
       default:
-        console.log('Unknown notification type:', notification.type);
+        break;
     }
 
     // Refresh list
@@ -264,6 +269,8 @@ export default function NotificationsScreen() {
       interest_rejected: '❌',
       mutual_interest: '✨',
       message_received: '💬',
+      imam_verification: '🕌',
+      reference_verified: '✅',
     };
     return icons[type] || '🔔';
   };

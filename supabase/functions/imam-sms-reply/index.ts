@@ -1,3 +1,4 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 // supabase/functions/imam-sms-reply/index.ts
 // Twilio webhook — receives the imam's YES/NO SMS reply.
 // Deploy with: supabase functions deploy imam-sms-reply --no-verify-jwt
@@ -5,7 +6,7 @@
 // Twilio config: set this function's URL as the "A message comes in" webhook
 // on your Twilio phone number (HTTP POST).
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 serve(async (req) => {

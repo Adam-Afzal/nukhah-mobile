@@ -1,7 +1,8 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 // supabase/functions/send-sms/index.ts
 // Sends a YES/NO reference verification SMS to a character reference via Twilio.
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

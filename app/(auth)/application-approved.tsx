@@ -44,37 +44,8 @@ export default function ApplicationApproved() {
         return;
       }
 
-      // Check if testing mode is enabled
-      if (isTestingMode) {
-        console.log('Testing mode enabled - skipping payment');
-        
-        // Create subscriber record to mark as paid
-        const { error: subscriberError } = await supabase
-          .from('subscribers')
-          .upsert({
-            user_id: user.id,
-            email: user.email,
-            subscribed: true,
-          }, {
-            onConflict: 'user_id'
-          });
-
-        if (subscriberError) {
-          console.error('Error creating subscriber record:', subscriberError);
-          Alert.alert('Error', 'Failed to process. Please try again.');
-          setIsProcessing(false);
-          return;
-        }
-
-        console.log('Subscriber record created - going to profile setup');
-        
-        // Go directly to profile setup
-        router.replace('/(onboarding)/profile-setup');
-      } else {
-        // Testing mode is OFF - go to payment screen
-        console.log('Testing mode disabled - going to payment');
-        router.replace('/(auth)/payment');
-      }
+      // Let the payment screen and getOnboardingStep handle testing mode — don't write to subscribers
+      router.replace('/(onboarding)/payment');
     } catch (error) {
       console.error('Error in handleGetStarted:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');

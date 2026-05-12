@@ -63,8 +63,9 @@ export default function AuthLayout() {
       setTimeout(() => { isNavigatingRef.current = false; }, 100);
     };
 
-    // Step 1: Payment (skipped if testing mode is on or already paid)
-    if (!userStatus.paid && !userStatus.testingMode) {
+    // Step 1: Payment — only gate users who haven't completed onboarding yet.
+    // Existing users (profile complete) are let through; interest actions gate them instead.
+    if (!userStatus.paid && !userStatus.testingMode && !userStatus.onboardingCompleted) {
       if (onboardingPage !== 'payment') {
         console.log('Not paid, no testing mode → payment');
         navigate('/(onboarding)/payment');

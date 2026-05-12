@@ -1,6 +1,7 @@
 // app/(auth)/settings.tsx
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { getManagementUrl } from '@/lib/paymentService';
+import { clearPushToken } from '@/lib/pushService';
 import { supabase } from '@/lib/supabase';
 import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import { useUserStatus } from '@/hooks/useUserStatus';
@@ -125,19 +126,15 @@ export default function SettingsScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Load username
-    const { data: brother } = await supabase.from('brother').select('username').eq('user_id', user.id).maybeSingle();
-    if (brother) { setUsername(brother.username || ''); return; }
-    const { data: sister } = await supabase.from('sister').select('username').eq('user_id', user.id).maybeSingle();
-    if (sister) setUsername(sister.username || '');
+    const [brotherResult, sisterResult, subResult] = await Promise.all([
+      supabase.from('brother').select('username').eq('user_id', user.id).maybeSingle(),
+      supabase.from('sister').select('username').eq('user_id', user.id).maybeSingle(),
+      supabase.from('subscribers').select('subscribed, expires_at, cancelled_at').eq('user_id', user.id).maybeSingle(),
+    ]);
 
-    // Load subscription details
-    const { data: sub } = await supabase
-      .from('subscribers')
-      .select('subscribed, expires_at, cancelled_at')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (sub) setSubscriptionStatus(sub);
+    const username = brotherResult.data?.username || sisterResult.data?.username || '';
+    setUsername(username);
+    if (subResult.data) setSubscriptionStatus(subResult.data);
   };
 
   const formatDate = (iso: string | null) => {
@@ -160,12 +157,7 @@ export default function SettingsScreen() {
   };
 
   const handleVerificationStatus = () => {
-    // TODO: Create verification screen
-    Alert.alert(
-      'Verification Status',
-      'This feature is coming soon. You will be able to complete profile verification here.',
-      [{ text: 'OK' }]
-    );
+    router.push('/(auth)/verification-status');
   };
 
   const handleManageMembership = async () => {
@@ -220,6 +212,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               setIsLoggingOut(true);
+              await clearPushToken();
               await supabase.auth.signOut();
               router.replace('/welcome');
             } catch (error) {
@@ -237,21 +230,40 @@ export default function SettingsScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'This action cannot be undone. Your profile and all data will be permanently deleted.',
+      'This action cannot be undone. Your profile, interests, and all data will be permanently deleted.',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Delete',
+          text: 'Delete Account',
           style: 'destructive',
           onPress: () => {
-            // TODO: Implement account deletion
             Alert.alert(
-              'Confirm Deletion',
-              'Are you absolutely sure? Type "DELETE" to confirm.',
-              [{ text: 'Cancel', style: 'cancel' }]
+              'Are you sure?',
+              'This is permanent. You will need to reapply if you wish to use Mithaq again.\n\nIf you have an active subscription, please cancel it in App Store or Google Play settings to stop being billed.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) throw new Error('Not authenticated');
+
+                      const { error } = await supabase.functions.invoke('delete-account', {
+                        headers: { Authorization: `Bearer ${session.access_token}` },
+                      });
+
+                      if (error) throw error;
+
+                      await supabase.auth.signOut();
+                      router.replace('/welcome');
+                    } catch (err: any) {
+                      Alert.alert('Error', err.message || 'Failed to delete account. Please try again.');
+                    }
+                  },
+                },
+              ]
             );
           },
         },
@@ -383,6 +395,33 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        </View>
+
+        {/* Legal Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>LEGAL</Text>
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.settingItem} onPress={() => Linking.openURL('https://joinmithaq.com/privacy')}>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingTitle}>Privacy Policy</Text>
+              </View>
+              <ChevronRightIcon />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.settingItem} onPress={() => Linking.openURL('https://joinmithaq.com/terms')}>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingTitle}>Terms of Service</Text>
+              </View>
+              <ChevronRightIcon />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity style={styles.settingItem} onPress={() => Linking.openURL('mailto:adam@loworbitsystems.com')}>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingTitle}>Contact Support</Text>
+              </View>
+              <ChevronRightIcon />
+            </TouchableOpacity>
           </View>
         </View>
 

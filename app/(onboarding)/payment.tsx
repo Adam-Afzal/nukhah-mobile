@@ -47,7 +47,9 @@ export default function PaymentScreen() {
     try {
       const success = await purchaseMonthly();
       if (success) {
-        queryClient.invalidateQueries({ queryKey: ['userStatus'] });
+        queryClient.setQueryData(['userStatus'], (old: any) =>
+          old ? { ...old, paid: true } : old
+        );
         router.replace('/(onboarding)/profile-intro');
       }
     } catch (error: any) {

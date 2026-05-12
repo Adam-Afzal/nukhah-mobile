@@ -49,7 +49,9 @@ export default function PaymentScreen() {
     try {
       const success = await purchaseMonthly();
       if (success) {
-        queryClient.invalidateQueries({ queryKey: ['userStatus'] });
+        queryClient.setQueryData(['userStatus'], (old: any) =>
+          old ? { ...old, paid: true } : old
+        );
         router.replace('/(onboarding)/profile-setup');
       }
     } catch (error: any) {
@@ -67,7 +69,9 @@ export default function PaymentScreen() {
     try {
       const success = await restorePurchases();
       if (success) {
-        queryClient.invalidateQueries({ queryKey: ['userStatus'] });
+        queryClient.setQueryData(['userStatus'], (old: any) =>
+          old ? { ...old, paid: true } : old
+        );
         Alert.alert('Restored', 'Your subscription has been restored.', [
           { text: 'OK', onPress: () => router.replace('/(onboarding)/profile-setup') },
         ]);

@@ -1,3 +1,4 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 // supabase/functions/reference-sms-reply/index.ts
 // Twilio webhook — receives YES/NO reply from a character reference.
 // Deploy with: supabase functions deploy reference-sms-reply --no-verify-jwt
@@ -6,7 +7,7 @@
 // on your Twilio phone number (HTTP POST). Same number as imam-sms-reply.
 // Twilio will call both — each handler ignores messages it can't match.
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 serve(async (req) => {

@@ -43,8 +43,9 @@ interface Profile {
   masjid_name?: string;
   imam_name?: string;
   masjid_id?: string;
-  // Visiting status
-  // Compatibility
+  is_masjid_affiliated?: boolean;
+  masjid_affiliation_status?: 'verified' | 'pending' | 'none';
+  reference_status?: 'verified' | 'pending' | 'none';
   compatibility_score?: number;
 }
 
@@ -392,18 +393,31 @@ export default function SearchScreen() {
 
           const { data: profileDetails, error } = await supabase
             .from(targetTable)
-            .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate${extraFields}`)
+            .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated${extraFields}`)
             .in('id', profileIds);
 
           if (error) throw error;
 
+          const { data: localRefs } = await supabase
+            .from('reference')
+            .select('user_id, verification_status')
+            .eq('user_type', targetUserType)
+            .in('user_id', profileIds);
+
           enrichedProfiles = (profileDetails || []).map((profile: any) => {
             const verification = verifications.find((v: any) => v.user_id === profile.id);
+            const refs = (localRefs || []).filter((r: any) => r.user_id === profile.id);
+            let refStatus: 'verified' | 'pending' | 'none';
+            if (refs.some((r: any) => r.verification_status === 'verified')) refStatus = 'verified';
+            else if (refs.some((r: any) => r.verification_status === 'pending')) refStatus = 'pending';
+            else refStatus = 'none';
             return {
               ...profile,
               masjid_id: (verification?.masjid_id as any)?.id,
               masjid_name: (verification?.masjid_id as any)?.name,
               imam_name: (verification?.imam_id as any)?.name,
+              masjid_affiliation_status: 'verified' as const,
+              reference_status: refStatus,
             };
           });
         }
@@ -466,7 +480,7 @@ export default function SearchScreen() {
 
       const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate${extraFields}`)
+        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated${extraFields}`)
         .in('id', profileIds);
 
       if (error) throw error;
@@ -475,24 +489,41 @@ export default function SearchScreen() {
         return;
       }
 
-      const { data: verifications } = await supabase
-        .from('imam_verification')
-        .select('user_id, masjid_id(id, name), imam_id(name)')
-        .eq('status', 'verified')
-        .eq('user_type', targetUserType)
-        .in('user_id', profileIds);
+      const [verifiedVerifications, pendingVerifications, references] = await Promise.all([
+        supabase.from('imam_verification').select('user_id, masjid_id(id, name), imam_id(name)').eq('status', 'verified').eq('user_type', targetUserType).in('user_id', profileIds),
+        supabase.from('imam_verification').select('user_id').eq('status', 'pending').eq('user_type', targetUserType).in('user_id', profileIds),
+        supabase.from('reference').select('user_id, verification_status').eq('user_type', targetUserType).in('user_id', profileIds),
+      ]);
+
+      const pendingAffiliationIds = new Set((pendingVerifications.data || []).map((v: any) => v.user_id));
+
+      const refStatusMap = new Map<string, 'verified' | 'pending' | 'none'>();
+      for (const id of profileIds) {
+        const refs = (references.data || []).filter((r: any) => r.user_id === id);
+        if (refs.some((r: any) => r.verification_status === 'verified')) refStatusMap.set(id, 'verified');
+        else if (refs.some((r: any) => r.verification_status === 'pending')) refStatusMap.set(id, 'pending');
+        else refStatusMap.set(id, 'none');
+      }
 
       const scored = profileDetails.map((profile: any) => {
-        const verification = verifications?.find((v: any) => v.user_id === profile.id);
+        const verification = (verifiedVerifications.data || []).find((v: any) => v.user_id === profile.id);
         const vectorScore = vectorScoreMap.get(profile.id) ?? null;
         const hardRuleScore = currentUserCompatProfile
           ? calculateHardRuleScore(currentUserCompatProfile, profile)
           : 0.5;
+
+        let masjidStatus: 'verified' | 'pending' | 'none';
+        if (verification) masjidStatus = 'verified';
+        else if (pendingAffiliationIds.has(profile.id)) masjidStatus = 'pending';
+        else masjidStatus = 'none';
+
         return {
           ...profile,
           masjid_id: (verification?.masjid_id as any)?.id,
           masjid_name: (verification?.masjid_id as any)?.name,
           imam_name: (verification?.imam_id as any)?.name,
+          masjid_affiliation_status: masjidStatus,
+          reference_status: refStatusMap.get(profile.id) ?? 'none',
           compatibility_score: combineCompatibilityScores(vectorScore, hardRuleScore),
         };
       });
@@ -936,13 +967,34 @@ export default function SearchScreen() {
           <Text style={styles.flag}>{getLocationFlag(item.location_country)}</Text>
         </View>
 
-        {item.masjid_name && (
-          <View style={styles.verificationRow}>
+        <View style={styles.verificationRow}>
+          {item.masjid_affiliation_status === 'verified' && item.masjid_name ? (
             <View style={styles.verificationBadge}>
               <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
             </View>
-          </View>
-        )}
+          ) : item.masjid_affiliation_status === 'pending' ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingText}>🕌 Affiliation Pending</Text>
+            </View>
+          ) : (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneText}>🕌 No Masjid Affiliation</Text>
+            </View>
+          )}
+          {item.reference_status === 'verified' ? (
+            <View style={styles.verificationBadge}>
+              <Text style={styles.verificationText}>✓ Reference Verified</Text>
+            </View>
+          ) : item.reference_status === 'pending' ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingText}>⏳ Reference Pending</Text>
+            </View>
+          ) : (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneText}>✗ No References</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
@@ -1290,6 +1342,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     color: '#17803A',
+  },
+  pendingBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#B45309',
+  },
+  pendingText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#B45309',
+  },
+  noneBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  noneText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#94A3B8',
   },
   infoRow: {
     flexDirection: 'row',

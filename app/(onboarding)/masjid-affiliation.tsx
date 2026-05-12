@@ -449,6 +449,10 @@ const loadMasajid = async (location?: string) => {
                 Your imam will receive a text message asking them to confirm your membership. This usually takes 1–3 days.
               </Text>
             </View>
+
+            <Text style={styles.disclaimerText}>
+              <Text style={styles.disclaimerBold}>Disclaimer:</Text> This only affirms that the individual — or their Wali — attends the masjid, and should not be taken as a personal reference by the Imam.
+            </Text>
           </View>
         )}
 
@@ -758,6 +762,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     lineHeight: 20,
+    color: '#070A12',
+  },
+  disclaimerText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#7B8799',
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  disclaimerBold: {
+    fontFamily: 'Inter_600SemiBold',
     color: '#070A12',
   },
   bottomContainer: {

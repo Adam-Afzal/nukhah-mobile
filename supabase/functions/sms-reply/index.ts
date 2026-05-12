@@ -1,9 +1,10 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 // supabase/functions/sms-reply/index.ts
 // Single Twilio webhook for all incoming SMS replies.
 // Handles both imam verification (YES/NO) and reference verification (YES/NO).
 // Deploy with: supabase functions deploy sms-reply --no-verify-jwt
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 serve(async (req) => {

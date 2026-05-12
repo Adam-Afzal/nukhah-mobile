@@ -12,10 +12,24 @@ export default {
       supportsTablet: true,
       entitlements: {
         "aps-environment": "production"
+      },
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false
       }
     },
     android: {
-      package: "com.app.mithaq"
+      package: "com.app.mithaq",
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundImage: "./assets/images/android-icon-background.png",
+        backgroundColor: "#070A12"
+      },
+      googleServicesFile: "./google-services.json",
+      permissions: [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     plugins: [
       "expo-router",
@@ -40,6 +54,7 @@ export default {
       EXPO_PUBLIC_SUPABASE_KEY: process.env.EXPO_PUBLIC_SUPABASE_KEY,
       EXPO_PUBLIC_REVENUECAT_APPLE_KEY: process.env.EXPO_PUBLIC_REVENUECAT_APPLE_KEY,
       EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY: process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY,
+      // OpenAI key is NOT included here — embeddings run server-side in edge functions only
     }
   }
 };

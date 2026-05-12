@@ -178,6 +178,7 @@ export default function InterestsScreen() {
   const [yourInterests, setYourInterests] = useState<InterestRequest[]>([]);
   const [mutualInterests, setMutualInterests] = useState<InterestRequest[]>([]);
   const [waliContacts, setWaliContacts] = useState<Record<string, any>>({});
+  const [referenceContacts, setReferenceContacts] = useState<Record<string, any[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [accountType, setAccountType] = useState<'brother' | 'sister' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -229,6 +230,22 @@ export default function InterestsScreen() {
       }
     } catch (error) {
       console.error('Error loading current user:', error);
+    }
+  };
+
+  const fetchReferences = async (profileId: string, profileType: 'brother' | 'sister'): Promise<any[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('reference')
+        .select('reference_name, reference_relationship, reference_phone')
+        .eq('user_id', profileId)
+        .eq('user_type', profileType)
+        .eq('verification_status', 'verified');
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching references:', error);
+      return [];
     }
   };
 
@@ -295,6 +312,20 @@ export default function InterestsScreen() {
       const enrichedAcceptedReceived = await enrichInterests(acceptedReceived, 'requester');
       setMutualInterests([...enrichedAcceptedSent, ...enrichedAcceptedReceived]);
       setWaliContacts(waliData);
+
+      // Fetch references for all mutual matches
+      const refData: Record<string, any[]> = {};
+      for (const interest of enrichedAcceptedSent) {
+        const profileId = interest.recipient_id;
+        const refs = await fetchReferences(profileId, interest.recipient_type);
+        if (refs.length > 0) refData[profileId] = refs;
+      }
+      for (const interest of enrichedAcceptedReceived) {
+        const profileId = interest.requester_id;
+        const refs = await fetchReferences(profileId, interest.requester_type);
+        if (refs.length > 0) refData[profileId] = refs;
+      }
+      setReferenceContacts(refData);
 
     } catch (error) {
       console.error('Error loading all interests:', error);
@@ -389,12 +420,13 @@ export default function InterestsScreen() {
     
     // Check if wali contact should be shown
     const showWali = (
-      activeTab === 'mutual' && 
-      accountType === 'brother' && 
+      activeTab === 'mutual' &&
+      accountType === 'brother' &&
       profileType === 'sister' &&
       waliContacts[profileId]
     );
     const wali = showWali ? waliContacts[profileId] : null;
+    const references = activeTab === 'mutual' ? (referenceContacts[profileId] || []) : [];
 
     const handleCardPress = () => {
       // Always navigate to the profile
@@ -525,6 +557,41 @@ export default function InterestsScreen() {
             <Text style={styles.waliReminder}>
               ☪️ Remember: All communication should be conducted with Islamic etiquette
             </Text>
+          </View>
+        )}
+
+        {/* CHARACTER REFERENCES */}
+        {references.length > 0 && (
+          <View style={styles.referenceCard}>
+            <View style={styles.waliHeader}>
+              <Text style={styles.waliHeaderIcon}>📋</Text>
+              <Text style={styles.waliHeaderText}>Character References</Text>
+            </View>
+            <Text style={styles.referenceNote}>
+              We recommend speaking with these references before proceeding.
+            </Text>
+            {references.map((ref, idx) => (
+              <View key={idx} style={[styles.referenceItem, idx < references.length - 1 && styles.referenceItemBorder]}>
+                <View style={styles.waliRow}>
+                  <Text style={styles.waliLabel}>Name:</Text>
+                  <Text style={styles.waliValue}>{ref.reference_name}</Text>
+                </View>
+                {ref.reference_relationship && (
+                  <View style={styles.waliRow}>
+                    <Text style={styles.waliLabel}>Relationship:</Text>
+                    <Text style={styles.waliValue}>{ref.reference_relationship}</Text>
+                  </View>
+                )}
+                {ref.reference_phone && (
+                  <TouchableOpacity
+                    style={[styles.waliButton, { marginTop: 8 }]}
+                    onPress={() => Linking.openURL(`tel:${ref.reference_phone}`)}
+                  >
+                    <Text style={styles.waliButtonText}>📱 Call Reference</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
           </View>
         )}
 
@@ -1014,6 +1081,30 @@ const styles = StyleSheet.create({
     color: '#7B8799',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  referenceCard: {
+    backgroundColor: '#F0F7FF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#C0D8F0',
+  },
+  referenceNote: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: '#4A6FA5',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  referenceItem: {
+    paddingVertical: 8,
+    gap: 4,
+  },
+  referenceItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#C0D8F0',
+    marginBottom: 8,
   },
   viewButton: {
     backgroundColor: '#F7F8FB',

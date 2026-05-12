@@ -95,6 +95,29 @@ async function getExpoPushToken(): Promise<string | null> {
 }
 
 /**
+ * Clear push token on logout so this device stops receiving notifications.
+ */
+export async function clearPushToken(): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: brother } = await supabase.from('brother').select('id').eq('user_id', user.id).maybeSingle();
+    if (brother) {
+      await supabase.from('brother').update({ push_token: null }).eq('id', brother.id);
+      return;
+    }
+
+    const { data: sister } = await supabase.from('sister').select('id').eq('user_id', user.id).maybeSingle();
+    if (sister) {
+      await supabase.from('sister').update({ push_token: null }).eq('id', sister.id);
+    }
+  } catch (err) {
+    console.error('Error clearing push token:', err);
+  }
+}
+
+/**
  * Send a push notification via Expo Push API.
  * Fire-and-forget — errors are logged but not thrown.
  */

@@ -10,6 +10,7 @@ require('dotenv').config();
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || '';
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+const revenuecatSecretKey = process.env.REVENUECAT_SECRET_KEY || '';
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing environment variables!');
@@ -31,6 +32,22 @@ async function stripeRequest(method, path, params) {
   }
   const res = await fetch(url.toString(), options);
   return res.json();
+}
+
+async function deleteRevenueCatSubscriber(userId) {
+  if (!revenuecatSecretKey) {
+    console.log('  No REVENUECAT_SECRET_KEY set — skipping RevenueCat cleanup');
+    return;
+  }
+  const res = await fetch(`https://api.revenuecat.com/v1/subscribers/${userId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${revenuecatSecretKey}` },
+  });
+  if (res.ok || res.status === 404) {
+    console.log('  Deleted RevenueCat subscriber');
+  } else {
+    console.log(`  RevenueCat delete returned ${res.status}`);
+  }
 }
 
 async function deleteStripeCustomer(email) {
@@ -178,6 +195,7 @@ async function deleteUser() {
   console.log('  Deleted auth user');
 
   await deleteStripeCustomer(email);
+  await deleteRevenueCatSubscriber(userId);
 
   console.log(`\nUser deleted: ${email}\n`);
 }

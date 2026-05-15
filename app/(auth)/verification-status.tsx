@@ -18,8 +18,9 @@ interface Masjid {
   name: string;
   city: string;
   country: string;
+  address: string | null;
   imam_id: string | null;
-  imam: { name: string } | null;
+  imam: { name: string; representative?: boolean } | null;
 }
 
 interface Reference {
@@ -100,27 +101,35 @@ export default function VerificationStatusScreen() {
   };
 
   const loadImamVerification = async (profileId: string, type: 'brother' | 'sister') => {
-    const { data } = await supabase
-      .from('imam_verification')
-      .select('id, status, masjid_id, masjid:masjid_id(name)')
-      .eq('user_id', profileId)
-      .eq('user_type', type)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: profile } = await supabase
+      .from(type)
+      .select('masjid_id, is_masjid_affiliated, imam_verified')
+      .eq('id', profileId)
+      .single();
 
-    if (data) {
-      setImamVerification({
-        ...data,
-        masjid: Array.isArray(data.masjid) ? data.masjid[0] : data.masjid,
-      } as ImamVerification);
+    if (!profile?.masjid_id || !profile.is_masjid_affiliated) {
+      setImamVerification(null);
+      return;
     }
+
+    const { data: masjid } = await supabase
+      .from('masjid')
+      .select('id, name')
+      .eq('id', profile.masjid_id)
+      .single();
+
+    setImamVerification({
+      id: profile.masjid_id,
+      status: profile.imam_verified ? 'verified' : 'pending',
+      masjid_id: profile.masjid_id,
+      masjid: masjid ? { name: masjid.name } : null,
+    });
   };
 
   const loadMasajid = async () => {
     const { data } = await supabase
       .from('masjid')
-      .select('id, name, city, country, imam_id, imam:imam_id(name)')
+      .select('id, name, city, country, address, imam_id, imam:imam_id(name, representative)')
       .eq('is_active', true)
       .order('name');
 
@@ -143,6 +152,38 @@ export default function VerificationStatusScreen() {
     if (data) setReferences(data as Reference[]);
   };
 
+  const handleRemoveMasjid = async () => {
+    if (!userId || !accountType || !imamVerification) return;
+
+    Alert.alert(
+      'Remove Affiliation?',
+      `This will cancel your verification with ${imamVerification.masjid?.name || 'your current masjid'} and remove your affiliation.`,
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const table = accountType === 'brother' ? 'brother' : 'sister';
+              // Cancel ALL records for this user so no stale 'verified' record
+              // remains visible in the imam portal.
+              await supabase.from('imam_verification')
+                .delete()
+                .eq('user_id', userId)
+                .eq('user_type', accountType);
+              await supabase.from(table).update({ masjid_id: null, is_masjid_affiliated: false, imam_verified: false }).eq('id', userId);
+              setImamVerification(null);
+              setMasjidSectionOpen(false);
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to remove affiliation.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleSaveMasjid = async () => {
     if (!selectedMasjid) {
       Alert.alert('Select a masjid', 'Please select a masjid from the list.');
@@ -159,12 +200,13 @@ export default function VerificationStatusScreen() {
       try {
         const table = accountType === 'brother' ? 'brother' : 'sister';
 
-        // Cancel any existing verification
+        // Cancel all existing verifications for this user
         if (imamVerification) {
           await supabase
             .from('imam_verification')
             .update({ status: 'cancelled' } as any)
-            .eq('id', imamVerification.id);
+            .eq('user_id', userId)
+            .eq('user_type', accountType);
         }
 
         // Update profile masjid
@@ -173,15 +215,13 @@ export default function VerificationStatusScreen() {
           is_masjid_affiliated: true,
         }).eq('id', userId);
 
-        // Create new verification request
+        // Upsert to avoid duplicate key if existing record wasn't deleted due to RLS
         const { data: newVerification, error: verErr } = await supabase
           .from('imam_verification')
-          .insert({
-            user_id: userId,
-            user_type: accountType,
-            masjid_id: selectedMasjid,
-            status: 'pending',
-          })
+          .upsert(
+            { user_id: userId, user_type: accountType, masjid_id: selectedMasjid, status: 'pending' },
+            { onConflict: 'user_id,user_type' }
+          )
           .select('id')
           .single();
 
@@ -369,6 +409,9 @@ export default function VerificationStatusScreen() {
                       ? 'Awaiting imam confirmation. This usually takes 1–3 days.'
                       : 'Your affiliation request was not confirmed.'}
                   </Text>
+                  <TouchableOpacity style={styles.removeButton} onPress={handleRemoveMasjid}>
+                    <Text style={styles.removeButtonText}>Remove affiliation</Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -393,8 +436,8 @@ export default function VerificationStatusScreen() {
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.masjidName}>{m.name}</Text>
-                      <Text style={styles.masjidSub}>📍 {m.city}, {m.country}</Text>
-                      {m.imam?.name && <Text style={styles.masjidSub}>Imam: {m.imam.name}</Text>}
+                      <Text style={styles.masjidSub}>📍 {m.address ? `${m.address}, ` : ''}{m.city}, {m.country}</Text>
+                      {m.imam?.name && <Text style={styles.masjidSub}>{m.imam.representative ? 'Representative' : 'Imam'}: {m.imam.name}{m.imam.representative ? ' (masjid representative)' : ''}</Text>}
                     </View>
                     {selectedMasjid === m.id && (
                       <View style={styles.checkmark}><Text style={styles.checkmarkText}>✓</Text></View>
@@ -497,6 +540,7 @@ export default function VerificationStatusScreen() {
                   value={refRelationship}
                   onChangeText={setRefRelationship}
                 />
+                <Text style={styles.inputHint}>Cannot be a friend or family member</Text>
               </View>
 
               <View style={styles.inputGroup}>
@@ -587,6 +631,8 @@ const styles = StyleSheet.create({
   currentLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: '#7B8799', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   currentValue: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#070A12', marginBottom: 4 },
   currentHint: { fontFamily: 'Inter_400Regular', fontSize: 12, color: '#7B8799', lineHeight: 17 },
+  removeButton: { marginTop: 10, alignSelf: 'flex-start' },
+  removeButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#B7312C' },
   pickLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#070A12', marginBottom: 10, marginTop: 4 },
   searchInput: {
     backgroundColor: '#F7F8FB',

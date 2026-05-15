@@ -251,7 +251,7 @@ export default function SearchScreen() {
 
       const { data: brotherProfile } = await supabase
         .from('brother')
-        .select('id, ethnicity, preferred_ethnicity, living_arrangements, marital_status, open_to_hijrah, willing_to_relocate')
+        .select('id, ethnicity, preferred_ethnicity, living_arrangements, marital_status, open_to_hijrah, willing_to_relocate, masjid_id, imam_verified')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -269,18 +269,10 @@ export default function SearchScreen() {
           willing_to_relocate: brotherProfile.willing_to_relocate,
         });
 
-        // Query using PROFILE ID, not auth user ID
-        const { data: verification } = await supabase
-          .from('imam_verification')
-          .select('masjid_id, masjid:masjid_id(name)')
-          .eq('user_id', brotherProfile.id)
-          .eq('user_type', 'brother')
-          .eq('status', 'verified')
-          .maybeSingle();
-
-        if (verification && verification.masjid_id) {
-          setCurrentUserMasjidId(verification.masjid_id as string);
-          setCurrentUserMasjidName((verification.masjid as any)?.name || null);
+        if (brotherProfile.imam_verified && brotherProfile.masjid_id) {
+          setCurrentUserMasjidId(brotherProfile.masjid_id as string);
+          const { data: masjid } = await supabase.from('masjid').select('name').eq('id', brotherProfile.masjid_id).single();
+          setCurrentUserMasjidName(masjid?.name || null);
         }
 
         await setupPush(brotherProfile.id, 'brother');
@@ -289,7 +281,7 @@ export default function SearchScreen() {
 
       const { data: sisterProfile } = await supabase
         .from('sister')
-        .select('id, ethnicity, preferred_ethnicity, living_arrangements, open_to_polygyny, open_to_hijrah, willing_to_relocate')
+        .select('id, ethnicity, preferred_ethnicity, living_arrangements, open_to_polygyny, open_to_hijrah, willing_to_relocate, masjid_id, imam_verified')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -307,18 +299,10 @@ export default function SearchScreen() {
           willing_to_relocate: sisterProfile.willing_to_relocate,
         });
 
-        // Query using PROFILE ID, not auth user ID
-        const { data: verification } = await supabase
-          .from('imam_verification')
-          .select('masjid_id, masjid:masjid_id(name)')
-          .eq('user_id', sisterProfile.id)
-          .eq('user_type', 'sister')
-          .eq('status', 'verified')
-          .maybeSingle();
-
-        if (verification && verification.masjid_id) {
-          setCurrentUserMasjidId(verification.masjid_id as string);
-          setCurrentUserMasjidName((verification.masjid as any)?.name || null);
+        if (sisterProfile.imam_verified && sisterProfile.masjid_id) {
+          setCurrentUserMasjidId(sisterProfile.masjid_id as string);
+          const { data: masjid } = await supabase.from('masjid').select('name').eq('id', sisterProfile.masjid_id).single();
+          setCurrentUserMasjidName(masjid?.name || null);
         }
 
         await setupPush(sisterProfile.id, 'sister');
@@ -379,24 +363,16 @@ export default function SearchScreen() {
       let enrichedProfiles: Profile[] = [];
 
       if (currentUserMasjidId) {
-        const { data: verifications, error: verifyError } = await supabase
-          .from('imam_verification')
-          .select('user_id, masjid_id(id, name), imam_id(name)')
-          .eq('status', 'verified')
-          .eq('user_type', targetUserType)
-          .eq('masjid_id', currentUserMasjidId);
+        const { data: profileDetails, error } = await supabase
+          .from(targetTable)
+          .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated, imam_verified, masjid:masjid_id(id, name)${extraFields}`)
+          .eq('masjid_id', currentUserMasjidId)
+          .eq('imam_verified', true);
 
-        if (verifyError) throw verifyError;
+        if (error) throw error;
 
-        if (verifications && verifications.length > 0) {
-          const profileIds = verifications.map((v: any) => v.user_id);
-
-          const { data: profileDetails, error } = await supabase
-            .from(targetTable)
-            .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated${extraFields}`)
-            .in('id', profileIds);
-
-          if (error) throw error;
+        if (profileDetails && profileDetails.length > 0) {
+          const profileIds = profileDetails.map((p: any) => p.id);
 
           const { data: localRefs } = await supabase
             .from('reference')
@@ -404,8 +380,8 @@ export default function SearchScreen() {
             .eq('user_type', targetUserType)
             .in('user_id', profileIds);
 
-          enrichedProfiles = (profileDetails || []).map((profile: any) => {
-            const verification = verifications.find((v: any) => v.user_id === profile.id);
+          enrichedProfiles = profileDetails.map((profile: any) => {
+            const masjid = Array.isArray(profile.masjid) ? profile.masjid[0] : profile.masjid;
             const refs = (localRefs || []).filter((r: any) => r.user_id === profile.id);
             let refStatus: 'verified' | 'pending' | 'none';
             if (refs.some((r: any) => r.verification_status === 'verified')) refStatus = 'verified';
@@ -413,9 +389,8 @@ export default function SearchScreen() {
             else refStatus = 'none';
             return {
               ...profile,
-              masjid_id: (verification?.masjid_id as any)?.id,
-              masjid_name: (verification?.masjid_id as any)?.name,
-              imam_name: (verification?.imam_id as any)?.name,
+              masjid_id: masjid?.id,
+              masjid_name: masjid?.name,
               masjid_affiliation_status: 'verified' as const,
               reference_status: refStatus,
             };
@@ -480,7 +455,7 @@ export default function SearchScreen() {
 
       const { data: profileDetails, error } = await supabase
         .from(targetTable)
-        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated${extraFields}`)
+        .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated, imam_verified, masjid:masjid_id(id, name)${extraFields}`)
         .in('id', profileIds);
 
       if (error) throw error;
@@ -489,13 +464,11 @@ export default function SearchScreen() {
         return;
       }
 
-      const [verifiedVerifications, pendingVerifications, references] = await Promise.all([
-        supabase.from('imam_verification').select('user_id, masjid_id(id, name), imam_id(name)').eq('status', 'verified').eq('user_type', targetUserType).in('user_id', profileIds),
-        supabase.from('imam_verification').select('user_id').eq('status', 'pending').eq('user_type', targetUserType).in('user_id', profileIds),
-        supabase.from('reference').select('user_id, verification_status').eq('user_type', targetUserType).in('user_id', profileIds),
-      ]);
-
-      const pendingAffiliationIds = new Set((pendingVerifications.data || []).map((v: any) => v.user_id));
+      const references = await supabase
+        .from('reference')
+        .select('user_id, verification_status')
+        .eq('user_type', targetUserType)
+        .in('user_id', profileIds);
 
       const refStatusMap = new Map<string, 'verified' | 'pending' | 'none'>();
       for (const id of profileIds) {
@@ -506,22 +479,20 @@ export default function SearchScreen() {
       }
 
       const scored = profileDetails.map((profile: any) => {
-        const verification = (verifiedVerifications.data || []).find((v: any) => v.user_id === profile.id);
+        const masjid = Array.isArray(profile.masjid) ? profile.masjid[0] : profile.masjid;
         const vectorScore = vectorScoreMap.get(profile.id) ?? null;
         const hardRuleScore = currentUserCompatProfile
           ? calculateHardRuleScore(currentUserCompatProfile, profile)
           : 0.5;
 
-        let masjidStatus: 'verified' | 'pending' | 'none';
-        if (verification) masjidStatus = 'verified';
-        else if (pendingAffiliationIds.has(profile.id)) masjidStatus = 'pending';
-        else masjidStatus = 'none';
+        const masjidStatus: 'verified' | 'pending' | 'none' =
+          profile.imam_verified ? 'verified' :
+          (profile.is_masjid_affiliated && masjid) ? 'pending' : 'none';
 
         return {
           ...profile,
-          masjid_id: (verification?.masjid_id as any)?.id,
-          masjid_name: (verification?.masjid_id as any)?.name,
-          imam_name: (verification?.imam_id as any)?.name,
+          masjid_id: masjid?.id,
+          masjid_name: masjid?.name,
           masjid_affiliation_status: masjidStatus,
           reference_status: refStatusMap.get(profile.id) ?? 'none',
           compatibility_score: combineCompatibilityScores(vectorScore, hardRuleScore),
@@ -974,7 +945,7 @@ export default function SearchScreen() {
             </View>
           ) : item.masjid_affiliation_status === 'pending' ? (
             <View style={styles.pendingBadge}>
-              <Text style={styles.pendingText}>🕌 Affiliation Pending</Text>
+              <Text style={styles.pendingText}>🕌 {item.masjid_name ? `${item.masjid_name} (Pending)` : 'Affiliation Pending'}</Text>
             </View>
           ) : (
             <View style={styles.noneBadge}>

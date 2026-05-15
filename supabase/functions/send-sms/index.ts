@@ -22,8 +22,8 @@ serve(async (req) => {
     }
 
     const message =
-      `${userName} has listed you as a reference for Mithaq - an Islamic matrimony platform. Do you accept?\n\n` +
-      `Reply YES to accept or NO to decline.`
+      `${userName} has listed you as a reference for Mithaq - an Islamic matrimony platform. Do you agree to be their reference?\n\n` +
+      `Reply AGREE to accept or DISAGREE to decline.`
 
     const twilioSid = Deno.env.get('TWILIO_ACCOUNT_SID')!
     const twilioToken = Deno.env.get('TWILIO_AUTH_TOKEN')!

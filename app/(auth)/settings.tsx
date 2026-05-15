@@ -254,9 +254,12 @@ export default function SettingsScreen() {
                         headers: { Authorization: `Bearer ${session.access_token}` },
                       });
 
-                      if (error) throw error;
-
-                      await supabase.auth.signOut();
+                      // Always sign out locally — even if auth deletion failed,
+                      // all profile data is gone so staying logged in causes crashes.
+                      await supabase.auth.signOut({ scope: 'local' });
+                      if (error) {
+                        console.error('delete-account error:', error);
+                      }
                       router.replace('/welcome');
                     } catch (err: any) {
                       Alert.alert('Error', err.message || 'Failed to delete account. Please try again.');

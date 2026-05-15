@@ -90,13 +90,20 @@ Deno.serve(async (req) => {
       supabase.from('brother_application').delete().eq('user_id', userId),
       supabase.from('sister_application').delete().eq('user_id', userId),
       supabase.from('subscribers').delete().eq('user_id', userId),
+      supabase.from('user_profile').delete().eq('id', userId),
+      supabase.from('daily_request_limits').delete().eq('user_id', userId),
+      supabase.from('red_flag').delete().eq('user_id', userId),
+      supabase.from('profile_views').delete().eq('user_id', userId),
     ]);
 
     await supabase.from('brother').delete().eq('user_id', userId);
     await supabase.from('sister').delete().eq('user_id', userId);
 
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-    if (deleteError) throw deleteError;
+    if (deleteError) {
+      console.error('deleteUser failed:', JSON.stringify(deleteError));
+      throw new Error(`Failed to delete auth user: ${deleteError.message}`);
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

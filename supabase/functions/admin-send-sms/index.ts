@@ -74,7 +74,8 @@ Deno.serve(async (req) => {
     const twilioToken = Deno.env.get('TWILIO_AUTH_TOKEN')!
     const twilioFrom = Deno.env.get('TWILIO_PHONE_NUMBER')!
 
-    // Alphanumeric sender IDs are one-way (no replies) and unsupported by US carriers
+    // Use alphanumeric sender 'Mithaq' for UK recipients (one-way, no reply needed)
+    // Non-UK recipients get the phone number as sender
     const isUkRecipient = to.startsWith('+44') || to.startsWith('44')
     const senderId = isUkRecipient ? 'Mithaq' : twilioFrom
 

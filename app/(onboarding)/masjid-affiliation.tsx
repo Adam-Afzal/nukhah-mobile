@@ -24,6 +24,7 @@ interface Masjid {
     imam_id: string | null;
     imam: {
       name: string;
+      representative?: boolean;
     } | null;
     madhab?: string;
   }
@@ -114,7 +115,8 @@ const loadMasajid = async (location?: string) => {
           madhab,
           imam_id,
           imam:imam_id(
-            name
+            name,
+            representative
           )
         `)
         .eq('is_active', true)
@@ -373,7 +375,7 @@ const loadMasajid = async (location?: string) => {
                         📍 {masjid.city}, {masjid.country}
                       </Text>
                       <Text style={styles.masjidImam}>
-                        Imam: {masjid.imam?.name}
+                        {masjid.imam?.representative ? 'Representative' : 'Imam'}: {masjid.imam?.name}{masjid.imam?.representative ? ' (masjid representative)' : ''}
                       </Text>
                     </View>
                     {selectedMasjid === masjid.id && (

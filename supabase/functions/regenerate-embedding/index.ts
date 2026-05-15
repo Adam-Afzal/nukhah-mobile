@@ -37,11 +37,14 @@ Deno.serve(async (req) => {
     // ── Fetch profile ─────────────────────────────────────────────────────
     const { data: profile, error: fetchError } = await serviceClient
       .from(profileType)
-      .select('id, personality, hobbies_and_interests, location_country, location_city, ethnicity, preferred_ethnicity, marital_status, children, open_to_hijrah, willing_to_relocate, living_arrangements, other_spouse_criteria, dealbreakers, date_of_birth, build, prayer_consistency, beard_commitment, hijab_commitment, open_to_polygyny')
+      .select('*')
       .eq('id', profileId)
       .single()
 
-    if (fetchError || !profile) return json({ error: 'Profile not found' }, 404)
+    if (fetchError || !profile) {
+      console.error('Profile fetch error:', JSON.stringify(fetchError))
+      return json({ error: `Profile not found: ${fetchError?.message || 'unknown'}` }, 404)
+    }
 
     // ── Build text ────────────────────────────────────────────────────────
     const whoIAmParts: string[] = []

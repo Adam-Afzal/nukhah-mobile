@@ -56,7 +56,7 @@ export default function ApplicationApproved() {
 
   const handleLogout = async () => {
     Alert.alert(
-      'Logout',
+    'Logout', 
       'Are you sure you want to logout?',
       [
         {

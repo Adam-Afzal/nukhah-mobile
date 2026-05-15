@@ -22,8 +22,8 @@ import {
 interface ProfileData {
   id: string;
   username: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
   date_of_birth: string;
   location_country: string;
   location_city: string;
@@ -54,6 +54,7 @@ interface ProfileData {
   phone?: string;
   masjid_id?: string;
   is_masjid_affiliated?: boolean;
+  imam_verified?: boolean;
 }
 
 interface WaliContact {
@@ -97,6 +98,8 @@ export default function ProfileScreen() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [masjidFilterEnabled, setMasjidFilterEnabled] = useState(false);
+  const [myImamVerified, setMyImamVerified] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -105,10 +108,10 @@ export default function ProfileScreen() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const { userId, acctType } = await loadCurrentUser();
+      const { userId, acctType, masjidId } = await loadCurrentUser();
       await Promise.all([
         loadProfile(userId, acctType),
-        userId && acctType ? loadCurrentUserMasjid(userId, acctType) : Promise.resolve(),
+        masjidId ? loadCurrentUserMasjid(masjidId) : Promise.resolve(),
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -117,76 +120,90 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadCurrentUser = async (): Promise<{ userId: string | null; acctType: 'brother' | 'sister' | null }> => {
+  const loadCurrentUser = async (): Promise<{ userId: string | null; acctType: 'brother' | 'sister' | null; masjidId: string | null }> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { userId: null, acctType: null };
+      if (!user) return { userId: null, acctType: null, masjidId: null };
+
+      const { data: setting } = await supabase.from('app_settings').select('value').eq('key', 'masjid_filter_enabled').maybeSingle();
+      setMasjidFilterEnabled(setting?.value === 'true');
 
       const { data: brotherProfile } = await supabase
         .from('brother')
-        .select('id')
+        .select('id, imam_verified, masjid_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (brotherProfile) {
         setAccountType('brother');
         setCurrentUserId(brotherProfile.id);
-        return { userId: brotherProfile.id, acctType: 'brother' };
+        setMyImamVerified(brotherProfile.imam_verified === true);
+        return {
+          userId: brotherProfile.id,
+          acctType: 'brother',
+          masjidId: brotherProfile.imam_verified ? (brotherProfile.masjid_id || null) : null,
+        };
       }
 
       const { data: sisterProfile } = await supabase
         .from('sister')
-        .select('id')
+        .select('id, imam_verified, masjid_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
       if (sisterProfile) {
         setAccountType('sister');
         setCurrentUserId(sisterProfile.id);
-        return { userId: sisterProfile.id, acctType: 'sister' };
+        setMyImamVerified(sisterProfile.imam_verified === true);
+        return {
+          userId: sisterProfile.id,
+          acctType: 'sister',
+          masjidId: sisterProfile.imam_verified ? (sisterProfile.masjid_id || null) : null,
+        };
       }
 
-      return { userId: null, acctType: null };
+      return { userId: null, acctType: null, masjidId: null };
     } catch (error) {
       console.error('Error loading current user:', error);
-      return { userId: null, acctType: null };
+      return { userId: null, acctType: null, masjidId: null };
     }
   };
+
+  const BROTHER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, beard_commitment, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified';
+  const SISTER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, hijab_commitment, open_to_polygyny, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, applied_by_wali, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified';
 
   const loadProfile = async (userId: string | null, acctType: 'brother' | 'sister' | null) => {
     if (!id) return;
 
     try {
-      // Try brother first
       const { data: brotherData } = await supabase
         .from('brother')
-        .select('*')
+        .select(BROTHER_FIELDS)
         .eq('id', id)
         .maybeSingle();
 
       if (brotherData) {
-        setProfile(brotherData);
+        setProfile(brotherData as ProfileData);
         setProfileType('brother');
         await Promise.all([
-          loadProfileMasjid(id, 'brother'),
+          loadProfileMasjid(brotherData.imam_verified, brotherData.masjid_id, brotherData.is_masjid_affiliated),
           loadReferenceVerification(id, 'brother'),
         ]);
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'brother');
         return;
       }
 
-      // Try sister
       const { data: sisterData } = await supabase
         .from('sister')
-        .select('*')
+        .select(SISTER_FIELDS)
         .eq('id', id)
         .maybeSingle();
 
       if (sisterData) {
-        setProfile(sisterData);
+        setProfile(sisterData as ProfileData);
         setProfileType('sister');
         await Promise.all([
-          loadProfileMasjid(id, 'sister'),
+          loadProfileMasjid(sisterData.imam_verified, sisterData.masjid_id, sisterData.is_masjid_affiliated),
           loadReferenceVerification(id, 'sister'),
         ]);
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'sister');
@@ -224,6 +241,14 @@ export default function ProfileScreen() {
       (theirInterest && theirInterest.status === 'accepted');
 
     if (hasAcceptedInterest) {
+      // Fetch PII now that we're matched
+      const { data: pii } = await supabase
+        .from(recipientType)
+        .select('first_name, last_name, phone')
+        .eq('id', recipientId)
+        .maybeSingle();
+      if (pii) setProfile(prev => prev ? { ...prev, ...pii } : prev);
+
       // Brother viewing sister: show wali contact
       if (acctType === 'brother' && recipientType === 'sister') {
         setCanViewWali(true);
@@ -237,7 +262,6 @@ export default function ProfileScreen() {
       if (acctType === 'sister' && recipientType === 'brother') {
         setCanViewBrotherPhone(true);
       }
-
     }
   };
 
@@ -258,69 +282,38 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadProfileMasjid = async (profileId: string, profileType: 'brother' | 'sister') => {
+  const loadProfileMasjid = async (
+    imamVerified: boolean | null,
+    masjidId: string | null,
+    isMasjidAffiliated: boolean | null
+  ) => {
     try {
-      const { data: verification } = await supabase
-        .from('imam_verification')
-        .select('masjid_id, status')
-        .eq('user_id', profileId)
-        .eq('user_type', profileType)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!verification) {
+      if (!isMasjidAffiliated || !masjidId) {
         setMasjidStatus('none');
         return;
       }
 
-      if (verification.status === 'pending') {
-        setMasjidStatus('pending');
-        // Still load masjid name for pending state
-        const { data: masjid } = await supabase
-          .from('masjid')
-          .select('id, name, marriage_service_url')
-          .eq('id', verification.masjid_id)
-          .single();
-        if (masjid) setProfileMasjid(masjid);
-        return;
-      }
+      setMasjidStatus(imamVerified ? 'verified' : 'pending');
 
-      if (verification.status === 'verified') {
-        setMasjidStatus('verified');
-        const { data: masjid } = await supabase
-          .from('masjid')
-          .select('id, name, marriage_service_url')
-          .eq('id', verification.masjid_id)
-          .single();
-        if (masjid) setProfileMasjid(masjid);
-      }
+      const { data: masjid } = await supabase
+        .from('masjid')
+        .select('id, name, marriage_service_url')
+        .eq('id', masjidId)
+        .single();
+      if (masjid) setProfileMasjid(masjid);
     } catch (error) {
       console.error('Error loading profile masjid:', error);
     }
   };
 
-  const loadCurrentUserMasjid = async (userId: string, acctType: 'brother' | 'sister') => {
+  const loadCurrentUserMasjid = async (masjidId: string) => {
     try {
-      const { data: verification } = await supabase
-        .from('imam_verification')
-        .select('masjid_id')
-        .eq('user_id', userId)
-        .eq('user_type', acctType)
-        .eq('status', 'verified')
-        .maybeSingle();
-
-      if (!verification?.masjid_id) return;
-
       const { data: masjid } = await supabase
         .from('masjid')
         .select('id, name, marriage_service_url')
-        .eq('id', verification.masjid_id)
+        .eq('id', masjidId)
         .single();
-
-      if (masjid) {
-        setCurrentUserMasjid(masjid);
-      }
+      if (masjid) setCurrentUserMasjid(masjid);
     } catch (error) {
       console.error('Error loading current user masjid:', error);
     }
@@ -338,6 +331,15 @@ export default function ProfileScreen() {
           { text: 'Not Now', style: 'cancel' },
           { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
         ]
+      );
+      return;
+    }
+
+    if (masjidFilterEnabled && !myImamVerified && profile.imam_verified) {
+      Alert.alert(
+        'Verification Required',
+        'This member is masjid-verified. Complete your masjid verification to express interest in them.',
+        [{ text: 'OK' }]
       );
       return;
     }
@@ -399,6 +401,17 @@ export default function ProfileScreen() {
       const result = await acceptInterest(receivedInterestId);
       if (result.success) {
         setReceivedInterestStatus('accepted');
+
+        // Fetch PII now that we're matched
+        if (profileType) {
+          const { data: pii } = await supabase
+            .from(profileType)
+            .select('first_name, last_name, phone')
+            .eq('id', id!)
+            .maybeSingle();
+          if (pii) setProfile(prev => prev ? { ...prev, ...pii } : prev);
+        }
+
         // Brother viewing sister: show wali
         if (accountType === 'brother' && profileType === 'sister' && currentUserId) {
           setCanViewWali(true);
@@ -410,10 +423,6 @@ export default function ProfileScreen() {
         // Sister viewing brother: show phone
         if (accountType === 'sister' && profileType === 'brother') {
           setCanViewBrotherPhone(true);
-        }
-        // Load masjid info for nikkah service
-        if (profileType) {
-          await loadProfileMasjid(id!, profileType);
         }
       } else {
         Alert.alert('Error', result.error || 'Failed to accept interest.');
@@ -988,6 +997,22 @@ export default function ProfileScreen() {
       {/* Bottom Buttons */}
       {!isOwnProfile && (
         <View style={styles.bottomContainer}>
+          {masjidFilterEnabled && !myImamVerified && profile?.imam_verified && (
+            <View style={styles.filterBannerBlocked}>
+              <Text style={styles.filterBannerTitle}>🕌 Masjid verification required</Text>
+              <Text style={styles.filterBannerText}>
+                This member is masjid-verified. Complete your masjid verification to express interest in them. They can still express interest in you.
+              </Text>
+            </View>
+          )}
+          {masjidFilterEnabled && myImamVerified && !profile?.imam_verified && (
+            <View style={styles.filterBannerInfo}>
+              <Text style={styles.filterBannerTitle}>🕌 Not yet masjid-verified</Text>
+              <Text style={styles.filterBannerText}>
+                This member has not yet completed masjid verification. You can still express interest in them.
+              </Text>
+            </View>
+          )}
           {showReceivedInterestButtons && (
             <View style={styles.twoButtonContainer}>
               <TouchableOpacity
@@ -1011,17 +1036,20 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {showExpressInterestButton && (
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={handleExpressInterest}
-              disabled={isExpressing}
-            >
-              <Text style={styles.primaryButtonText}>
-                {isExpressing ? 'Processing...' : 'Express Interest'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {showExpressInterestButton && (() => {
+            const blockedByFilter = masjidFilterEnabled && !myImamVerified && profile?.imam_verified;
+            return (
+              <TouchableOpacity
+                style={[styles.primaryButton, blockedByFilter && styles.primaryButtonDisabled]}
+                onPress={handleExpressInterest}
+                disabled={isExpressing || !!blockedByFilter}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isExpressing ? 'Processing...' : blockedByFilter ? '🕌 Verification Required' : 'Express Interest'}
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
 
           {showWithdrawButton && (
             <TouchableOpacity
@@ -1390,10 +1418,42 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
+  primaryButtonDisabled: {
+    backgroundColor: '#1A1F2E',
+    opacity: 0.6,
+  },
   primaryButtonText: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
     color: '#F2CC66',
+  },
+  filterBannerBlocked: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    padding: 14,
+    marginBottom: 12,
+  },
+  filterBannerInfo: {
+    backgroundColor: '#F7F8FB',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    padding: 14,
+    marginBottom: 12,
+  },
+  filterBannerTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: '#070A12',
+    marginBottom: 4,
+  },
+  filterBannerText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 17,
   },
   twoButtonContainer: {
     flexDirection: 'column',

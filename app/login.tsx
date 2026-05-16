@@ -129,11 +129,34 @@ export default function LoginScreen() {
           </AnimatedPressable>
 
           {/* Forgot Password */}
-          <AnimatedPressable 
+          <AnimatedPressable
             style={styles.forgotPassword}
             onPress={() => {
-              // TODO: Implement forgot password
-              Alert.alert('Forgot Password', 'Password reset functionality coming soon');
+              Alert.alert(
+                'Reset Password',
+                'Enter your email address and we\'ll send you a reset link.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Send Reset Link',
+                    onPress: async () => {
+                      const trimmed = email.trim();
+                      if (!trimmed) {
+                        Alert.alert('Email Required', 'Enter your email address in the field above first.');
+                        return;
+                      }
+                      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+                        redirectTo: 'https://joinmithaq.com/reset-password',
+                      });
+                      if (error) {
+                        Alert.alert('Error', error.message);
+                      } else {
+                        Alert.alert('Email Sent', 'Check your inbox for a password reset link.');
+                      }
+                    },
+                  },
+                ]
+              );
             }}
           >
             <Text style={styles.forgotPasswordText}>Forgot your password?</Text>

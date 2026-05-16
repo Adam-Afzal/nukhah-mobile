@@ -36,6 +36,9 @@ interface InterestRequest {
   profile_build?: string;
   profile_date_of_birth?: string;
   profile_prayer_consistency?: string;
+  profile_masjid_affiliation_status?: 'verified' | 'pending' | 'none';
+  profile_masjid_name?: string;
+  profile_reference_status?: 'verified' | 'pending' | 'none';
   displayed_profile_id?: string;
 }
 
@@ -341,13 +344,30 @@ export default function InterestsScreen() {
         const profileId = profileSource === 'requester' ? interest.requester_id : interest.recipient_id;
         const profileType = profileSource === 'requester' ? interest.requester_type : interest.recipient_type;
         
-        const selectFields = 'username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency';
+        const selectFields = 'username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, imam_verified, is_masjid_affiliated, masjid_id';
 
-        const { data: profile } = await supabase
-          .from(profileType)
-          .select(selectFields)
-          .eq('id', profileId)
-          .single();
+        const [{ data: profile }, { data: refs }] = await Promise.all([
+          supabase.from(profileType).select(selectFields).eq('id', profileId).single(),
+          supabase.from('reference').select('verification_status').eq('user_id', profileId).eq('user_type', profileType),
+        ]);
+
+        // Masjid badge status from profile fields
+        const masjidAffiliationStatus: 'verified' | 'pending' | 'none' =
+          profile?.imam_verified ? 'verified' :
+          (profile?.is_masjid_affiliated && profile?.masjid_id) ? 'pending' : 'none';
+
+        // Masjid name (only if affiliated with a real masjid)
+        let masjidName: string | undefined;
+        if (profile?.masjid_id && profile?.is_masjid_affiliated) {
+          const { data: masjid } = await supabase.from('masjid').select('name').eq('id', profile.masjid_id).single();
+          if (masjid) masjidName = masjid.name;
+        }
+
+        // Reference status
+        const refList = refs || [];
+        const referenceStatus: 'verified' | 'pending' | 'none' =
+          refList.some((r: any) => r.verification_status === 'verified') ? 'verified' :
+          refList.some((r: any) => r.verification_status === 'pending') ? 'pending' : 'none';
 
         return {
           ...interest,
@@ -360,6 +380,9 @@ export default function InterestsScreen() {
           profile_build: profile?.build,
           profile_date_of_birth: profile?.date_of_birth,
           profile_prayer_consistency: profile?.prayer_consistency,
+          profile_masjid_affiliation_status: masjidAffiliationStatus,
+          profile_masjid_name: masjidName,
+          profile_reference_status: referenceStatus,
         };
       })
     );
@@ -454,22 +477,50 @@ export default function InterestsScreen() {
         style={styles.interestCard}
         onPress={handleCardPress}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.usernameRow}>
-            <Text style={styles.username}>{item.profile_username}</Text>
-            {age !== null && (
-              <View style={styles.ageBadge}>
-                <Text style={styles.ageText}>{age}</Text>
-              </View>
-            )}
-            <Text style={styles.flag}>{getLocationFlag(item.profile_location_country || '')}</Text>
-          </View>
-          {/* Elite Badge (optional - add logic if needed) */}
-          <View style={styles.eliteBadge}>
-            <Text style={styles.eliteText}>⭐ Elite</Text>
-          </View>
+        <View style={styles.usernameRow}>
+          <Text style={styles.username}>{item.profile_username}</Text>
+          {age !== null && (
+            <View style={styles.ageBadge}>
+              <Text style={styles.ageText}>{age}</Text>
+            </View>
+          )}
+          <Text style={styles.flag}>{getLocationFlag(item.profile_location_country || '')}</Text>
+          {activeTab === 'mutual' && (
+            <View style={styles.mutualBadge}>
+              <Text style={styles.mutualBadgeText}>✨ Accepted</Text>
+            </View>
+          )}
         </View>
 
+        {/* Verification badges */}
+        <View style={styles.verificationRow}>
+          {item.profile_masjid_affiliation_status === 'verified' ? (
+            <View style={styles.verifiedBadge}>
+              <Text style={styles.verifiedBadgeText}>🕌 {item.profile_masjid_name} (Verified)</Text>
+            </View>
+          ) : item.profile_masjid_affiliation_status === 'pending' ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>🕌 {item.profile_masjid_name ? `${item.profile_masjid_name} (Pending)` : 'Affiliation Pending'}</Text>
+            </View>
+          ) : (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneBadgeText}>🕌 No Masjid Affiliation</Text>
+            </View>
+          )}
+          {item.profile_reference_status === 'verified' ? (
+            <View style={styles.verifiedBadge}>
+              <Text style={styles.verifiedBadgeText}>✓ Reference Verified</Text>
+            </View>
+          ) : item.profile_reference_status === 'pending' ? (
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>⏳ Reference Pending</Text>
+            </View>
+          ) : (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneBadgeText}>✗ No References</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoText}>
@@ -477,11 +528,9 @@ export default function InterestsScreen() {
           </Text>
         </View>
 
-        {/* MUTUAL INTEREST - Show confirmation badge */}
-        {activeTab === 'mutual' && (
-          <View style={styles.mutualBadge}>
-            <Text style={styles.mutualBadgeIcon}>✨</Text>
-            <Text style={styles.mutualBadgeText}>Mutual Interest Confirmed</Text>
+        {item.profile_ethnicity && (
+          <View style={styles.infoRow}>
+            <Text style={styles.infoText}>{getEthnicityFlag(item.profile_ethnicity)} {item.profile_ethnicity}</Text>
           </View>
         )}
 
@@ -493,11 +542,22 @@ export default function InterestsScreen() {
               </Text>
             </View>
           )}
-          
           {item.profile_build && (
-            <View style={[styles.tag, styles.defaultTag]}>
+            <View style={styles.defaultTag}>
+              <Text style={styles.tagText}>{getBuildLabel(item.profile_build)}</Text>
+            </View>
+          )}
+          {item.profile_prayer_consistency && (
+            <View style={styles.defaultTag}>
               <Text style={styles.tagText}>
-                {getBuildLabel(item.profile_build)}
+                {({
+                  always_on_time: 'Always on time',
+                  usually_on_time: 'Usually on time',
+                  '5x_daily': '5x daily',
+                  as_much_as_possible: 'As much as possible',
+                  sometimes_miss: 'Sometimes misses',
+                  struggling: 'Working on it',
+                } as Record<string, string>)[item.profile_prayer_consistency] ?? item.profile_prayer_consistency}
               </Text>
             </View>
           )}
@@ -889,38 +949,50 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 22,
   },
-  eliteBadge: {
-    backgroundColor: '#E5E8EE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  eliteText: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 11,
-    lineHeight: 13,
-    color: '#070A12',
-    fontStyle: 'italic',
-  },
   verificationRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginBottom: 8,
     flexWrap: 'wrap',
   },
-  verificationBadge: {
+  verifiedBadge: {
     backgroundColor: '#EAF5EE',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: '#17803A',
   },
-  verificationText: {
+  verifiedBadgeText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 11,
     color: '#17803A',
+  },
+  pendingBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#B45309',
+  },
+  pendingBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: '#B45309',
+  },
+  noneBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  noneBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: '#94A3B8',
   },
   infoRow: {
     flexDirection: 'row',
@@ -966,23 +1038,16 @@ const styles = StyleSheet.create({
   },
   mutualBadge: {
     backgroundColor: 'rgba(242, 204, 102, 0.1)',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 20,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#F2CC66',
-  },
-  mutualBadgeIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    marginLeft: 'auto',
   },
   mutualBadgeText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: 11,
     color: '#F2CC66',
   },
   tagsRow: {

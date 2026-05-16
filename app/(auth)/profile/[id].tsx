@@ -9,13 +9,17 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View
 } from 'react-native';
 
@@ -55,6 +59,7 @@ interface ProfileData {
   masjid_id?: string;
   is_masjid_affiliated?: boolean;
   imam_verified?: boolean;
+  hidden?: boolean;
 }
 
 interface WaliContact {
@@ -169,8 +174,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const BROTHER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, beard_commitment, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified';
-  const SISTER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, hijab_commitment, open_to_polygyny, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, applied_by_wali, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified';
+  const BROTHER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, beard_commitment, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified, hidden';
+  const SISTER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, hijab_commitment, open_to_polygyny, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, applied_by_wali, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified, hidden';
 
   const loadProfile = async (userId: string | null, acctType: 'brother' | 'sister' | null) => {
     if (!id) return;
@@ -584,14 +589,33 @@ export default function ProfileScreen() {
     );
   }
 
+  const isOwnProfile = currentUserId === id;
+
+  if (profile.hidden && !isOwnProfile) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.scrollContent}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 120 }}>
+            <Text style={{ fontSize: 48, marginBottom: 16 }}>👁</Text>
+            <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>Profile Hidden</Text>
+            <Text style={[styles.longText, { textAlign: 'center', color: '#7B8799', marginTop: 8 }]}>
+              This member has hidden their profile.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   const coveringType = profileType === 'sister' ? 'hijab' : 'beard';
   const coveringValue = profileType === 'sister'
     ? profile.hijab_commitment
     : profile.beard_commitment;
 
   const age = calculateAge(profile.date_of_birth);
-  const isOwnProfile = currentUserId === id;
-
   // Determine what bottom buttons to show
   const isMatched =
     interestStatus === 'accepted' || receivedInterestStatus === 'accepted';
@@ -955,43 +979,55 @@ export default function ProfileScreen() {
         visible={showReportModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowReportModal(false)}
+        onRequestClose={() => { Keyboard.dismiss(); setShowReportModal(false); }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Report User</Text>
-            <Text style={styles.modalSubtitle}>
-              Describe the issue with {profile?.username}'s profile. We review all reports.
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Describe the issue..."
-              placeholderTextColor="#9CA3AF"
-              value={reportReason}
-              onChangeText={setReportReason}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancel}
-                onPress={() => { setShowReportModal(false); setReportReason(''); }}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSubmit, isSubmittingReport && { opacity: 0.5 }]}
-                onPress={handleSubmitReport}
-                disabled={isSubmittingReport}
-              >
-                <Text style={styles.modalSubmitText}>
-                  {isSubmittingReport ? 'Submitting...' : 'Submit Report'}
-                </Text>
-              </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalCard}>
+                  <Text style={styles.modalTitle}>Report User</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Describe the issue with {profile?.username}'s profile. We review all reports.
+                  </Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Describe the issue..."
+                    placeholderTextColor="#9CA3AF"
+                    value={reportReason}
+                    onChangeText={setReportReason}
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    blurOnSubmit
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={styles.modalCancel}
+                      onPress={() => { Keyboard.dismiss(); setShowReportModal(false); setReportReason(''); }}
+                    >
+                      <Text style={styles.modalCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalSubmit, isSubmittingReport && { opacity: 0.5 }]}
+                      onPress={handleSubmitReport}
+                      disabled={isSubmittingReport}
+                    >
+                      <Text style={styles.modalSubmitText}>
+                        {isSubmittingReport ? 'Submitting...' : 'Submit Report'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Bottom Buttons */}
@@ -1296,22 +1332,26 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E7EAF0',
+    gap: 12,
   },
   infoLabel: {
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     lineHeight: 17,
     color: '#7B8799',
+    width: 120,
+    flexShrink: 0,
   },
   infoValue: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
     lineHeight: 17,
     color: '#070A12',
+    flex: 1,
+    flexWrap: 'wrap',
   },
   longText: {
     fontFamily: 'Inter_400Regular',

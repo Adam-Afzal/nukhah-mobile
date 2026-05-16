@@ -13,6 +13,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View
@@ -110,10 +111,14 @@ export default function SettingsScreen() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  const [profileTable, setProfileTable] = useState<'brother' | 'sister' | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<{
     subscribed: boolean;
     expires_at: string | null;
     cancelled_at: string | null;
+    provider: string | null;
   } | null>(null);
   const { unreadCount } = useUnreadNotifications();
   const { data: userStatus } = useUserStatus();
@@ -127,13 +132,17 @@ export default function SettingsScreen() {
     if (!user) return;
 
     const [brotherResult, sisterResult, subResult] = await Promise.all([
-      supabase.from('brother').select('username').eq('user_id', user.id).maybeSingle(),
-      supabase.from('sister').select('username').eq('user_id', user.id).maybeSingle(),
-      supabase.from('subscribers').select('subscribed, expires_at, cancelled_at').eq('user_id', user.id).maybeSingle(),
+      supabase.from('brother').select('id, username, hidden').eq('user_id', user.id).maybeSingle(),
+      supabase.from('sister').select('id, username, hidden').eq('user_id', user.id).maybeSingle(),
+      supabase.from('subscribers').select('subscribed, expires_at, cancelled_at, provider').eq('user_id', user.id).maybeSingle(),
     ]);
 
-    const username = brotherResult.data?.username || sisterResult.data?.username || '';
-    setUsername(username);
+    const profile = brotherResult.data || sisterResult.data;
+    const table = brotherResult.data ? 'brother' : sisterResult.data ? 'sister' : null;
+    setUsername(profile?.username || '');
+    setHidden(profile?.hidden ?? false);
+    setProfileTable(table);
+    setProfileId(profile?.id ?? null);
     if (subResult.data) setSubscriptionStatus(subResult.data);
   };
 
@@ -150,6 +159,16 @@ export default function SettingsScreen() {
     }
     const renewsOn = formatDate(subscriptionStatus.expires_at);
     return renewsOn ? `Active · Renews ${renewsOn}` : 'Active';
+  };
+
+  const handleToggleHidden = async (value: boolean) => {
+    if (!profileTable || !profileId) return;
+    setHidden(value);
+    const { error } = await supabase.from(profileTable).update({ hidden: value }).eq('id', profileId);
+    if (error) {
+      setHidden(!value);
+      Alert.alert('Error', 'Failed to update profile visibility.');
+    }
   };
 
   const handleEditProfile = () => {
@@ -342,6 +361,28 @@ export default function SettingsScreen() {
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
+
+            <View style={styles.divider} />
+
+            <View style={styles.settingItem}>
+              <View style={styles.iconContainer}>
+                <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+                  <Rect width={32} height={32} rx={8} fill="#F8F1DA" />
+                  <Path d="M16 13C14.3431 13 13 14.3431 13 16C13 17.6569 14.3431 19 16 19C17.6569 19 19 17.6569 19 16C19 14.3431 17.6569 13 16 13Z" stroke="#070A12" strokeWidth={1.5} />
+                  <Path d="M10 16C10 16 12 11 16 11C20 11 22 16 22 16C22 16 20 21 16 21C12 21 10 16 10 16Z" stroke="#070A12" strokeWidth={1.5} strokeLinecap="round" />
+                </Svg>
+              </View>
+              <View style={[styles.settingContent, { flex: 1 }]}>
+                <Text style={styles.settingTitle}>Hide Profile</Text>
+                <Text style={styles.settingDescription}>{hidden ? 'Your profile is hidden from search' : 'Your profile is visible in search'}</Text>
+              </View>
+              <Switch
+                value={hidden}
+                onValueChange={handleToggleHidden}
+                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
           </View>
         </View>
 
@@ -369,7 +410,7 @@ export default function SettingsScreen() {
               <ChevronRightIcon />
             </TouchableOpacity>
 
-            {subscriptionStatus?.subscribed && !userStatus?.testingMode && (
+            {subscriptionStatus?.subscribed && !userStatus?.testingMode && subscriptionStatus?.provider !== 'manual' && (
               <>
                 <View style={styles.divider} />
                 <TouchableOpacity style={styles.settingItem} onPress={handleCancelMembership}>

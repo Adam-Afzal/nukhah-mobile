@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
+import { useRouter } from 'expo-router';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -76,7 +76,7 @@ export default function GenderSelectionScreen() {
                 <View style={styles.buttonContent}>
                   <View style={styles.textContainer}>
                     <Text style={styles.buttonTitle}>Brother</Text>
-                    <Text style={styles.buttonDescription}>High-value Muslim men</Text>
+                    <Text style={styles.buttonDescription}>Brother seeking righteous wife</Text>
                   </View>
                   <Text style={styles.arrow}>→</Text>
                 </View>
@@ -96,7 +96,7 @@ export default function GenderSelectionScreen() {
                   <View style={styles.textContainer}>
                     <Text style={styles.sisterButtonTitle}>Sister</Text>
                     <Text style={styles.sisterButtonDescription}>
-                      High-value Muslim women
+                      Sister seeking righteous husband
                     </Text>
                   </View>
                   <Text style={styles.sisterArrow}>→</Text>

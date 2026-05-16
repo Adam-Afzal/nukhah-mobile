@@ -204,7 +204,7 @@ const FilterIcon = () => (
 
 export default function SearchScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('local');
+  const [activeTab, setActiveTab] = useState<Tab>('discover');
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -365,9 +365,10 @@ export default function SearchScreen() {
       if (currentUserMasjidId) {
         const { data: profileDetails, error } = await supabase
           .from(targetTable)
-          .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated, imam_verified, masjid:masjid_id(id, name)${extraFields}`)
+          .select(`id, username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, preferred_ethnicity, living_arrangements, open_to_hijrah, willing_to_relocate, is_masjid_affiliated, imam_verified, hidden, masjid:masjid_id(id, name)${extraFields}`)
           .eq('masjid_id', currentUserMasjidId)
-          .eq('imam_verified', true);
+          .eq('imam_verified', true)
+          .eq('hidden', false);
 
         if (error) throw error;
 
@@ -429,24 +430,16 @@ export default function SearchScreen() {
       const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
       const extraFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment' : '';
 
-      // Get vector-ranked matches from RPC
-      const matchFn = accountType === 'brother' ? findMatchesForBrother : findMatchesForSister;
-      const matches = await matchFn(currentUserId, 100).catch(() => null);
+      // Always fetch all profile IDs — RPC scores used for ordering only.
+      // Profiles without embeddings still appear, sorted to the bottom.
+      const [{ data: allIdRows }, matches] = await Promise.all([
+        supabase.from(targetTable).select('id').neq('id', currentUserId).eq('hidden', false),
+        (accountType === 'brother' ? findMatchesForBrother : findMatchesForSister)(currentUserId, 200).catch(() => null),
+      ]);
 
-      let profileIds: string[];
+      const profileIds: string[] = (allIdRows || []).map((r: any) => r.id);
       const vectorScoreMap = new Map<string, number>();
-
-      if (matches && matches.length > 0) {
-        profileIds = matches.map(m => m.id);
-        matches.forEach(m => vectorScoreMap.set(m.id, m.vector_score));
-      } else {
-        // Fallback: no embeddings yet, fetch all profiles
-        const { data: allIds } = await supabase
-          .from(targetTable)
-          .select('id')
-          .neq('id', currentUserId);
-        profileIds = (allIds || []).map((r: any) => r.id);
-      }
+      if (matches) matches.forEach((m: any) => vectorScoreMap.set(m.id, m.vector_score));
 
       if (profileIds.length === 0) {
         setProfiles([]);
@@ -1072,21 +1065,21 @@ export default function SearchScreen() {
       </View>
 
       <View style={styles.tabsContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'local' && styles.activeTab]}
-          onPress={() => setActiveTab('local')}
-        >
-          <Text style={[styles.tabText, activeTab === 'local' && styles.activeTabText]}>
-            Local
-          </Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={[styles.tab, activeTab === 'discover' && styles.activeTab]}
           onPress={() => setActiveTab('discover')}
         >
           <Text style={[styles.tabText, activeTab === 'discover' && styles.activeTabText]}>
             Discover
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'local' && styles.activeTab]}
+          onPress={() => setActiveTab('local')}
+        >
+          <Text style={[styles.tabText, activeTab === 'local' && styles.activeTabText]}>
+            Local
           </Text>
         </TouchableOpacity>
       </View>

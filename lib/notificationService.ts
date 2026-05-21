@@ -339,6 +339,8 @@ export async function notifyInterestRejected(
     message: "You will get a better spouse. Keep searching and making dua.",
     data: {
       interest_id: interestId,
+      rejecter_profile_id: rejecterProfileId,
+      rejecter_profile_type: rejecterProfileType,
     },
     expiresInDays: 7,
   });

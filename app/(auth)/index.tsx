@@ -10,7 +10,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -215,6 +217,18 @@ export default function SearchScreen() {
   const [currentUserCompatProfile, setCurrentUserCompatProfile] = useState<CompatibilityProfile | null>(null);
   const pushSetupDone = useRef(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [ethnicitySearch, setEthnicitySearch] = useState('');
+  const [showEthnicityDropdown, setShowEthnicityDropdown] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [citySearch, setCitySearch] = useState('');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [masjidList, setMasjidList] = useState<{ id: string; name: string }[]>([]);
+  const [masjidSearch, setMasjidSearch] = useState('');
+  const [showMasjidDropdown, setShowMasjidDropdown] = useState(false);
+  const [imamList, setImamList] = useState<{ id: string; name: string }[]>([]);
+  const [imamSearch, setImamSearch] = useState('');
+  const [showImamDropdown, setShowImamDropdown] = useState(false);
   const { unreadCount } = useUnreadNotifications();
   
   const [filters, setFilters] = useState<Filters>({
@@ -523,7 +537,12 @@ export default function SearchScreen() {
     }
 
     if (filters.ethnicity.length > 0) {
-      filtered = filtered.filter(p => filters.ethnicity.includes(p.ethnicity));
+      filtered = filtered.filter(p => {
+        if (!p.ethnicity) return false;
+        return filters.ethnicity.some(sel =>
+          p.ethnicity === sel || p.ethnicity.startsWith(`${sel} -`)
+        );
+      });
     }
 
     if (filters.build.length > 0) {
@@ -652,8 +671,9 @@ export default function SearchScreen() {
         transparent={false}
         onRequestClose={() => setFilterModalVisible(false)}
       >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.filterModal}>
-          <ScrollView style={styles.filterScrollView} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.filterScrollView} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.filterHeader}>
               <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
                 <Text style={styles.filterBackButton}>← Back</Text>
@@ -689,60 +709,107 @@ export default function SearchScreen() {
             <View style={styles.filterContent}>
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>LOCATION</Text>
-                <View style={styles.filterBox}>
-                  <Text style={styles.filterBoxLabel}>Country</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.ethnicityList}>
-                      {COUNTRIES.map((c) => (
-                        <TouchableOpacity
-                          key={c.code}
-                          style={[
-                            styles.ethnicityOption,
-                            filters.country.includes(c.name) && styles.ethnicityOptionSelected
-                          ]}
-                          onPress={() => toggleArrayFilter('country', c.name)}
-                        >
-                          <Text style={styles.ethnicityOptionText}>
-                            {c.flag} {c.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
 
-                  <Text style={[styles.filterBoxLabel, { marginTop: 12 }]}>City</Text>
-                  <TextInput
-                    style={styles.filterInput}
-                    placeholder="Any"
-                    placeholderTextColor="#C0C7D1"
-                    value={filters.city}
-                    onChangeText={(text) => setFilters({ ...filters, city: text })}
-                  />
-                </View>
+                {/* Country */}
+                <Text style={styles.filterBoxLabel}>Country</Text>
+                <TextInput
+                  style={styles.filterSearchInput}
+                  placeholder="Search country..."
+                  placeholderTextColor="#7B8799"
+                  value={countrySearch}
+                  onChangeText={(t) => { setCountrySearch(t); setShowCountryDropdown(true); }}
+                  onFocus={() => setShowCountryDropdown(true)}
+                />
+                {showCountryDropdown && (
+                  <View style={styles.dropdownList}>
+                    {COUNTRIES.filter(c => !countrySearch || c.name.toLowerCase().includes(countrySearch.toLowerCase())).slice(0, 8).map(c => (
+                      <TouchableOpacity
+                        key={c.code}
+                        style={[styles.dropdownItem, filters.country.includes(c.name) && styles.dropdownItemSelected]}
+                        onPress={() => { toggleArrayFilter('country', c.name); setCountrySearch(c.name); setShowCountryDropdown(false); }}
+                      >
+                        <Text style={styles.dropdownItemText}>{c.flag} {c.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* City — only if country selected */}
+                {filters.country.length > 0 && (
+                  <>
+                    <Text style={[styles.filterBoxLabel, { marginTop: 12 }]}>City</Text>
+                    <TextInput
+                      style={styles.filterSearchInput}
+                      placeholder="Search city..."
+                      placeholderTextColor="#7B8799"
+                      value={citySearch}
+                      onChangeText={(t) => { setCitySearch(t); setShowCityDropdown(true); }}
+                      onFocus={() => setShowCityDropdown(true)}
+                    />
+                    {showCityDropdown && (() => {
+                      const cities = COUNTRIES.filter(c => filters.country.includes(c.name)).flatMap((c: any) => c.majorCities || []);
+                      const filtered = cities.filter((city: string) => !citySearch || city.toLowerCase().includes(citySearch.toLowerCase()));
+                      return filtered.length > 0 ? (
+                        <View style={styles.dropdownList}>
+                          {filtered.slice(0, 8).map((city: string) => (
+                            <TouchableOpacity
+                              key={city}
+                              style={[styles.dropdownItem, filters.city === city && styles.dropdownItemSelected]}
+                              onPress={() => { setFilters({ ...filters, city }); setCitySearch(city); setShowCityDropdown(false); }}
+                            >
+                              <Text style={styles.dropdownItemText}>{city}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : null;
+                    })()}
+                  </>
+                )}
               </View>
 
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionLabel}>ETHNICITY</Text>
-                <View style={styles.filterBox}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.ethnicityList}>
-                      {ETHNICITIES.map((eth) => (
+                <TextInput
+                  style={styles.filterSearchInput}
+                  placeholder="Search ethnicities..."
+                  placeholderTextColor="#7B8799"
+                  value={ethnicitySearch}
+                  onChangeText={(t) => { setEthnicitySearch(t); setShowEthnicityDropdown(true); }}
+                  onFocus={() => setShowEthnicityDropdown(true)}
+                />
+                {showEthnicityDropdown && (() => {
+                  const q = ethnicitySearch.toLowerCase();
+                  const results: { name: string; flag: string }[] = [];
+                  ETHNICITIES.forEach(eth => {
+                    if (!q || eth.name.toLowerCase().includes(q)) results.push({ name: eth.name, flag: eth.flag || '🌍' });
+                    eth.subEthnicities?.forEach((sub: string) => {
+                      if (q && sub.toLowerCase().includes(q)) results.push({ name: `${eth.name} - ${sub}`, flag: eth.flag || '🌍' });
+                    });
+                  });
+                  return (
+                    <View style={styles.dropdownList}>
+                      {results.slice(0, 8).map(item => (
                         <TouchableOpacity
-                          key={eth.name}
-                          style={[
-                            styles.ethnicityOption,
-                            filters.ethnicity.includes(eth.name) && styles.ethnicityOptionSelected
-                          ]}
-                          onPress={() => toggleArrayFilter('ethnicity', eth.name)}
+                          key={item.name}
+                          style={[styles.dropdownItem, filters.ethnicity.includes(item.name) && styles.dropdownItemSelected]}
+                          onPress={() => { toggleArrayFilter('ethnicity', item.name); setEthnicitySearch(item.name); setShowEthnicityDropdown(false); }}
                         >
-                          <Text style={styles.ethnicityOptionText}>
-                            {eth.flag} {eth.name}
-                          </Text>
+                          <Text style={styles.dropdownItemText}>{item.flag} {item.name}</Text>
                         </TouchableOpacity>
                       ))}
+                      {results.length === 0 && <Text style={styles.dropdownEmpty}>No results</Text>}
                     </View>
-                  </ScrollView>
-                </View>
+                  );
+                })()}
+                {filters.ethnicity.length > 0 && (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    {filters.ethnicity.map(e => (
+                      <TouchableOpacity key={e} style={styles.dropdownItemSelected} onPress={() => toggleArrayFilter('ethnicity', e)}>
+                        <Text style={styles.dropdownItemText}>{e} ✕</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
               <View style={styles.filterSection}>
@@ -866,21 +933,55 @@ export default function SearchScreen() {
                 <View style={styles.filterBox}>
                   <Text style={styles.filterBoxLabel}>Masjid</Text>
                   <TextInput
-                    style={styles.filterInput}
+                    style={styles.filterSearchInput}
                     placeholder="Search by masjid name..."
-                    placeholderTextColor="#C0C7D1"
-                    value={filters.masjid}
-                    onChangeText={(text) => setFilters({ ...filters, masjid: text })}
+                    placeholderTextColor="#7B8799"
+                    value={masjidSearch}
+                    onChangeText={(t) => { setMasjidSearch(t); setShowMasjidDropdown(true); }}
+                    onFocus={() => setShowMasjidDropdown(true)}
                   />
+                  {showMasjidDropdown && (
+                    <View style={styles.dropdownList}>
+                      {masjidList.filter(m => !masjidSearch || m.name.toLowerCase().includes(masjidSearch.toLowerCase())).slice(0, 8).map(m => (
+                        <TouchableOpacity
+                          key={m.id}
+                          style={[styles.dropdownItem, filters.masjid === m.name && styles.dropdownItemSelected]}
+                          onPress={() => { setFilters({ ...filters, masjid: m.name }); setMasjidSearch(m.name); setShowMasjidDropdown(false); }}
+                        >
+                          <Text style={styles.dropdownItemText}>🕌 {m.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {masjidList.filter(m => !masjidSearch || m.name.toLowerCase().includes(masjidSearch.toLowerCase())).length === 0 && (
+                        <Text style={styles.dropdownEmpty}>No masjids found</Text>
+                      )}
+                    </View>
+                  )}
 
                   <Text style={[styles.filterBoxLabel, { marginTop: 16 }]}>Imam</Text>
                   <TextInput
-                    style={styles.filterInput}
+                    style={styles.filterSearchInput}
                     placeholder="Search by imam name..."
-                    placeholderTextColor="#C0C7D1"
-                    value={filters.imam}
-                    onChangeText={(text) => setFilters({ ...filters, imam: text })}
+                    placeholderTextColor="#7B8799"
+                    value={imamSearch}
+                    onChangeText={(t) => { setImamSearch(t); setShowImamDropdown(true); }}
+                    onFocus={() => setShowImamDropdown(true)}
                   />
+                  {showImamDropdown && (
+                    <View style={styles.dropdownList}>
+                      {imamList.filter(i => !imamSearch || i.name.toLowerCase().includes(imamSearch.toLowerCase())).slice(0, 8).map(i => (
+                        <TouchableOpacity
+                          key={i.id}
+                          style={[styles.dropdownItem, filters.imam === i.name && styles.dropdownItemSelected]}
+                          onPress={() => { setFilters({ ...filters, imam: i.name }); setImamSearch(i.name); setShowImamDropdown(false); }}
+                        >
+                          <Text style={styles.dropdownItemText}>👤 {i.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {imamList.filter(i => !imamSearch || i.name.toLowerCase().includes(imamSearch.toLowerCase())).length === 0 && (
+                        <Text style={styles.dropdownEmpty}>No imams found</Text>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             </View>
@@ -898,6 +999,7 @@ export default function SearchScreen() {
             </View>
           </ScrollView>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   };
@@ -1053,7 +1155,11 @@ export default function SearchScreen() {
         <Text style={styles.headerTitle}>Who are you looking for?</Text>
         <TouchableOpacity 
           style={styles.filterButton}
-          onPress={() => setFilterModalVisible(true)}
+          onPress={() => {
+            setFilterModalVisible(true);
+            supabase.from('masjid').select('id, name').order('name').then(({ data }) => { if (data) setMasjidList(data); });
+            supabase.from('imam').select('id, name').order('name').then(({ data }) => { if (data) setImamList(data); });
+          }}
         >
           <FilterIcon />
           {getActiveFilterCount() > 0 && (
@@ -1515,6 +1621,53 @@ const styles = StyleSheet.create({
     borderColor: '#E7EAF0',
     borderRadius: 12,
     padding: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterSearchInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#070A12',
+    marginBottom: 4,
+  },
+  dropdownList: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7EAF0',
+    borderRadius: 8,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  dropdownItemSelected: {
+    backgroundColor: 'rgba(242, 204, 102, 0.15)',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  dropdownItemText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    color: '#070A12',
+  },
+  dropdownEmpty: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    color: '#7B8799',
+    padding: 12,
+    textAlign: 'center',
   },
   filterBoxLabel: {
     fontFamily: 'Inter_700Bold',

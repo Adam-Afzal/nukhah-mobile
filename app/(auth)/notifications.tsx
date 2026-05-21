@@ -19,6 +19,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 // Navigation Icons
@@ -154,6 +155,7 @@ const SettingsIcon = ({ active }: { active: boolean }) => (
 );
 
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -211,14 +213,39 @@ export default function NotificationsScreen() {
         break;
 
       case 'questions_progress':
-      case 'questions_completed':
         router.push('/(auth)/interests');
         break;
 
+      case 'questions_completed':
+        if (notification.data.requester_profile_id) {
+          router.push(`/(auth)/profile/${notification.data.requester_profile_id}`);
+        } else {
+          router.push('/(auth)/interests');
+        }
+        break;
+
       case 'interest_accepted':
+        if (notification.data.recipient_profile_id) {
+          router.push(`/(auth)/profile/${notification.data.recipient_profile_id}`);
+        } else {
+          router.push('/(auth)/interests');
+        }
+        break;
+
       case 'interest_rejected':
+        if (notification.data.rejecter_profile_id) {
+          router.push(`/(auth)/profile/${notification.data.rejecter_profile_id}`);
+        } else {
+          router.push('/(auth)/interests');
+        }
+        break;
+
       case 'mutual_interest':
-        router.push('/(auth)/interests');
+        if (notification.data.match_profile_id) {
+          router.push(`/(auth)/profile/${notification.data.match_profile_id}`);
+        } else {
+          router.push('/(auth)/interests');
+        }
         break;
 
       case 'imam_verification':
@@ -343,7 +370,7 @@ export default function NotificationsScreen() {
       />
 
       {/* Bottom Navigation Bar */}
-      <View style={styles.navbar}>
+      <View style={[styles.navbar, { paddingBottom: insets.bottom + 8 }]}>
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
@@ -501,8 +528,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingBottom: 24,
+    paddingTop: 12,
     paddingHorizontal: 20,
   },
   navbarBorder: {

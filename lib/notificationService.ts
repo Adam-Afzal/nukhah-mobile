@@ -11,7 +11,7 @@ async function maybeSendPush(token: string, title: string, body: string, data: R
   }
 }
 
-export type NotificationType = 
+export type NotificationType =
   | 'profile_view'
   | 'interest_expressed'
   | 'questions_started'
@@ -20,7 +20,9 @@ export type NotificationType =
   | 'interest_accepted'
   | 'interest_rejected'
   | 'mutual_interest'
-  | 'message_received';
+  | 'message_received'
+  | 'imam_verification'
+  | 'reference_verified';
 
 export interface Notification {
   id: string;
@@ -348,7 +350,9 @@ export async function notifyInterestRejected(
   const pushToken = await getPushToken(requesterProfileId, requesterProfileType);
   if (pushToken) {
     await maybeSendPush(pushToken, `${rejecterUsername} - Request Declined`, "You will get a better spouse. Keep searching and making dua.", {
-      screen: 'interests',
+      screen: 'profile',
+      profileId: rejecterProfileId,
+      profileType: rejecterProfileType,
     });
   }
 }

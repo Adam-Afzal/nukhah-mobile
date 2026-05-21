@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 // Navigation Icons (reused from search screen)
@@ -108,6 +109,7 @@ const ChevronRightIcon = () => (
 );
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -545,7 +547,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* Bottom Navigation Bar */}
-      <View style={styles.navbar}>
+      <View style={[styles.navbar, { paddingBottom: insets.bottom + 8 }]}>
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
@@ -726,8 +728,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingBottom: 24,
+    paddingTop: 12,
     paddingHorizontal: 20,
     borderTopWidth: 1,
     borderTopColor: '#E7EAF0',

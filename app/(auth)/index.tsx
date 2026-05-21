@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 type Tab = 'local' | 'discover';
@@ -205,6 +206,7 @@ const FilterIcon = () => (
 );
 
 export default function SearchScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('discover');
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -1218,7 +1220,7 @@ export default function SearchScreen() {
 
       {renderFilterModal()}
 
-      <View style={styles.navbar}>
+      <View style={[styles.navbar, { paddingBottom: insets.bottom + 8 }]}>
         <View style={styles.navbarBorder} />
         
         <View style={styles.navRow}>
@@ -1786,8 +1788,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingBottom: 24,
+    paddingTop: 12,
     paddingHorizontal: 20,
   },
   navbarBorder: {

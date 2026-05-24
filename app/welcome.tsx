@@ -37,7 +37,7 @@ export default function WelcomeScreen() {
         </View>
 
         <Text style={styles.tagline}>
-          Find your spouse, without stress.
+          Find your spouse through your masjid.
         </Text>
 
         <Text style={styles.subtitle}>
@@ -118,7 +118,6 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     width: '100%',
-    paddingHorizontal: width * 0.064,
     gap: 24,
   },
   applyButton: {

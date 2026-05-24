@@ -20,8 +20,7 @@ export default {
     android: {
       package: "com.app.mithaq",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundImage: "./assets/images/android-icon-background.png",
+        foregroundImage: "./assets/icon.png",
         backgroundColor: "#070A12"
       },
       googleServicesFile: "./google-services.json",

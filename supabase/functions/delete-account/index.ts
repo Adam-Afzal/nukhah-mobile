@@ -92,8 +92,6 @@ Deno.serve(async (req) => {
       supabase.from('subscribers').delete().eq('user_id', userId),
       supabase.from('user_profile').delete().eq('id', userId),
       supabase.from('daily_request_limits').delete().eq('user_id', userId),
-      supabase.from('red_flag').delete().eq('user_id', userId),
-      supabase.from('profile_views').delete().eq('user_id', userId),
     ]);
 
     await supabase.from('brother').delete().eq('user_id', userId);

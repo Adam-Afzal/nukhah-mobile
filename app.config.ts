@@ -7,6 +7,11 @@ export default {
     scheme: "mithaq",
     version: "1.0.0",
     icon: "./assets/icon.png",
+    splash: {
+      image: "./assets/images/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#070A12"
+    },
     ios: {
       bundleIdentifier: "com.app.mithaq",
       supportsTablet: true,

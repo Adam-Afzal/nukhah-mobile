@@ -69,7 +69,18 @@ export default function BrotherApplication() {
       newErrors.email = 'Invalid email';
     }
     if (!formData.phone_number.trim()) newErrors.phone_number = 'Required';
-    if (!formData.date_of_birth.trim()) newErrors.date_of_birth = 'Required';
+    if (!formData.date_of_birth.trim()) {
+      newErrors.date_of_birth = 'Required';
+    } else {
+      const dob = new Date(formData.date_of_birth);
+      const minAge = new Date();
+      minAge.setFullYear(minAge.getFullYear() - 18);
+      if (isNaN(dob.getTime())) {
+        newErrors.date_of_birth = 'Invalid date format';
+      } else if (dob > minAge) {
+        newErrors.date_of_birth = 'You must be at least 18 years old';
+      }
+    }
     if (!formData.password.trim()) {
       newErrors.password = 'Required';
     } else if (formData.password.length < 8) {

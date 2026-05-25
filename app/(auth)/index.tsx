@@ -1107,7 +1107,15 @@ export default function SearchScreen() {
           {item.prayer_consistency && (
             <View style={[styles.tag, styles.defaultTag]}>
               <Text style={styles.tagText}>
-                {item.prayer_consistency === '5x_daily' ? '5x a Day' : item.prayer_consistency === 'as_much_as_possible' ? 'Prays Regularly' : item.prayer_consistency}
+                {({
+                  '5x_daily': '5x Daily',
+                  'as_much_as_possible': 'As Much as Possible',
+                  'never': 'Never',
+                  'always_on_time': 'Always on Time',
+                  'usually_on_time': 'Usually on Time',
+                  'sometimes_miss': 'Sometimes Miss',
+                  'struggling': 'Struggling',
+                } as Record<string, string>)[item.prayer_consistency] ?? item.prayer_consistency}
               </Text>
             </View>
           )}
@@ -1444,8 +1452,8 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   infoRow: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: 'column',
+    gap: 4,
     marginBottom: 12,
   },
   infoText: {

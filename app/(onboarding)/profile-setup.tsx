@@ -776,10 +776,9 @@ export default function ProfileSetup() {
               itemStyle={styles.pickerItem}
             >
               <Picker.Item label="Select prayer consistency" value="" />
-              <Picker.Item label="Always on Time" value="always_on_time" />
-              <Picker.Item label="Usually on Time" value="usually_on_time" />
-              <Picker.Item label="Sometimes Miss" value="sometimes_miss" />
-              <Picker.Item label="Struggling" value="struggling" />
+              <Picker.Item label="5x a Day" value="5x_daily" />
+              <Picker.Item label="As Much as Possible" value="as_much_as_possible" />
+              <Picker.Item label="Never" value="never" />
             </Picker>
           </View>
         </View>

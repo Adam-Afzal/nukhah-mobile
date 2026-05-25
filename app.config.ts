@@ -8,7 +8,7 @@ export default {
     version: "1.0.0",
     icon: "./assets/icon.png",
     splash: {
-      image: "./assets/images/splash.png",
+      image: "./assets/images/native-splash.png",
       resizeMode: "contain",
       backgroundColor: "#070A12"
     },

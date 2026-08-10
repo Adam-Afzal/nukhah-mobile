@@ -41,6 +41,12 @@ interface ProfileData {
   beard_commitment?: string;
   // Sister-specific
   open_to_polygyny?: boolean;
+  applied_by_wali?: boolean;
+  wali_name?: string;
+  wali_relationship?: string;
+  wali_phone?: string;
+  wali_email?: string;
+  wali_preferred_contact?: string;
 }
 
 const BROTHER_BUILD_OPTIONS = [
@@ -88,6 +94,8 @@ export default function EditProfileScreen() {
   const [usernameError, setUsernameError] = useState('');
   const [ethnicityPickerVisible, setEthnicityPickerVisible] = useState(false);
   const [preferredEthnicityPickerVisible, setPreferredEthnicityPickerVisible] = useState(false);
+  const [waliReviewStatus, setWaliReviewStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
+  const [waliRejectReason, setWaliRejectReason] = useState('');
 
   const [formData, setFormData] = useState<ProfileData>({
     username: '',
@@ -187,7 +195,15 @@ export default function EditProfileScreen() {
           dealbreakers: sisterData.dealbreakers || '',
           prayer_consistency: sisterData.prayer_consistency || '',
           open_to_polygyny: sisterData.open_to_polygyny || false,
+          applied_by_wali: sisterData.applied_by_wali || false,
+          wali_name: sisterData.wali_name || '',
+          wali_relationship: sisterData.wali_relationship || '',
+          wali_phone: sisterData.wali_phone || '',
+          wali_email: sisterData.wali_email || '',
+          wali_preferred_contact: sisterData.wali_preferred_contact || '',
         });
+        setWaliReviewStatus(sisterData.wali_review_status || null);
+        setWaliRejectReason(sisterData.wali_reject_reason || '');
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -304,6 +320,12 @@ export default function EditProfileScreen() {
 
       if (accountType === 'sister') {
         updateData.open_to_polygyny = formData.open_to_polygyny;
+        updateData.applied_by_wali = formData.applied_by_wali;
+        updateData.wali_name = formData.wali_name?.trim() || null;
+        updateData.wali_relationship = formData.wali_relationship?.trim() || null;
+        updateData.wali_phone = formData.wali_phone?.trim() || null;
+        updateData.wali_email = formData.wali_email?.trim() || null;
+        updateData.wali_preferred_contact = formData.wali_preferred_contact || null;
       }
 
       const { error } = await supabase
@@ -718,6 +740,108 @@ export default function EditProfileScreen() {
           </View>
         </View>
 
+        {accountType === 'sister' && (
+          <View style={styles.section}>
+            <View style={styles.waliHeaderRow}>
+              <Text style={styles.sectionTitle}>Wali Details</Text>
+              {waliReviewStatus && (
+                <View style={[
+                  styles.waliBadge,
+                  waliReviewStatus === 'approved' && styles.waliBadgeApproved,
+                  waliReviewStatus === 'rejected' && styles.waliBadgeRejected,
+                  waliReviewStatus === 'pending' && styles.waliBadgePending,
+                ]}>
+                  <Text style={styles.waliBadgeText}>{waliReviewStatus}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.hint}>
+              You won't be able to express or accept interest until this is approved by an admin.
+            </Text>
+
+            {waliReviewStatus === 'rejected' && waliRejectReason && (
+              <View style={styles.waliRejectBox}>
+                <Text style={styles.waliRejectText}>Not approved: {waliRejectReason}</Text>
+              </View>
+            )}
+
+            <View style={styles.switchGroup}>
+              <View style={styles.switchRow}>
+                <Text style={styles.switchLabel}>Is your wali completing this on your behalf?</Text>
+                <Switch
+                  value={formData.applied_by_wali}
+                  onValueChange={(value) => setFormData({ ...formData, applied_by_wali: value })}
+                  trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                  thumbColor={formData.applied_by_wali ? '#070A12' : '#7B8799'}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Wali Name</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.wali_name}
+                onChangeText={(text) => setFormData({ ...formData, wali_name: text })}
+                placeholder="Full name of your wali"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Relationship to Wali</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.wali_relationship}
+                onChangeText={(text) => setFormData({ ...formData, wali_relationship: text })}
+                placeholder="e.g. Father, Brother, Uncle"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Wali Phone</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.wali_phone}
+                onChangeText={(text) => setFormData({ ...formData, wali_phone: text })}
+                placeholder="Wali's phone number"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Wali Email</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.wali_email}
+                onChangeText={(text) => setFormData({ ...formData, wali_email: text })}
+                placeholder="Wali's email"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Preferred Contact Method</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={formData.wali_preferred_contact}
+                  onValueChange={(value) => setFormData({ ...formData, wali_preferred_contact: value })}
+                  itemStyle={styles.pickerItem}
+                >
+                  <Picker.Item label="Select method" value="" />
+                  <Picker.Item label="Phone call" value="phone" />
+                  <Picker.Item label="Email" value="email" />
+                  <Picker.Item label="WhatsApp" value="whatsapp" />
+                </Picker>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Save Button */}
         <TouchableOpacity
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -798,6 +922,45 @@ const styles = StyleSheet.create({
     lineHeight: 27,
     color: '#070A12',
     marginBottom: 16,
+  },
+  waliHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  waliBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#FFF3CD',
+  },
+  waliBadgeApproved: {
+    backgroundColor: '#DCF5E3',
+  },
+  waliBadgeRejected: {
+    backgroundColor: '#FBE1E1',
+  },
+  waliBadgePending: {
+    backgroundColor: '#FFF3CD',
+  },
+  waliBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: '#070A12',
+    textTransform: 'capitalize',
+  },
+  waliRejectBox: {
+    backgroundColor: '#FBE1E1',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  waliRejectText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#7A2020',
   },
   inputGroup: {
     marginBottom: 20,

@@ -1,0 +1,226 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2732" viewBox="0 0 2048 2732">
+
+  <!-- Background -->
+  <rect width="2048" height="2732" fill="#F7F8FB"/>
+
+  <!-- Status bar -->
+  <text x="80" y="65" font-size="38" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">9:41</text>
+  <text x="1968" y="65" font-size="38" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">●●● 100%</text>
+
+  <!-- Header -->
+  <text x="80" y="152" font-size="56" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Who are you looking for?</text>
+  <!-- Filter icon -->
+  <line x1="1908" y1="118" x2="1968" y2="118" stroke="#070A12" stroke-width="5" stroke-linecap="round"/>
+  <line x1="1908" y1="142" x2="1968" y2="142" stroke="#070A12" stroke-width="5" stroke-linecap="round"/>
+  <line x1="1908" y1="166" x2="1968" y2="166" stroke="#070A12" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Tabs: Local (active) | Discover -->
+  <rect x="80" y="178" width="400" height="78" rx="16" fill="#F8F1DA"/>
+  <text x="280" y="227" font-size="32" font-weight="700" font-style="italic" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Local</text>
+  <rect x="496" y="178" width="400" height="78" rx="16" fill="#F7F8FB"/>
+  <text x="696" y="227" font-size="32" font-weight="700" font-style="italic" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Discover</text>
+
+  <!-- Banner -->
+  <rect x="80" y="278" width="1888" height="72" rx="16" fill="#F8F1DA"/>
+  <text x="108" y="323" font-size="30" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Brothers who attend Masjid Sunnah Nelson</text>
+
+  <!-- ── 2-column grid ── -->
+  <!-- Col1: x=80 w=928  Col2: x=1040 w=928  gap=32 -->
+  <!-- Card height=440, gap=24 -->
+  <!-- Row 1: y=374  Row 2: y=838  Row 3: y=1302  Row 4: y=1766  Row 5(partial): y=2230 -->
+
+  <!-- ══ ROW 1 ══ -->
+
+  <!-- Card: Abu_Khalid (col1) -->
+  <rect x="80" y="374" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="120" y="436" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Abu_Khalid</text>
+  <rect x="342" y="408" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="376" y="434" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">28</text>
+  <text x="424" y="436" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="120" y="452" width="512" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="140" y="478" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Sunnah Nelson (Verified)</text>
+  <rect x="120" y="506" width="384" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="140" y="532" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">✓ Reference Verified</text>
+  <text x="120" y="584" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Birmingham, United Kingdom</text>
+  <text x="120" y="618" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Arab</text>
+  <rect x="120" y="642" width="560" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="120" y="642" width="476" height="8" rx="4" fill="#F2CC66"/>
+  <text x="964" y="650" font-size="26" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="end">85% match</text>
+  <rect x="120" y="676" width="222" height="52" rx="8" fill="#EAF5EE"/>
+  <text x="231" y="708" font-size="26" fill="#17803A" font-family="system-ui" text-anchor="middle">Never Married</text>
+  <rect x="352" y="676" width="100" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="402" y="708" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Lean</text>
+  <rect x="462" y="676" width="136" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="530" y="708" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">5x Daily</text>
+
+  <!-- Card: Yusuf_Nelson (col2) -->
+  <rect x="1040" y="374" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="1080" y="436" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Yusuf_Nelson</text>
+  <rect x="1318" y="408" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="1352" y="434" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">31</text>
+  <text x="1400" y="436" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="1080" y="452" width="512" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="1100" y="478" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Sunnah Nelson (Verified)</text>
+  <rect x="1080" y="506" width="310" height="42" rx="8" fill="#FEF3C7" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="1100" y="532" font-size="24" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">⏳ Reference Pending</text>
+  <text x="1080" y="584" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Nelson, United Kingdom</text>
+  <text x="1080" y="618" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Pakistani</text>
+  <rect x="1080" y="642" width="560" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="1080" y="642" width="403" height="8" rx="4" fill="#F2CC66"/>
+  <text x="1924" y="650" font-size="26" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="end">72% match</text>
+  <rect x="1080" y="676" width="142" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="1151" y="708" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Divorced</text>
+  <rect x="1232" y="676" width="146" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="1305" y="708" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Muscular</text>
+  <rect x="1388" y="676" width="226" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="1501" y="708" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">As Much as Poss.</text>
+
+  <!-- ══ ROW 2 ══ -->
+
+  <!-- Card: AbdullahManc (col1) -->
+  <rect x="80" y="838" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="120" y="900" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">AbdullahManc</text>
+  <rect x="376" y="872" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="410" y="898" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">26</text>
+  <text x="458" y="900" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="120" y="916" width="340" height="42" rx="8" fill="#F2F4F7" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="140" y="942" font-size="24" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🕌 No Masjid Affiliation</text>
+  <rect x="120" y="970" width="290" height="42" rx="8" fill="#F2F4F7" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="140" y="996" font-size="24" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">✗ No References</text>
+  <text x="120" y="1048" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Manchester, United Kingdom</text>
+  <text x="120" y="1082" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Somali</text>
+  <rect x="120" y="1106" width="560" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="120" y="1106" width="358" height="8" rx="4" fill="#F2CC66"/>
+  <text x="964" y="1114" font-size="26" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="end">64% match</text>
+  <rect x="120" y="1140" width="222" height="52" rx="8" fill="#EAF5EE"/>
+  <text x="231" y="1172" font-size="26" fill="#17803A" font-family="system-ui" text-anchor="middle">Never Married</text>
+  <rect x="352" y="1140" width="126" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="415" y="1172" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Average</text>
+
+  <!-- Card: Ibrahim_Leeds (col2) -->
+  <rect x="1040" y="838" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="1080" y="900" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Ibrahim_Leeds</text>
+  <rect x="1364" y="872" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="1398" y="898" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">29</text>
+  <text x="1446" y="900" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="1080" y="916" width="512" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="1100" y="942" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid As-Sunnah Crewe (Verified)</text>
+  <rect x="1080" y="970" width="384" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="1100" y="996" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">✓ Reference Verified</text>
+  <text x="1080" y="1048" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Leeds, United Kingdom</text>
+  <text x="1080" y="1082" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Bangladeshi</text>
+  <rect x="1080" y="1106" width="560" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="1080" y="1106" width="448" height="8" rx="4" fill="#F2CC66"/>
+  <text x="1924" y="1114" font-size="26" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="end">80% match</text>
+  <rect x="1080" y="1140" width="222" height="52" rx="8" fill="#EAF5EE"/>
+  <text x="1191" y="1172" font-size="26" fill="#17803A" font-family="system-ui" text-anchor="middle">Never Married</text>
+  <rect x="1312" y="1140" width="100" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="1362" y="1172" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Lean</text>
+  <rect x="1422" y="1140" width="136" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="1490" y="1172" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">5x Daily</text>
+
+  <!-- ══ ROW 3 ══ -->
+
+  <!-- Card: Muhammed_Bham (col1) -->
+  <rect x="80" y="1302" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="120" y="1364" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Muhammed_Bham</text>
+  <rect x="434" y="1336" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="468" y="1362" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">33</text>
+  <text x="516" y="1364" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="120" y="1380" width="512" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="140" y="1406" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Sunnah Nelson (Verified)</text>
+  <rect x="120" y="1434" width="384" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="140" y="1460" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">✓ Reference Verified</text>
+  <text x="120" y="1512" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Birmingham, United Kingdom</text>
+  <text x="120" y="1546" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Pakistani</text>
+  <rect x="120" y="1570" width="560" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="120" y="1570" width="336" height="8" rx="4" fill="#F2CC66"/>
+  <text x="964" y="1578" font-size="26" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="end">60% match</text>
+  <rect x="120" y="1604" width="142" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="191" y="1636" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Divorced</text>
+  <rect x="272" y="1604" width="100" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="322" y="1636" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Lean</text>
+  <rect x="382" y="1604" width="136" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="450" y="1636" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">5x Daily</text>
+
+  <!-- Card: Khalid_Luton (col2) -->
+  <rect x="1040" y="1302" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="1080" y="1364" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Khalid_Luton</text>
+  <rect x="1316" y="1336" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="1350" y="1362" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">24</text>
+  <text x="1398" y="1364" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="1080" y="1380" width="380" height="42" rx="8" fill="#FEF3C7" stroke="#F2CC66" stroke-width="1"/>
+  <text x="1100" y="1406" font-size="24" fill="#B8882A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Example (Pending)</text>
+  <rect x="1080" y="1434" width="290" height="42" rx="8" fill="#F2F4F7" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="1100" y="1460" font-size="24" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">✗ No References</text>
+  <text x="1080" y="1512" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Luton, United Kingdom</text>
+  <text x="1080" y="1546" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Arab</text>
+  <rect x="1080" y="1570" width="560" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="1080" y="1570" width="291" height="8" rx="4" fill="#F2CC66"/>
+  <text x="1924" y="1578" font-size="26" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="end">52% match</text>
+  <rect x="1080" y="1604" width="222" height="52" rx="8" fill="#EAF5EE"/>
+  <text x="1191" y="1636" font-size="26" fill="#17803A" font-family="system-ui" text-anchor="middle">Never Married</text>
+  <rect x="1312" y="1604" width="100" height="52" rx="8" fill="#F8F1DA"/>
+  <text x="1362" y="1636" font-size="26" fill="#070A12" font-family="system-ui" text-anchor="middle">Lean</text>
+
+  <!-- ══ ROW 4 (partial top visible) ══ -->
+
+  <!-- Card: UmarScotland (col1 partial) -->
+  <rect x="80" y="1766" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="120" y="1828" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">UmarScotland</text>
+  <rect x="374" y="1800" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="408" y="1826" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">27</text>
+  <text x="456" y="1828" font-size="34" font-family="system-ui">🏴󠁧󠁢󠁳󠁣󠁴󠁿</text>
+  <rect x="120" y="1844" width="512" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="140" y="1870" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid As-Sunnah Crewe (Verified)</text>
+  <text x="120" y="1932" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🏴󠁧󠁢󠁳󠁣󠁴󠁿 Glasgow, Scotland</text>
+  <text x="120" y="1966" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Pakistani</text>
+
+  <!-- Card: AliSuffolk (col2 partial) -->
+  <rect x="1040" y="1766" width="928" height="440" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="1080" y="1828" font-size="38" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">AliSuffolk</text>
+  <rect x="1284" y="1800" width="68" height="38" rx="8" fill="#F8F1DA"/>
+  <text x="1318" y="1826" font-size="28" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">35</text>
+  <text x="1366" y="1828" font-size="34" font-family="system-ui">🇬🇧</text>
+  <rect x="1080" y="1844" width="512" height="42" rx="8" fill="#EAF5EE" stroke="#17803A" stroke-width="1"/>
+  <text x="1100" y="1870" font-size="24" font-weight="600" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">🕌 Masjid Sunnah Nelson (Verified)</text>
+  <text x="1080" y="1932" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Ipswich, United Kingdom</text>
+  <text x="1080" y="1966" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">🌍 Somali</text>
+
+  <!-- Scroll fade -->
+  <defs>
+    <linearGradient id="fadeUp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F7F8FB" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#F7F8FB" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="2040" width="2048" height="240" fill="url(#fadeUp)"/>
+
+  <!-- Bottom navbar: y=2540 -->
+  <rect x="0" y="2540" width="2048" height="192" fill="#FFFFFF"/>
+  <line x1="0" y1="2540" x2="2048" y2="2540" stroke="#E7EAF0" stroke-width="2"/>
+
+  <!-- Nav items: Interests(512), Search(768→active), Notifications(1280), Settings(1792) -->
+  <!-- Interests -->
+  <path d="M512 2594 L492 2574 Q482 2564 487 2554 Q492 2544 502 2554 L512 2564 L522 2554 Q532 2544 537 2554 Q542 2564 532 2574 Z" fill="none" stroke="#7B8799" stroke-width="4" stroke-linejoin="round"/>
+  <text x="512" y="2636" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Interests</text>
+
+  <!-- Search (active gold) -->
+  <circle cx="768" cy="2582" r="20" stroke="#F2CC66" stroke-width="5" fill="none"/>
+  <line x1="784" y1="2598" x2="800" y2="2614" stroke="#F2CC66" stroke-width="5" stroke-linecap="round"/>
+  <text x="768" y="2636" font-size="28" font-weight="700" font-style="italic" fill="#F2CC66" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Search</text>
+
+  <!-- Notifications -->
+  <path d="M1280 2556 Q1262 2556 1262 2572 L1258 2590 L1302 2590 L1298 2572 Q1298 2556 1280 2556 Z" fill="none" stroke="#7B8799" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1276 2590 Q1276 2600 1280 2600 Q1284 2600 1284 2590" fill="none" stroke="#7B8799" stroke-width="4" stroke-linecap="round"/>
+  <text x="1280" y="2636" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Notifications</text>
+
+  <!-- Settings -->
+  <circle cx="1792" cy="2582" r="10" stroke="#7B8799" stroke-width="4" fill="none"/>
+  <circle cx="1792" cy="2582" r="22" stroke="#7B8799" stroke-width="4" fill="none" stroke-dasharray="8 6.86"/>
+  <text x="1792" y="2636" font-size="28" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Settings</text>
+
+  <!-- Home indicator -->
+  <rect x="824" y="2700" width="400" height="10" rx="5" fill="#070A12" fill-opacity="0.15"/>
+
+</svg>

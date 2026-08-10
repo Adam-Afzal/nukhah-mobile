@@ -1,7 +1,6 @@
 // app/(onboarding)/payment.tsx
 import OnboardingProgress from '@/components/OnboardingProgress';
 import { getOfferings, purchaseMonthly, restorePurchases } from '@/lib/paymentService';
-import { useUserStatus } from '@/hooks/useUserStatus';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -25,7 +24,6 @@ const TIER_FEATURES = [
 export default function PaymentScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: userStatus } = useUserStatus();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [monthlyPrice, setMonthlyPrice] = useState<string | null>(null);
@@ -37,10 +35,6 @@ export default function PaymentScreen() {
       if (price) setMonthlyPrice(price);
     });
   }, []);
-
-  const handleContinue = () => {
-    router.replace('/(onboarding)/profile-intro');
-  };
 
   const handlePurchase = async () => {
     setIsPurchasing(true);
@@ -77,8 +71,6 @@ export default function PaymentScreen() {
     }
   };
 
-  const isTestingMode = userStatus?.testingMode === true;
-
   return (
     <View style={styles.container}>
       <OnboardingProgress currentStep={1} />
@@ -88,16 +80,6 @@ export default function PaymentScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Testing mode banner */}
-        {isTestingMode && (
-          <View style={styles.testingBanner}>
-            <Text style={styles.testingBannerIcon}>🧪</Text>
-            <Text style={styles.testingBannerText}>
-              Testing mode is active — payment is being skipped
-            </Text>
-          </View>
-        )}
-
         <View style={styles.header}>
           <Text style={styles.title}>Begin your journey</Text>
           <Text style={styles.subtitle}>
@@ -128,14 +110,12 @@ export default function PaymentScreen() {
         </View>
 
         {/* Restore link */}
-        {!isTestingMode && (
-          <TouchableOpacity onPress={handleRestore} disabled={isRestoring} style={styles.restoreButton}>
-            {isRestoring
-              ? <ActivityIndicator size="small" color="#7B8799" />
-              : <Text style={styles.restoreText}>Restore previous purchase</Text>
-            }
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={handleRestore} disabled={isRestoring} style={styles.restoreButton}>
+          {isRestoring
+            ? <ActivityIndicator size="small" color="#7B8799" />
+            : <Text style={styles.restoreText}>Restore previous purchase</Text>
+          }
+        </TouchableOpacity>
 
         <Text style={styles.disclaimer}>
           Subscription renews monthly. Cancel anytime from your device settings.
@@ -144,22 +124,16 @@ export default function PaymentScreen() {
 
       {/* Bottom CTA */}
       <View style={styles.bottomContainer}>
-        {isTestingMode ? (
-          <TouchableOpacity style={styles.primaryButton} onPress={handleContinue}>
-            <Text style={styles.primaryButtonText}>Continue (skipping payment)</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.primaryButton, isPurchasing && styles.buttonDisabled]}
-            onPress={handlePurchase}
-            disabled={isPurchasing}
-          >
-            {isPurchasing
-              ? <ActivityIndicator color="#070A12" />
-              : <Text style={styles.primaryButtonText}>Subscribe {monthlyPrice ? `· ${monthlyPrice}/mo` : ''}</Text>
-            }
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.primaryButton, isPurchasing && styles.buttonDisabled]}
+          onPress={handlePurchase}
+          disabled={isPurchasing}
+        >
+          {isPurchasing
+            ? <ActivityIndicator color="#070A12" />
+            : <Text style={styles.primaryButtonText}>Subscribe {monthlyPrice ? `· ${monthlyPrice}/mo` : ''}</Text>
+          }
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -177,28 +151,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingTop: 24,
     paddingBottom: 120,
-  },
-  testingBanner: {
-    backgroundColor: '#FFF3CD',
-    borderWidth: 1,
-    borderColor: '#F2CC66',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 24,
-  },
-  testingBannerIcon: {
-    fontSize: 18,
-  },
-  testingBannerText: {
-    flex: 1,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#856404',
   },
   header: {
     marginBottom: 28,

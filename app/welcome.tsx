@@ -6,7 +6,7 @@ import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 const { width, height } = Dimensions.get('window');
 
 // Place your video file at assets/welcome-bg.mp4
-const VIDEO_SOURCE = require('../assets/welcome-bg.mov');
+const VIDEO_SOURCE = require('../assets/welcome-bg.mp4');
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -47,9 +47,9 @@ export default function WelcomeScreen() {
         <View style={styles.buttonsContainer}>
           <AnimatedPressable
             style={styles.applyButton}
-            onPress={() => router.push('/(application)')}
+            onPress={() => router.push('/(sign-up)')}
           >
-            <Text style={styles.applyButtonText}>Apply for Membership</Text>
+            <Text style={styles.applyButtonText}>Sign Up</Text>
           </AnimatedPressable>
 
           <AnimatedPressable

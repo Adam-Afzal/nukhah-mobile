@@ -169,13 +169,13 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Apply Link */}
+          {/* Sign Up Link */}
           <AnimatedPressable
             style={styles.applyButton}
-            onPress={() => router.push('/(application)')}
+            onPress={() => router.push('/(sign-up)')}
           >
             <Text style={styles.applyButtonText}>
-              Don't have an account? <Text style={styles.applyButtonTextBold}>Apply Now</Text>
+              Don't have an account? <Text style={styles.applyButtonTextBold}>Sign Up</Text>
             </Text>
           </AnimatedPressable>
 

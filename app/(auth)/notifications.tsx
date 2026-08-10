@@ -253,6 +253,10 @@ export default function NotificationsScreen() {
         router.push('/(auth)/settings');
         break;
 
+      case 'wali_review':
+        router.push('/(auth)/edit-profile');
+        break;
+
       default:
         break;
     }
@@ -298,6 +302,7 @@ export default function NotificationsScreen() {
       message_received: '💬',
       imam_verification: '🕌',
       reference_verified: '✅',
+      wali_review: '👪',
     };
     return icons[type] || '🔔';
   };

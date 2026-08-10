@@ -38,6 +38,65 @@ export interface RecipientQuestions {
 }
 
 /**
+ * Wali Gate (see CONTEXT.md): a sister profile needs all five wali fields
+ * filled in AND admin-approved before expressing interest or accepting/
+ * declining a received one. This is a client-side pre-check for a friendly
+ * error message only — the database trigger (see
+ * nukhbah-web-main/supabase/migrations) is the source of truth and rejects
+ * the write regardless of this check.
+ */
+export type WaliGateState = 'not_submitted' | 'pending' | 'rejected';
+
+interface WaliGateCheck {
+  satisfied: boolean;
+  state?: WaliGateState;
+  error?: string;
+}
+
+async function checkWaliGate(sisterId: string): Promise<WaliGateCheck> {
+  const { data, error } = await supabase
+    .from('sister')
+    .select('wali_name, wali_relationship, wali_phone, wali_email, wali_preferred_contact, wali_review_status, wali_reject_reason')
+    .eq('id', sisterId)
+    .single();
+
+  const hasAllFields = !!(
+    data?.wali_name &&
+    data?.wali_relationship &&
+    data?.wali_phone &&
+    data?.wali_email &&
+    data?.wali_preferred_contact
+  );
+
+  if (error || !data || !hasAllFields || !data.wali_review_status) {
+    return {
+      satisfied: false,
+      state: 'not_submitted',
+      error: 'Please add your wali information in Edit Profile before expressing interest or responding to interest. An admin will need to review it first.',
+    };
+  }
+
+  if (data.wali_review_status === 'approved') {
+    return { satisfied: true };
+  }
+
+  if (data.wali_review_status === 'rejected') {
+    return {
+      satisfied: false,
+      state: 'rejected',
+      error: `Your wali information was not approved${data.wali_reject_reason ? `: ${data.wali_reject_reason}` : '.'} Please update it in Edit Profile.`,
+    };
+  }
+
+  // pending
+  return {
+    satisfied: false,
+    state: 'pending',
+    error: "Your wali information is still under review by an admin. You'll be notified once it's approved.",
+  };
+}
+
+/**
  * Express interest in a profile
  * Creates a new interest record and returns the interest ID
  */
@@ -46,8 +105,15 @@ export async function expressInterest(
   requesterType: 'brother' | 'sister',
   recipientId: string,
   recipientType: 'brother' | 'sister'
-): Promise<{ success: boolean; interestId?: string; error?: string }> {
+): Promise<{ success: boolean; interestId?: string; error?: string; waliGateState?: WaliGateState }> {
   try {
+    if (requesterType === 'sister') {
+      const waliGate = await checkWaliGate(requesterId);
+      if (!waliGate.satisfied) {
+        return { success: false, error: waliGate.error, waliGateState: waliGate.state };
+      }
+    }
+
     // Check if interest already exists
     const { data: existing } = await supabase
       .from('interests')
@@ -326,11 +392,18 @@ export async function withdrawInterest(
  */
 export async function acceptInterest(
   interestId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; waliGateState?: WaliGateState }> {
   try {
     const interest = await getInterestById(interestId);
     if (!interest) {
       return { success: false, error: 'Interest not found' };
+    }
+
+    if (interest.recipient_type === 'sister') {
+      const waliGate = await checkWaliGate(interest.recipient_id);
+      if (!waliGate.satisfied) {
+        return { success: false, error: waliGate.error, waliGateState: waliGate.state };
+      }
     }
 
     console.log("accepting interest:", interestId);
@@ -379,12 +452,19 @@ export async function acceptInterest(
  */
 export async function rejectInterest(
   interestId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; waliGateState?: WaliGateState }> {
   try {
     // Get interest details first
     const interest = await getInterestById(interestId);
     if (!interest) {
       return { success: false, error: 'Interest not found' };
+    }
+
+    if (interest.recipient_type === 'sister') {
+      const waliGate = await checkWaliGate(interest.recipient_id);
+      if (!waliGate.satisfied) {
+        return { success: false, error: waliGate.error, waliGateState: waliGate.state };
+      }
     }
 
     const { error } = await supabase

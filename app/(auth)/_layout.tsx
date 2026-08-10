@@ -17,7 +17,7 @@ export default function AuthLayout() {
     if (isError) {
       console.log('Error loading user status:', error);
       console.log('Logging out and redirecting to welcome');
-      
+
       // Clear auth and redirect
       supabase.auth.signOut().then(() => {
         router.replace('/welcome');
@@ -31,29 +31,6 @@ export default function AuthLayout() {
     // Don't redirect if we've navigated outside the (auth) group
     if (segments[0] !== '(auth)') return;
 
-    const currentPage = segments.length > 1 ? segments[1] : undefined;
-
-    // Check application status first
-    if (userStatus.status === 'rejected') {
-      if (currentPage !== 'application-rejected') {
-        isNavigatingRef.current = true;
-        router.replace('/(auth)/application-rejected');
-        setTimeout(() => { isNavigatingRef.current = false; }, 100);
-      }
-      return;
-    }
-
-    if (userStatus.status === 'pending') {
-      console.log("pending!")
-      if (currentPage !== 'pending-approval') {
-        isNavigatingRef.current = true;
-        router.replace('/(auth)/pending-approval');
-        setTimeout(() => { isNavigatingRef.current = false; }, 100);
-      }
-      return;
-    }
-
-    // Status is 'approved' — route through onboarding steps in order
     const inOnboarding = (segments[0] as string) === '(onboarding)';
     const onboardingPage = inOnboarding ? segments[1] : null;
 
@@ -102,12 +79,7 @@ export default function AuthLayout() {
     }
 
     // All steps complete → main app
-    if (
-      inOnboarding ||
-      currentPage === 'pending-approval' ||
-      currentPage === 'application-rejected' ||
-      currentPage === 'application-approved'
-    ) {
+    if (inOnboarding) {
       console.log('Onboarding complete → main app');
       navigate('/(auth)');
     }

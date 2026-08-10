@@ -1,9 +1,8 @@
-// hooks/useUserStatus.ts (UPDATED VERSION)
+// hooks/useUserStatus.ts
 import { supabase } from '@/lib/supabase';
 import { useQuery } from '@tanstack/react-query';
 
 interface UserStatus {
-  status: 'pending' | 'approved' | 'rejected';
   hasProfile: boolean;
   paid: boolean;
   accountType: 'brother' | 'sister' | null;
@@ -31,117 +30,60 @@ export function useUserStatus() {
         .maybeSingle();
       const testingMode = appSettings?.value === true || appSettings?.value === 'true';
 
-      // Check brother application
-      const { data: brotherApp, error: brotherError } = await supabase
-        .from('brother_application')
-        .select('status')
-        .eq('user_id', user.id)
-        .maybeSingle(); // Use maybeSingle instead of single
+      // account_type is set at Sign Up (hooks/useSignUp.ts, via the sign-up edge function).
+      // application_type is the equivalent key for accounts created before the Application
+      // system was removed — same idea, different name.
+      const accountType = (user.user_metadata?.account_type ?? user.user_metadata?.application_type ?? null) as 'brother' | 'sister' | null;
 
-      if (brotherApp) {
-        // Check if brother profile exists
-        const { data: brotherProfile } = await supabase
-          .from('brother')
-          .select('id, masjid_id, is_masjid_affiliated, references_skipped')
-          .eq('user_id', user.id)
-          .single();
-
-        // Check subscription status
-        const { data: subscriber } = await supabase
-          .from('subscribers')
-          .select('subscribed')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        const paid = subscriber?.subscribed === true;
-
-        let hasMasjidAffiliation = false;
-        let hasReferences = false;
-
-        if (brotherProfile) {
-          // Check if masjid affiliation is set (either affiliated or explicitly not affiliated)
-          hasMasjidAffiliation = brotherProfile.is_masjid_affiliated !== null;
-
-          // Check if they have at least 1 reference
-          const { count: refCount } = await supabase
-            .from('reference')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', brotherProfile.id)
-            .eq('user_type', 'brother');
-
-          hasReferences = (refCount || 0) >= 1 || brotherProfile.references_skipped === true;
-        }
-
-        const onboardingCompleted = hasMasjidAffiliation && hasReferences;
-
-        return {
-          status: brotherApp.status as 'pending' | 'approved' | 'rejected',
-          hasProfile: !!brotherProfile,
-          paid,
-          accountType: 'brother',
-          onboardingCompleted,
-          hasMasjidAffiliation,
-          hasReferences,
-          testingMode,
-        };
+      if (!accountType) {
+        throw new Error('No account type found');
       }
 
-      // Check sister application
-      const { data: sisterApp, error: sisterError } = await supabase
-        .from('sister_application')
-        .select('status')
+      const table = accountType === 'brother' ? 'brother' : 'sister';
+
+      const { data: profile } = await supabase
+        .from(table)
+        .select('id, masjid_id, is_masjid_affiliated, references_skipped')
         .eq('user_id', user.id)
-        .maybeSingle(); // Use maybeSingle instead of single
+        .maybeSingle();
 
-      if (sisterApp) {
-        // Check if sister profile exists
-        const { data: sisterProfile } = await supabase
-          .from('sister')
-          .select('id, masjid_id, is_masjid_affiliated, references_skipped')
-          .eq('user_id', user.id)
-          .single();
+      // Check subscription status
+      const { data: subscriber } = await supabase
+        .from('subscribers')
+        .select('subscribed')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-        // Check subscription status
-        const { data: subscriber } = await supabase
-          .from('subscribers')
-          .select('subscribed')
-          .eq('user_id', user.id)
-          .maybeSingle();
+      const paid = subscriber?.subscribed === true;
 
-        const paid = subscriber?.subscribed === true;
+      let hasMasjidAffiliation = false;
+      let hasReferences = false;
 
-        let hasMasjidAffiliation = false;
-        let hasReferences = false;
+      if (profile) {
+        // Check if masjid affiliation is set (either affiliated or explicitly not affiliated)
+        hasMasjidAffiliation = profile.is_masjid_affiliated !== null;
 
-        if (sisterProfile) {
-          // Check if masjid affiliation is set
-          hasMasjidAffiliation = sisterProfile.is_masjid_affiliated !== null;
+        // Check if they have at least 1 reference
+        const { count: refCount } = await supabase
+          .from('reference')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', profile.id)
+          .eq('user_type', accountType);
 
-          // Check if they have at least 1 reference
-          const { count: refCount } = await supabase
-            .from('reference')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', sisterProfile.id)
-            .eq('user_type', 'sister');
-
-          hasReferences = (refCount || 0) >= 1 || sisterProfile.references_skipped === true;
-        }
-
-        const onboardingCompleted = hasMasjidAffiliation && hasReferences;
-
-        return {
-          status: sisterApp.status as 'pending' | 'approved' | 'rejected',
-          hasProfile: !!sisterProfile,
-          paid,
-          accountType: 'sister',
-          onboardingCompleted,
-          hasMasjidAffiliation,
-          hasReferences,
-          testingMode,
-        };
+        hasReferences = (refCount || 0) >= 1 || profile.references_skipped === true;
       }
 
-      throw new Error('No application found');
+      const onboardingCompleted = hasMasjidAffiliation && hasReferences;
+
+      return {
+        hasProfile: !!profile,
+        paid,
+        accountType,
+        onboardingCompleted,
+        hasMasjidAffiliation,
+        hasReferences,
+        testingMode,
+      };
     },
     retry: false, // Don't retry on error
     refetchOnWindowFocus: false,

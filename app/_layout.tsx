@@ -243,9 +243,9 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }} 
           />
-          <Stack.Screen 
-            name="(application)" 
-            options={{ 
+          <Stack.Screen
+            name="(sign-up)"
+            options={{
               headerShown: false,
               animation: 'slide_from_right',
             }} 

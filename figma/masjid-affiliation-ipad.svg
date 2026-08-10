@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="2732" viewBox="0 0 2048 2732">
+
+  <!-- Background -->
+  <rect width="2048" height="2732" fill="#F7F8FB"/>
+
+  <!-- Status bar -->
+  <text x="80" y="65" font-size="38" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">9:41</text>
+  <text x="1968" y="65" font-size="38" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">●●● ▲ 100%</text>
+
+  <!-- Progress: 4 steps, content x=280–1768 (w=1488) -->
+  <!-- Circle centers at y=155: 466, 838, 1210, 1582 -->
+
+  <!-- Step 1: Payment (completed) -->
+  <circle cx="466" cy="155" r="44" fill="#F2CC66" stroke="#F2CC66" stroke-width="4"/>
+  <text x="466" y="172" font-size="36" font-weight="700" fill="#070A12" font-family="system-ui" text-anchor="middle">✓</text>
+  <rect x="510" y="153" width="284" height="4" fill="#F2CC66"/>
+  <text x="466" y="228" font-size="30" font-weight="400" fill="#F2CC66" font-family="system-ui" text-anchor="middle">Payment</text>
+
+  <!-- Step 2: Profile (completed) -->
+  <circle cx="838" cy="155" r="44" fill="#F2CC66" stroke="#F2CC66" stroke-width="4"/>
+  <text x="838" y="172" font-size="36" font-weight="700" fill="#070A12" font-family="system-ui" text-anchor="middle">✓</text>
+  <rect x="882" y="153" width="284" height="4" fill="#F2CC66"/>
+  <text x="838" y="228" font-size="30" font-weight="400" fill="#F2CC66" font-family="system-ui" text-anchor="middle">Profile</text>
+
+  <!-- Step 3: Masjid (active) -->
+  <circle cx="1210" cy="155" r="44" fill="#F2CC66" stroke="#F2CC66" stroke-width="4"/>
+  <text x="1210" y="172" font-size="36" font-weight="700" fill="#070A12" font-family="system-ui" text-anchor="middle">3</text>
+  <rect x="1254" y="153" width="284" height="4" fill="#E7EAF0"/>
+  <text x="1210" y="228" font-size="30" font-weight="600" fill="#070A12" font-family="system-ui" text-anchor="middle">Masjid</text>
+
+  <!-- Step 4: Reference (inactive) -->
+  <circle cx="1582" cy="155" r="44" fill="#F7F8FB" stroke="#E7EAF0" stroke-width="4"/>
+  <text x="1582" y="172" font-size="36" font-weight="600" fill="#7B8799" font-family="system-ui" text-anchor="middle">4</text>
+  <text x="1582" y="228" font-size="30" font-weight="400" fill="#7B8799" font-family="system-ui" text-anchor="middle">Reference</text>
+
+  <!-- Title -->
+  <text x="280" y="330" font-size="88" font-weight="700" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Masjid Affiliation</text>
+
+  <!-- Subtitle -->
+  <text x="280" y="400" font-size="42" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Are you a regular attendee at a Salafi masjid?</text>
+
+  <!-- Option: Yes (selected) -->
+  <rect x="280" y="440" width="1488" height="170" rx="28" fill="#FFF9E6" stroke="#F2CC66" stroke-width="4"/>
+  <circle cx="364" cy="525" r="36" fill="#F7F8FB" stroke="#F2CC66" stroke-width="4"/>
+  <circle cx="364" cy="525" r="18" fill="#F2CC66"/>
+  <text x="424" y="540" font-size="42" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Yes, I regularly attend a masjid</text>
+
+  <!-- Option: No (unselected) -->
+  <rect x="280" y="632" width="1488" height="170" rx="28" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="4"/>
+  <circle cx="364" cy="717" r="36" fill="#F7F8FB" stroke="#E7EAF0" stroke-width="4"/>
+  <text x="424" y="732" font-size="42" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">No, I don't regularly attend</text>
+
+  <!-- Section title -->
+  <text x="280" y="890" font-size="56" font-weight="600" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Select Your Masjid</text>
+
+  <!-- Search input -->
+  <rect x="280" y="916" width="1488" height="108" rx="20" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="324" y="982" font-size="38" fill="#9CA3AF" font-family="system-ui, -apple-system, sans-serif">Search by name, city, or imam...</text>
+
+  <!-- Masjid item 1 (selected) -->
+  <rect x="280" y="1048" width="1488" height="240" rx="28" fill="#FFF9E6" stroke="#F2CC66" stroke-width="3"/>
+  <text x="328" y="1116" font-size="46" font-weight="600" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Masjid Sunnah Nelson</text>
+  <text x="328" y="1182" font-size="38" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">📍 Brunswick Street, Nelson, Lancashire BB9 9AR</text>
+  <text x="328" y="1242" font-size="34" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Imam: Abul 'Abbas Naveed Ayaaz</text>
+  <circle cx="1724" cy="1168" r="48" fill="#F2CC66"/>
+  <text x="1724" y="1184" font-size="42" font-weight="700" fill="#070A12" font-family="system-ui" text-anchor="middle">✓</text>
+
+  <!-- Masjid item 2 (unselected) -->
+  <rect x="280" y="1308" width="1488" height="240" rx="28" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="328" y="1376" font-size="46" font-weight="600" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Masjid As-Sunnah Crewe</text>
+  <text x="328" y="1442" font-size="38" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">📍 123 Example Street, Crewe, Cheshire CW1 0AA</text>
+  <text x="328" y="1502" font-size="34" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Imam: Imam Name Here</text>
+
+  <!-- Masjid item 3 (unselected) -->
+  <rect x="280" y="1568" width="1488" height="240" rx="28" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="328" y="1636" font-size="46" font-weight="600" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Masjid Example Bradford</text>
+  <text x="328" y="1702" font-size="38" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">📍 2 Demo Street, Bradford BD1 0AA</text>
+  <text x="328" y="1762" font-size="34" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Imam: Imam Name Here</text>
+
+  <!-- Masjid item 4 (unselected) -->
+  <rect x="280" y="1828" width="1488" height="240" rx="28" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="328" y="1896" font-size="46" font-weight="600" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Masjid Example Manchester</text>
+  <text x="328" y="1962" font-size="38" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">📍 5 Demo Street, Manchester M1 0AA</text>
+  <text x="328" y="2022" font-size="34" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Imam: Imam Name Here</text>
+
+  <!-- Masjid item 5 (partial) -->
+  <rect x="280" y="2088" width="1488" height="240" rx="28" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="2"/>
+  <text x="328" y="2156" font-size="46" font-weight="600" font-style="italic" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Masjid Example Leeds</text>
+  <text x="328" y="2222" font-size="38" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">📍 8 Demo Street, Leeds LS1 0AA</text>
+
+  <!-- Scroll fade -->
+  <defs>
+    <linearGradient id="fadeUp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F7F8FB" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#F7F8FB" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="2200" width="2048" height="220" fill="url(#fadeUp)"/>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="2500" width="2048" height="232" fill="#FFFFFF"/>
+  <line x1="0" y1="2500" x2="2048" y2="2500" stroke="#E7EAF0" stroke-width="2"/>
+
+  <!-- Continue button -->
+  <rect x="280" y="2528" width="1488" height="140" rx="24" fill="#F2CC66"/>
+  <text x="1024" y="2612" font-size="48" font-weight="700" font-style="italic" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Continue</text>
+
+  <!-- Home indicator -->
+  <rect x="824" y="2698" width="400" height="10" rx="5" fill="#070A12" fill-opacity="0.15"/>
+
+</svg>

@@ -4,7 +4,7 @@
   <rect width="390" height="844" fill="#F7F8FB"/>
 
   <!-- Status bar -->
-  <text x="28" y="18" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">9:41</text>
+<text x="28" y="18" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">9:41</text>
   <text x="362" y="18" font-size="12" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">●●● 100%</text>
 
   <!-- ── Header ── -->

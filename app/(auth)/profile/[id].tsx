@@ -1,5 +1,5 @@
 // app/(auth)/profile/[id].tsx
-import { acceptInterest, expressInterest, getInterest, rejectInterest, withdrawInterest } from '@/lib/interestService';
+import { acceptInterest, expressInterest, getInterest, rejectInterest, withdrawInterest, type WaliGateState } from '@/lib/interestService';
 import { getCountryByName } from '@/lib/locationData';
 import { getWaliContact } from '@/lib/profileAccessService';
 import { supabase } from '@/lib/supabase';
@@ -324,6 +324,39 @@ export default function ProfileScreen() {
     }
   };
 
+  const showWaliGateOrError = (waliGateState: WaliGateState | undefined, error: string | undefined, fallback: string) => {
+    if (waliGateState === 'not_submitted') {
+      Alert.alert(
+        'Wali Information Required',
+        error || fallback,
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Add Wali Details', onPress: () => router.push('/(auth)/edit-profile') },
+        ]
+      );
+      return;
+    }
+
+    if (waliGateState === 'rejected') {
+      Alert.alert(
+        'Wali Details Not Approved',
+        error || fallback,
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Update Details', onPress: () => router.push('/(auth)/edit-profile') },
+        ]
+      );
+      return;
+    }
+
+    if (waliGateState === 'pending') {
+      Alert.alert('Wali Details Under Review', error || fallback, [{ text: 'OK' }]);
+      return;
+    }
+
+    Alert.alert('Error', error || fallback);
+  };
+
   const handleExpressInterest = async () => {
     if (!currentUserId || !accountType || !id || !profile) return;
 
@@ -358,7 +391,7 @@ export default function ProfileScreen() {
         setInterestId(result.interestId);
         setInterestStatus('pending');
       } else {
-        Alert.alert('Error', 'Failed to express interest. Please try again.');
+        showWaliGateOrError(result.waliGateState, result.error, 'Failed to express interest. Please try again.');
       }
     } catch (error) {
       console.error('Error expressing interest:', error);
@@ -430,7 +463,7 @@ export default function ProfileScreen() {
           setCanViewBrotherPhone(true);
         }
       } else {
-        Alert.alert('Error', result.error || 'Failed to accept interest.');
+        showWaliGateOrError(result.waliGateState, result.error, 'Failed to accept interest.');
       }
     } catch (error) {
       console.error('Error accepting interest:', error);
@@ -462,7 +495,7 @@ export default function ProfileScreen() {
       if (result.success) {
         setReceivedInterestStatus('rejected');
       } else {
-        Alert.alert('Error', result.error || 'Failed to reject interest.');
+        showWaliGateOrError(result.waliGateState, result.error, 'Failed to reject interest.');
       }
     } catch (error) {
       console.error('Error rejecting interest:', error);
@@ -519,7 +552,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const calculateAge = (dateOfBirth: string): number => {
+  const calculateAge = (dateOfBirth: string): number | null => {
+    if (!dateOfBirth) return null;
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -645,7 +679,7 @@ export default function ProfileScreen() {
 
         <View style={styles.headerRow}>
           <Text style={styles.username}>{profile.username}</Text>
-          <Text style={styles.age}>{age}</Text>
+          {age != null && <Text style={styles.age}>{age}</Text>}
         </View>
 
         {/* Wali-registered badge */}

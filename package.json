@@ -19,7 +19,11 @@
     "embeddings:all": "node scripts/generate-embeddings.js --all",
     "delete-user": "node scripts/delete-user.js",
     "seed-brother-app": "node scripts/seed-brother-app.js",
-    "seed-sister-app": "node scripts/seed-sister-app.js"
+    "seed-sister-app": "node scripts/seed-sister-app.js",
+    "cutover-delete-rejected": "node scripts/cutover-delete-rejected-applications.js",
+    "sweep-pending-applications": "node scripts/sweep-pending-applications.js",
+    "cleanup-duplicate-pending": "node scripts/cleanup-duplicate-pending-applications.js",
+    "grant-manual-access": "node scripts/grant-manual-access.js"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

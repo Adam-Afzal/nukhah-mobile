@@ -22,7 +22,8 @@ export type NotificationType =
   | 'mutual_interest'
   | 'message_received'
   | 'imam_verification'
-  | 'reference_verified';
+  | 'reference_verified'
+  | 'wali_review';
 
 export interface Notification {
   id: string;

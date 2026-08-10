@@ -209,61 +209,28 @@ export default function ProfileSetup() {
         return;
       }
 
-      // Check brother application
-      const { data: brotherApp, error: brotherError } = await supabase
-        .from('brother_application')
-        .select('first_name, last_name, phone_number, nationality, date_of_birth')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // account_type is set at Sign Up (hooks/useSignUp.ts, via the sign-up edge function).
+      // application_type is the equivalent key for accounts created before the Application
+      // system was removed — same idea, different name. See docs/adr/0001 for the removal.
+      const accountType = (user.user_metadata?.account_type ?? user.user_metadata?.application_type ?? null) as 'brother' | 'sister' | null;
 
-      if (brotherError) {
-        console.error('Error fetching brother application:', brotherError);
-      }
-
-      if (brotherApp) {
-        setAccountType('brother');
-        setProfileData(prev => ({
-          ...prev,
-          first_name: brotherApp.first_name || '',
-          last_name: brotherApp.last_name || '',
-          phone: brotherApp.phone_number || '',
-          date_of_birth: brotherApp.date_of_birth || '',
-        }));
-        setIsLoading(false);
+      if (!accountType) {
+        Alert.alert('Error', 'Could not determine your account type. Please contact support.');
+        router.replace('/welcome');
         return;
       }
 
-      // Check sister application
-      const { data: sisterApp, error: sisterError } = await supabase
-        .from('sister_application')
-        .select('first_name, last_name, phone_number, nationality, date_of_birth, wali_first_name, wali_last_name, wali_email, wali_phone, applied_by_wali')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      setAccountType(accountType);
 
-      if (sisterError) {
-        console.error('Error fetching sister application:', sisterError);
-      }
-
-      if (sisterApp) {
-        setAccountType('sister');
-        const waliName = [sisterApp.wali_first_name, sisterApp.wali_last_name].filter(Boolean).join(' ');
-        setProfileData(prev => ({
-          ...prev,
-          first_name: sisterApp.first_name || '',
-          last_name: sisterApp.last_name || '',
-          phone: sisterApp.phone_number || '',
-          date_of_birth: sisterApp.date_of_birth || '',
-          wali_name: waliName,
-          wali_email: sisterApp.wali_email || '',
-          wali_phone: sisterApp.wali_phone || '',
-          applied_by_wali: sisterApp.applied_by_wali || false,
-        }));
-        setIsLoading(false);
-        return;
-      }
-
-      Alert.alert('Error', 'No application found');
-      router.replace('/welcome');
+      // Pre-fill from Sign Up (first/last name, DOB, phone were collected there)
+      const meta = user.user_metadata ?? {};
+      setProfileData(prev => ({
+        ...prev,
+        first_name: meta.first_name || '',
+        last_name: meta.last_name || '',
+        phone: meta.phone_number || '',
+        date_of_birth: meta.date_of_birth || '',
+      }));
     } catch (error) {
       console.error('Error loading account type:', error);
       Alert.alert('Error', 'Failed to load profile data');
@@ -425,6 +392,7 @@ export default function ProfileSetup() {
         user_id: user.id,
         username: profileData.username,
         slug,
+        email: user.email,
         first_name: profileData.first_name,
         last_name: profileData.last_name,
         phone: profileData.phone,
@@ -862,7 +830,22 @@ export default function ProfileSetup() {
       {accountType === 'sister' && (
         <View>
           <Text style={[styles.sectionTitle, { fontSize: 18, marginTop: 8, marginBottom: 4 }]}>Wali Details</Text>
-          <Text style={[styles.sectionSubtitle, { marginBottom: 16 }]}>Pre-filled from your application — update if needed</Text>
+          <Text style={[styles.sectionSubtitle, { marginBottom: 16 }]}>You won't be able to express or accept interest until this is complete — you can always add it later.</Text>
+
+          <View style={styles.switchGroup}>
+            <View style={styles.switchRow}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={styles.label}>Is your wali completing this on your behalf?</Text>
+                <Text style={styles.hint}>Toggle this if a father, brother, or uncle is filling in this section for you</Text>
+              </View>
+              <Switch
+                value={profileData.applied_by_wali}
+                onValueChange={(value) => updateField('applied_by_wali', value)}
+                trackColor={{ false: '#E7EAF0', true: '#F2CC66' }}
+                thumbColor={profileData.applied_by_wali ? '#070A12' : '#7B8799'}
+              />
+            </View>
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Wali Name</Text>

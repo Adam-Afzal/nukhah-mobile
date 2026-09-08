@@ -30,10 +30,10 @@ interface Profile {
 // Build profile text for embedding
 function buildProfileText(profile: Profile, type: 'brother' | 'sister'): string {
   const age = calculateAge(profile.date_of_birth);
-  
+
   return `Location: ${profile.location}. ` +
     `Ethnicity: ${profile.ethnicity}. ` +
-    `Age: ${age}. ` +
+    (age !== null ? `Age: ${age}. ` : '') +
     `Marital Status: ${profile.marital_status}. ` +
     `Deen: ${profile.deen}. ` +
     `Personality: ${profile.personality}. ` +
@@ -43,9 +43,10 @@ function buildProfileText(profile: Profile, type: 'brother' | 'sister'): string 
     (profile.physical_fitness ? `Physical Fitness: ${profile.physical_fitness}.` : '');
 }
 
-function calculateAge(dateOfBirth: string): number {
+function calculateAge(dateOfBirth: string): number | null {
   const today = new Date();
   const birthDate = new Date(dateOfBirth);
+  if (isNaN(birthDate.getTime())) return null;
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
   

@@ -179,6 +179,16 @@ export default function LoginScreen() {
             </Text>
           </AnimatedPressable>
 
+          {/* Imam Portal Link */}
+          <AnimatedPressable
+            style={styles.imamPortalLink}
+            onPress={() => router.push('/(imam)/login')}
+          >
+            <Text style={styles.imamPortalText}>
+              Are you an imam? <Text style={styles.imamPortalTextBold}>Log in here</Text>
+            </Text>
+          </AnimatedPressable>
+
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -197,8 +207,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 60,
-    justifyContent: 'center',
+    paddingTop: 140,
     backgroundColor: '#0A0E1A',
   },
   backButton: {

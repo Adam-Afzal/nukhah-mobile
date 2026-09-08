@@ -52,6 +52,7 @@ export default function VerificationStatusScreen() {
   const [masjidSearch, setMasjidSearch] = useState('');
   const [selectedMasjid, setSelectedMasjid] = useState<string | null>(null);
   const [hasInformedImam, setHasInformedImam] = useState(false);
+  const [applicantNote, setApplicantNote] = useState('');
   const [isSavingMasjid, setIsSavingMasjid] = useState(false);
   const [masjidSectionOpen, setMasjidSectionOpen] = useState(false);
 
@@ -193,6 +194,10 @@ export default function VerificationStatusScreen() {
       Alert.alert('Confirmation required', 'Please confirm you have informed the imam to expect your request.');
       return;
     }
+    if (!applicantNote.trim()) {
+      Alert.alert('Note Required', 'Please add a short note to remind the imam who you are');
+      return;
+    }
     if (!userId || !accountType) return;
 
     const doSave = async () => {
@@ -219,7 +224,7 @@ export default function VerificationStatusScreen() {
         const { data: newVerification, error: verErr } = await supabase
           .from('imam_verification')
           .upsert(
-            { user_id: userId, user_type: accountType, masjid_id: selectedMasjid, status: 'pending' },
+            { user_id: userId, user_type: accountType, masjid_id: selectedMasjid, status: 'pending', applicant_note: applicantNote.trim() || null },
             { onConflict: 'user_id,user_type' }
           )
           .select('id')
@@ -234,6 +239,7 @@ export default function VerificationStatusScreen() {
             user_id: userId,
             user_type: accountType,
             masjid_id: selectedMasjid,
+            applicant_note: applicantNote.trim() || null,
           },
         }).catch(err => console.error('Error sending imam SMS:', err));
 
@@ -247,6 +253,7 @@ export default function VerificationStatusScreen() {
         setMasjidSectionOpen(false);
         setSelectedMasjid(null);
         setHasInformedImam(false);
+        setApplicantNote('');
         await loadImamVerification(userId, accountType);
       } catch (err: any) {
         Alert.alert('Error', err.message || 'Failed to save. Please try again.');
@@ -466,6 +473,24 @@ export default function VerificationStatusScreen() {
                     {' '}to expect my affiliation request
                   </Text>
                 </TouchableOpacity>
+              )}
+
+              {selectedMasjid && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={styles.inputLabel}>Note to imam</Text>
+                  <TextInput
+                    style={[styles.input, { height: 60 }]}
+                    placeholder="I am Fatima, my dad spoke to you about me"
+                    placeholderTextColor="#9CA3AF"
+                    value={applicantNote}
+                    onChangeText={setApplicantNote}
+                    maxLength={120}
+                    multiline
+                  />
+                  <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: '#7B8799', marginTop: 4 }}>
+                    {applicantNote.length}/120 — this is sent directly in the text to your imam, so keep it brief
+                  </Text>
+                </View>
               )}
 
               <TouchableOpacity

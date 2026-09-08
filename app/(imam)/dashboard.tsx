@@ -1,5 +1,4 @@
 // app/(imam)/dashboard.tsx - WITH VERIFICATION CHECKLIST
-import { sendPushNotification } from '@/lib/pushService';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -29,14 +28,28 @@ interface VerificationRequest {
   reference_phone: string;
 }
 
+interface DirectoryMember {
+  user_id: string;
+  user_type: 'brother' | 'sister';
+  name: string;
+  phone: string;
+  wali_name?: string | null;
+  wali_relationship?: string | null;
+  wali_phone?: string | null;
+  wali_email?: string | null;
+}
+
 export default function ImamDashboardScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requests, setRequests] = useState<VerificationRequest[]>([]);
+  const [directory, setDirectory] = useState<DirectoryMember[]>([]);
   const [imamData, setImamData] = useState<any>(null);
-  const [filter, setFilter] = useState<'pending' | 'all'>('pending');
-  
+  const [filter, setFilter] = useState<'pending' | 'directory' | 'all'>('pending');
+  const [memberToRemove, setMemberToRemove] = useState<DirectoryMember | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+
   // Checklist modal state
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<{
@@ -56,7 +69,11 @@ export default function ImamDashboardScreen() {
 
   useEffect(() => {
     if (imamData) {
-      loadVerificationRequests();
+      if (filter === 'directory') {
+        loadDirectory();
+      } else {
+        loadVerificationRequests();
+      }
     }
   }, [imamData, filter]);
 
@@ -158,6 +175,83 @@ export default function ImamDashboardScreen() {
     }
   };
 
+  // Currently-affiliated members — queried straight from the profile tables
+  // by masjid_id + imam_verified=true, same as web's Directory tab. This is
+  // "who's actually affiliated right now", distinct from the Pending/All
+  // tabs above which show imam_verification request history.
+  const loadDirectory = async () => {
+    if (!imamData) return;
+
+    try {
+      const [{ data: brothers }, { data: sisters }] = await Promise.all([
+        supabase.from('brother').select('id, first_name, last_name, phone').eq('masjid_id', imamData.masjid_id).eq('imam_verified', true),
+        supabase.from('sister').select('id, first_name, last_name, phone, wali_name, wali_relationship, wali_phone, wali_email').eq('masjid_id', imamData.masjid_id).eq('imam_verified', true),
+      ]);
+
+      const members: DirectoryMember[] = [
+        ...(brothers || []).map((p: any) => ({
+          user_id: p.id,
+          user_type: 'brother' as const,
+          name: `${p.first_name} ${p.last_name}`.trim(),
+          phone: p.phone || 'N/A',
+        })),
+        ...(sisters || []).map((p: any) => ({
+          user_id: p.id,
+          user_type: 'sister' as const,
+          name: `${p.first_name} ${p.last_name}`.trim(),
+          phone: p.phone || 'N/A',
+          wali_name: p.wali_name,
+          wali_relationship: p.wali_relationship,
+          wali_phone: p.wali_phone,
+          wali_email: p.wali_email,
+        })),
+      ];
+
+      setDirectory(members);
+    } catch (error) {
+      console.error('Error loading directory:', error);
+      Alert.alert('Error', 'Failed to load directory');
+    }
+  };
+
+  const handleRemove = (member: DirectoryMember) => {
+    setMemberToRemove(member);
+  };
+
+  const confirmRemove = async () => {
+    if (!memberToRemove) return;
+    setIsRemoving(true);
+    try {
+      await callPortalAction('remove', memberToRemove.user_id, memberToRemove.user_type);
+      setMemberToRemove(null);
+      loadDirectory();
+    } catch (error: any) {
+      console.error('Remove error:', error);
+      Alert.alert('Error', error.message || 'Failed to remove verification');
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  // Same edge function web's ImamDashboard uses — keeps imam_verification.status
+  // and the profile's imam_verified boolean (which is what browse/matching/badges
+  // actually read) in sync from one place, instead of each platform's screen
+  // remembering to update both itself.
+  const callPortalAction = async (
+    action: 'accept' | 'decline' | 'remove',
+    profileId: string,
+    profileType: 'brother' | 'sister',
+    verificationId?: string
+  ) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+    const { error, data } = await supabase.functions.invoke('imam-portal-action', {
+      body: { action, profile_id: profileId, profile_type: profileType, verification_id: verificationId },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+  };
+
   const handleVerify = (requestId: string, userId: string, userType: 'brother' | 'sister', userName: string) => {
     setSelectedRequest({ id: requestId, userId, userType, userName });
     setChecklist({ knowPerson: false, vouchCharacter: false });
@@ -173,31 +267,7 @@ export default function ImamDashboardScreen() {
     if (!selectedRequest) return;
 
     try {
-      const { error: verifyError } = await supabase
-        .from('imam_verification')
-        .update({
-          status: 'verified',
-          verified_at: new Date().toISOString(),
-        })
-        .eq('id', selectedRequest.id);
-
-      if (verifyError) throw verifyError;
-
-      // Send push notification to the user
-      const { data: profile } = await supabase
-        .from(selectedRequest.userType)
-        .select('push_token')
-        .eq('id', selectedRequest.userId)
-        .maybeSingle();
-
-      if (profile?.push_token) {
-        await sendPushNotification(
-          profile.push_token,
-          'Masjid Affiliation Verified',
-          `${imamData?.masjid?.name || 'Your masjid'} has confirmed your affiliation.`,
-          { screen: 'notifications' }
-        );
-      }
+      await callPortalAction('accept', selectedRequest.userId, selectedRequest.userType, selectedRequest.id);
 
       setShowChecklistModal(false);
       setSelectedRequest(null);
@@ -209,7 +279,7 @@ export default function ImamDashboardScreen() {
     }
   };
 
-  const handleReject = async (requestId: string) => {
+  const handleReject = async (requestId: string, userId: string, userType: 'brother' | 'sister') => {
     Alert.alert(
       'Reject Verification',
       'Are you sure you want to reject this verification request?',
@@ -220,14 +290,7 @@ export default function ImamDashboardScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('imam_verification')
-                .update({
-                  status: 'rejected',
-                })
-                .eq('id', requestId);
-
-              if (error) throw error;
+              await callPortalAction('decline', userId, userType, requestId);
 
               Alert.alert('Rejected', 'Verification request rejected');
               loadVerificationRequests();
@@ -261,7 +324,11 @@ export default function ImamDashboardScreen() {
 
   const onRefresh = async () => {
     setIsRefreshing(true);
-    await loadVerificationRequests();
+    if (filter === 'directory') {
+      await loadDirectory();
+    } else {
+      await loadVerificationRequests();
+    }
     setIsRefreshing(false);
   };
 
@@ -339,7 +406,7 @@ export default function ImamDashboardScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={[styles.actionButton, styles.rejectButton]}
-            onPress={() => handleReject(item.id)}
+            onPress={() => handleReject(item.id, item.user_id, item.user_type)}
           >
             <Text style={styles.rejectButtonText}>Reject</Text>
           </TouchableOpacity>
@@ -351,6 +418,61 @@ export default function ImamDashboardScreen() {
           </TouchableOpacity>
         </View>
       )}
+    </View>
+  );
+
+  const renderDirectoryMember = ({ item }: { item: DirectoryMember }) => (
+    <View style={styles.requestCard}>
+      <View style={styles.requestHeader}>
+        <View>
+          <Text style={styles.requestName}>{item.name}</Text>
+          <Text style={styles.requestMeta}>
+            {item.user_type === 'brother' ? '👨' : '👩'} {item.user_type.charAt(0).toUpperCase() + item.user_type.slice(1)}
+          </Text>
+        </View>
+        <View style={[styles.statusBadge, styles.statusVerified]}>
+          <Text style={styles.statusText}>Verified</Text>
+        </View>
+      </View>
+
+      <View style={styles.requestDetails}>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Phone:</Text>
+          <Text style={styles.detailValue}>{item.phone}</Text>
+        </View>
+      </View>
+
+      {item.user_type === 'sister' && (item.wali_name || item.wali_phone || item.wali_email) && (
+        <View style={styles.referenceSection}>
+          <Text style={styles.referenceSectionTitle}>Wali</Text>
+          <View style={styles.referenceDetails}>
+            {item.wali_name && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Name:</Text>
+                <Text style={styles.detailValue}>
+                  {item.wali_name}{item.wali_relationship ? ` (${item.wali_relationship})` : ''}
+                </Text>
+              </View>
+            )}
+            {item.wali_phone && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Phone:</Text>
+                <Text style={styles.detailValue}>{item.wali_phone}</Text>
+              </View>
+            )}
+            {item.wali_email && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Email:</Text>
+                <Text style={styles.detailValue}>{item.wali_email}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      <TouchableOpacity onPress={() => handleRemove(item)}>
+        <Text style={styles.removeText}>Remove verification</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -384,6 +506,14 @@ export default function ImamDashboardScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, filter === 'directory' && styles.tabActive]}
+          onPress={() => setFilter('directory')}
+        >
+          <Text style={[styles.tabText, filter === 'directory' && styles.tabTextActive]}>
+            Directory
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, filter === 'all' && styles.tabActive]}
           onPress={() => setFilter('all')}
         >
@@ -393,6 +523,23 @@ export default function ImamDashboardScreen() {
         </TouchableOpacity>
       </View>
 
+      {filter === 'directory' ? (
+        <FlatList
+          data={directory}
+          renderItem={renderDirectoryMember}
+          keyExtractor={(item) => item.user_id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>👥</Text>
+              <Text style={styles.emptyText}>No verified members affiliated with your masjid</Text>
+            </View>
+          }
+        />
+      ) : (
       <FlatList
         data={requests}
         renderItem={renderRequest}
@@ -412,6 +559,7 @@ export default function ImamDashboardScreen() {
           </View>
         }
       />
+      )}
 
       <Modal
         visible={showChecklistModal}
@@ -481,6 +629,41 @@ export default function ImamDashboardScreen() {
                   (!checklist.knowPerson || !checklist.vouchCharacter) && styles.confirmButtonTextDisabled
                 ]}>
                   Verify Member
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!memberToRemove}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setMemberToRemove(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Remove Verification</Text>
+            <Text style={styles.modalSubtitle}>
+              Are you sure you want to remove the masjid affiliation for {memberToRemove?.name}? They will be notified.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setMemberToRemove(null)}
+                disabled={isRemoving}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.removeConfirmButton]}
+                onPress={confirmRemove}
+                disabled={isRemoving}
+              >
+                <Text style={styles.confirmButtonText}>
+                  {isRemoving ? 'Removing...' : 'Remove'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -647,6 +830,11 @@ const styles = StyleSheet.create({
   referenceDetails: {
     gap: 6,
   },
+  removeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    color: '#E03A3A',
+  },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
@@ -777,6 +965,9 @@ const styles = StyleSheet.create({
   },
   confirmButtonDisabled: {
     backgroundColor: '#E7EAF0',
+  },
+  removeConfirmButton: {
+    backgroundColor: '#E03A3A',
   },
   confirmButtonText: {
     fontFamily: 'Inter_700Bold',

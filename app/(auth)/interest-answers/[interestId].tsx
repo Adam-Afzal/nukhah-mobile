@@ -52,9 +52,10 @@ export default function InterestAnswersScreen() {
 
   const calculateAge = (dateOfBirth: string | undefined): number | null => {
     if (!dateOfBirth) return null;
-    
+
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
+    if (isNaN(birthDate.getTime())) return null;
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     

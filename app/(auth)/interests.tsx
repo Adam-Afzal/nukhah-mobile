@@ -37,9 +37,10 @@ interface InterestRequest {
   profile_build?: string;
   profile_date_of_birth?: string;
   profile_prayer_consistency?: string;
-  profile_masjid_affiliation_status?: 'verified' | 'pending' | 'none';
+  profile_masjid_affiliation_status?: 'verified' | 'pending' | 'rejected' | 'none';
   profile_masjid_name?: string;
   profile_reference_status?: 'verified' | 'pending' | 'none';
+  profile_applied_by_wali?: boolean;
   displayed_profile_id?: string;
 }
 
@@ -346,16 +347,39 @@ export default function InterestsScreen() {
         const profileId = profileSource === 'requester' ? interest.requester_id : interest.recipient_id;
         const profileType = profileSource === 'requester' ? interest.requester_type : interest.recipient_type;
         
-        const selectFields = 'username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, imam_verified, is_masjid_affiliated, masjid_id';
+        const selectFields = 'username, location_country, location_city, ethnicity, marital_status, build, date_of_birth, prayer_consistency, imam_verified, is_masjid_affiliated, masjid_id'
+          + (profileType === 'sister' ? ', applied_by_wali' : '');
 
-        const [{ data: profile }, { data: refs }] = await Promise.all([
+        const [{ data: profileRaw }, { data: refs }, { data: imamVerification }] = await Promise.all([
           supabase.from(profileType).select(selectFields).eq('id', profileId).single(),
-          supabase.from('reference').select('verification_status').eq('user_id', profileId).eq('user_type', profileType),
+          supabase.from('reference_verification_status').select('verification_status').eq('user_id', profileId).eq('user_type', profileType),
+          supabase.from('imam_verification_status').select('status').eq('user_id', profileId).eq('user_type', profileType).maybeSingle(),
         ]);
 
+        // Supabase's typed .select() infers the row shape by parsing the
+        // select string via template-literal types — that only works for an
+        // actual string literal. selectFields is computed (concatenation),
+        // so profile's inferred type collapses to an untyped fallback; cast
+        // explicitly instead of fighting that inference.
+        const profile = profileRaw as {
+          username?: string;
+          location_country?: string;
+          location_city?: string;
+          ethnicity?: string | string[];
+          marital_status?: string;
+          build?: string;
+          date_of_birth?: string;
+          prayer_consistency?: string;
+          imam_verified?: boolean;
+          is_masjid_affiliated?: boolean;
+          masjid_id?: string;
+          applied_by_wali?: boolean;
+        } | null;
+
         // Masjid badge status from profile fields
-        const masjidAffiliationStatus: 'verified' | 'pending' | 'none' =
+        const masjidAffiliationStatus: 'verified' | 'pending' | 'rejected' | 'none' =
           profile?.imam_verified ? 'verified' :
+          imamVerification?.status === 'rejected' ? 'rejected' :
           (profile?.is_masjid_affiliated && profile?.masjid_id) ? 'pending' : 'none';
 
         // Masjid name (only if affiliated with a real masjid)
@@ -385,6 +409,7 @@ export default function InterestsScreen() {
           profile_masjid_affiliation_status: masjidAffiliationStatus,
           profile_masjid_name: masjidName,
           profile_reference_status: referenceStatus,
+          profile_applied_by_wali: profile?.applied_by_wali,
         };
       })
     );
@@ -431,6 +456,7 @@ export default function InterestsScreen() {
     if (!dateOfBirth) return null;
     const today = new Date();
     const birth = new Date(dateOfBirth);
+    if (isNaN(birth.getTime())) return null;
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
@@ -496,6 +522,11 @@ export default function InterestsScreen() {
 
         {/* Verification badges */}
         <View style={styles.verificationRow}>
+          {item.profile_applied_by_wali && (
+            <View style={styles.waliBadge}>
+              <Text style={styles.waliBadgeText}>Profile registered by Wali</Text>
+            </View>
+          )}
           {item.profile_masjid_affiliation_status === 'verified' ? (
             <View style={styles.verifiedBadge}>
               <Text style={styles.verifiedBadgeText}>🕌 {item.profile_masjid_name} (Verified)</Text>
@@ -503,6 +534,10 @@ export default function InterestsScreen() {
           ) : item.profile_masjid_affiliation_status === 'pending' ? (
             <View style={styles.pendingBadge}>
               <Text style={styles.pendingBadgeText}>🕌 {item.profile_masjid_name ? `${item.profile_masjid_name} (Pending)` : 'Affiliation Pending'}</Text>
+            </View>
+          ) : item.profile_masjid_affiliation_status === 'rejected' ? (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneBadgeText}>🕌 {item.profile_masjid_name ? `${item.profile_masjid_name} (Not Confirmed)` : 'Affiliation Not Confirmed'}</Text>
             </View>
           ) : (
             <View style={styles.noneBadge}>
@@ -728,7 +763,7 @@ export default function InterestsScreen() {
           onPress={() => setActiveTab('expressed')}
         >
           <Text style={[styles.tabText, activeTab === 'expressed' && styles.activeTabText]}>
-            Expressed Interest
+            Received
           </Text>
           {expressedInterests.length > 0 && activeTab !== 'expressed' && (
   <View style={styles.tabBadge}>
@@ -742,7 +777,7 @@ export default function InterestsScreen() {
           onPress={() => setActiveTab('your')}
         >
           <Text style={[styles.tabText, activeTab === 'your' && styles.activeTabText]}>
-            Your Interests
+            Sent
           </Text>
         </TouchableOpacity>
 
@@ -751,7 +786,7 @@ export default function InterestsScreen() {
           onPress={() => setActiveTab('mutual')}
         >
           <Text style={[styles.tabText, activeTab === 'mutual' && styles.activeTabText]}>
-            Mutual Interest
+            Mutual
           </Text>
           {mutualInterests.length > 0 && activeTab !== 'mutual' && (
   <View style={styles.tabBadge}>
@@ -860,7 +895,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,  // ← Changed from 6 to 4 for tighter spacing
+    gap: 6,
   },
   activeTab: {
     borderBottomWidth: 2,
@@ -956,6 +991,19 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 8,
     flexWrap: 'wrap',
+  },
+  waliBadge: {
+    backgroundColor: 'rgba(242, 204, 102, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 204, 102, 0.4)',
+  },
+  waliBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: '#F2CC66',
   },
   verifiedBadge: {
     backgroundColor: '#EAF5EE',

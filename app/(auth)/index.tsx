@@ -42,12 +42,13 @@ interface Profile {
   // Sister-only fields
   open_to_polygyny?: boolean;
   hijab_commitment?: string;
+  applied_by_wali?: boolean;
   // Enriched from joins
   masjid_name?: string;
   imam_name?: string;
   masjid_id?: string;
   is_masjid_affiliated?: boolean;
-  masjid_affiliation_status?: 'verified' | 'pending' | 'none';
+  masjid_affiliation_status?: 'verified' | 'pending' | 'rejected' | 'none';
   reference_status?: 'verified' | 'pending' | 'none';
   compatibility_score?: number;
 }
@@ -342,6 +343,7 @@ export default function SearchScreen() {
     if (!dateOfBirth) return null;
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
+    if (isNaN(birthDate.getTime())) return null;
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
@@ -374,7 +376,7 @@ export default function SearchScreen() {
     try {
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
       const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
-      const extraFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment' : '';
+      const extraFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment, applied_by_wali' : '';
 
       let enrichedProfiles: Profile[] = [];
 
@@ -392,7 +394,7 @@ export default function SearchScreen() {
           const profileIds = profileDetails.map((p: any) => p.id);
 
           const { data: localRefs } = await supabase
-            .from('reference')
+            .from('reference_verification_status')
             .select('user_id, verification_status')
             .eq('user_type', targetUserType)
             .in('user_id', profileIds);
@@ -444,7 +446,7 @@ export default function SearchScreen() {
     try {
       const targetTable = accountType === 'brother' ? 'sister' : 'brother';
       const targetUserType = accountType === 'brother' ? 'sister' : 'brother';
-      const extraFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment' : '';
+      const extraFields = targetTable === 'sister' ? ', open_to_polygyny, hijab_commitment, applied_by_wali' : '';
 
       // Always fetch all profile IDs — RPC scores used for ordering only.
       // Profiles without embeddings still appear, sorted to the bottom.
@@ -473,11 +475,18 @@ export default function SearchScreen() {
         return;
       }
 
-      const references = await supabase
-        .from('reference')
-        .select('user_id, verification_status')
-        .eq('user_type', targetUserType)
-        .in('user_id', profileIds);
+      const [references, imamVerifications] = await Promise.all([
+        supabase
+          .from('reference_verification_status')
+          .select('user_id, verification_status')
+          .eq('user_type', targetUserType)
+          .in('user_id', profileIds),
+        supabase
+          .from('imam_verification_status')
+          .select('user_id, status')
+          .eq('user_type', targetUserType)
+          .in('user_id', profileIds),
+      ]);
 
       const refStatusMap = new Map<string, 'verified' | 'pending' | 'none'>();
       for (const id of profileIds) {
@@ -487,6 +496,9 @@ export default function SearchScreen() {
         else refStatusMap.set(id, 'none');
       }
 
+      const imamStatusMap = new Map<string, string>();
+      for (const v of imamVerifications.data || []) imamStatusMap.set((v as any).user_id, (v as any).status);
+
       const scored = profileDetails.map((profile: any) => {
         const masjid = Array.isArray(profile.masjid) ? profile.masjid[0] : profile.masjid;
         const vectorScore = vectorScoreMap.get(profile.id) ?? null;
@@ -494,8 +506,9 @@ export default function SearchScreen() {
           ? calculateHardRuleScore(currentUserCompatProfile, profile)
           : 0.5;
 
-        const masjidStatus: 'verified' | 'pending' | 'none' =
+        const masjidStatus: 'verified' | 'pending' | 'rejected' | 'none' =
           profile.imam_verified ? 'verified' :
+          imamStatusMap.get(profile.id) === 'rejected' ? 'rejected' :
           (profile.is_masjid_affiliated && masjid) ? 'pending' : 'none';
 
         return {
@@ -1036,6 +1049,11 @@ export default function SearchScreen() {
         </View>
 
         <View style={styles.verificationRow}>
+          {item.applied_by_wali && (
+            <View style={styles.waliBadge}>
+              <Text style={styles.waliBadgeText}>Profile registered by Wali</Text>
+            </View>
+          )}
           {item.masjid_affiliation_status === 'verified' && item.masjid_name ? (
             <View style={styles.verificationBadge}>
               <Text style={styles.verificationText}>🕌 {item.masjid_name} (Verified)</Text>
@@ -1043,6 +1061,10 @@ export default function SearchScreen() {
           ) : item.masjid_affiliation_status === 'pending' ? (
             <View style={styles.pendingBadge}>
               <Text style={styles.pendingText}>🕌 {item.masjid_name ? `${item.masjid_name} (Pending)` : 'Affiliation Pending'}</Text>
+            </View>
+          ) : item.masjid_affiliation_status === 'rejected' ? (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneText}>🕌 {item.masjid_name ? `${item.masjid_name} (Not Confirmed)` : 'Affiliation Not Confirmed'}</Text>
             </View>
           ) : (
             <View style={styles.noneBadge}>
@@ -1408,6 +1430,20 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
     flexWrap: 'wrap',
+  },
+  waliBadge: {
+    backgroundColor: 'rgba(242, 204, 102, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(242, 204, 102, 0.4)',
+  },
+  waliBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#F2CC66',
   },
   verificationBadge: {
     backgroundColor: '#EAF5EE',

@@ -40,6 +40,7 @@ export default function MasjidAffiliationScreen() {
   const [isAffiliated, setIsAffiliated] = useState<boolean | null>(null);
   const [selectedMasjid, setSelectedMasjid] = useState<string | null>(null);
   const [hasInformedImam, setHasInformedImam] = useState(false);
+  const [applicantNote, setApplicantNote] = useState('');
   const [suggestedMasjidName, setSuggestedMasjidName] = useState('');
   const [suggestedMasjidCity, setSuggestedMasjidCity] = useState('');
   const [masajid, setMasajid] = useState<Masjid[]>([]);
@@ -188,6 +189,11 @@ const loadMasajid = async (location?: string) => {
       return;
     }
 
+    if (isAffiliated && selectedMasjid && !applicantNote.trim()) {
+      Alert.alert('Note Required', 'Please add a short note to remind the imam who you are');
+      return;
+    }
+
     if (!accountType || !userId) {
       Alert.alert('Error', 'Account information not found');
       return;
@@ -222,6 +228,7 @@ const loadMasajid = async (location?: string) => {
             user_type: accountType,
             masjid_id: selectedMasjid,
             status: 'pending',
+            applicant_note: applicantNote.trim() || null,
           })
           .select('id')
           .single();
@@ -237,6 +244,7 @@ const loadMasajid = async (location?: string) => {
               user_id: userId,
               user_type: accountType,
               masjid_id: selectedMasjid,
+              applicant_note: applicantNote.trim() || null,
             },
           }).catch(err => console.error('Error sending imam verification SMS:', err));
         }
@@ -406,6 +414,22 @@ const loadMasajid = async (location?: string) => {
                   {' '}to expect my affiliation request
                 </Text>
               </TouchableOpacity>
+            )}
+
+            {selectedMasjid && (
+              <View style={styles.notListedContainer}>
+                <Text style={styles.notListedLabel}>Note to imam</Text>
+                <TextInput
+                  style={[styles.notListedInput, { height: 60 }]}
+                  placeholder="I am Fatima, my dad spoke to you about me"
+                  placeholderTextColor="#9CA3AF"
+                  value={applicantNote}
+                  onChangeText={setApplicantNote}
+                  maxLength={120}
+                  multiline
+                />
+                <Text style={styles.notListedHint}>{applicantNote.length}/120 — this is sent directly in the text to your imam, so keep it brief</Text>
+              </View>
             )}
 
             {/* More masjids notice */}

@@ -38,10 +38,11 @@ export interface RecipientQuestions {
 }
 
 /**
- * Wali Gate (see CONTEXT.md): a sister profile needs all five wali fields
+ * Wali Gate (see CONTEXT.md): a sister profile needs wali_name + wali_phone
  * filled in AND admin-approved before expressing interest or accepting/
- * declining a received one. This is a client-side pre-check for a friendly
- * error message only — the database trigger (see
+ * declining a received one. Relationship, email, and preferred contact are
+ * optional — not every wali has an email. This is a client-side pre-check
+ * for a friendly error message only — the database trigger (see
  * nukhbah-web-main/supabase/migrations) is the source of truth and rejects
  * the write regardless of this check.
  */
@@ -56,19 +57,13 @@ interface WaliGateCheck {
 async function checkWaliGate(sisterId: string): Promise<WaliGateCheck> {
   const { data, error } = await supabase
     .from('sister')
-    .select('wali_name, wali_relationship, wali_phone, wali_email, wali_preferred_contact, wali_review_status, wali_reject_reason')
+    .select('wali_name, wali_phone, wali_review_status, wali_reject_reason')
     .eq('id', sisterId)
     .single();
 
-  const hasAllFields = !!(
-    data?.wali_name &&
-    data?.wali_relationship &&
-    data?.wali_phone &&
-    data?.wali_email &&
-    data?.wali_preferred_contact
-  );
+  const hasRequiredFields = !!(data?.wali_name && data?.wali_phone);
 
-  if (error || !data || !hasAllFields || !data.wali_review_status) {
+  if (error || !data || !hasRequiredFields || !data.wali_review_status) {
     return {
       satisfied: false,
       state: 'not_submitted',

@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imam_verification_id, user_id, user_type, masjid_id } = await req.json()
+    const { imam_verification_id, user_id, user_type, masjid_id, applicant_note } = await req.json()
 
     if (!imam_verification_id || !user_id || !user_type || !masjid_id) {
       return json({ error: 'Missing required fields' }, 400)
@@ -61,10 +61,44 @@ serve(async (req) => {
       ? `${profile.first_name} ${profile.last_name}`.trim()
       : 'A member'
 
+    // Assign a reply code unique among this masjid's currently-pending
+    // verifications (DB-enforced via a partial unique index — see
+    // 20260902000000_imam_verification_reply_code.sql). Lets the imam
+    // disambiguate which applicant a YES/NO applies to when more than one
+    // is pending at once. Retry a few times on the rare collision.
+    let code: string | null = null
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const candidate = String(Math.floor(Math.random() * 90) + 10) // 10-99
+      const { error: codeError } = await supabase
+        .from('imam_verification')
+        .update({ code: candidate })
+        .eq('id', imam_verification_id)
+
+      if (!codeError) {
+        code = candidate
+        break
+      }
+      if (codeError.code !== '23505') {
+        console.error('Error assigning verification code:', codeError)
+        break
+      }
+      // 23505 = unique violation on (masjid_id, code) — another pending
+      // request at this masjid already has this code, try a new one.
+    }
+
+    if (!code) {
+      return json({ error: 'Could not allocate a verification code' }, 500)
+    }
+
     let smsBody =
       `Assalamu Alaikum ${imam.name},\n\n` +
       `${userName} has affiliated themselves with ${masjid.name}. ` +
       `Can you confirm knowledge of this person?`
+
+    const trimmedNote = typeof applicant_note === 'string' ? applicant_note.trim().slice(0, 120) : ''
+    if (trimmedNote) {
+      smsBody += `\n\nNote from ${userName}: "${trimmedNote}"`
+    }
 
     if (user_type === 'sister' && profile?.wali_name) {
       smsBody += `\n\nWali: ${profile.wali_name}`
@@ -72,7 +106,7 @@ serve(async (req) => {
       if (profile.wali_phone) smsBody += `, ${profile.wali_phone}`
     }
 
-    smsBody += '\n\nReply YES to confirm or NO if you cannot confirm.\n\nJazakAllahu Khairan'
+    smsBody += `\n\nReply YES ${code} to confirm or NO ${code} if you cannot confirm.\n\nJazakAllahu Khairan`
 
     const twilioSid = Deno.env.get('TWILIO_ACCOUNT_SID')!
     const twilioToken = Deno.env.get('TWILIO_AUTH_TOKEN')!

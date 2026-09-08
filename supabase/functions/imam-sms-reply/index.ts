@@ -55,26 +55,57 @@ serve(async (req) => {
       return twiml('Thank you for your message.')
     }
 
-    // Find the most recent pending verification for this masjid
-    const { data: verification } = await supabase
-      .from('imam_verification')
-      .select('id, user_id, user_type')
-      .eq('masjid_id', masjid.id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (!verification) {
-      return twiml('No pending verification found for your masjid. JazakAllahu Khairan.')
-    }
-
     // Parse intent
     const isYes = body.startsWith('YES')
     const isNo = body.startsWith('NO')
 
     if (!isYes && !isNo) {
       return twiml('Please reply with YES or NO to verify the applicant.')
+    }
+
+    // A reply code disambiguates which applicant this is for when more than
+    // one is pending at this masjid — e.g. "YES 42". Optional: with only one
+    // pending, a plain YES/NO still works.
+    const codeMatch = body.match(/(\d{2,})/)
+    const replyCode = codeMatch ? codeMatch[1] : null
+
+    const { data: pending } = await supabase
+      .from('imam_verification')
+      .select('id, user_id, user_type, code')
+      .eq('masjid_id', masjid.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+
+    if (!pending || pending.length === 0) {
+      return twiml('No pending verification found for your masjid. JazakAllahu Khairan.')
+    }
+
+    let verification: { id: string; user_id: string; user_type: string; code: string | null } | undefined
+
+    if (replyCode) {
+      verification = pending.find((v) => v.code === replyCode)
+      if (!verification) {
+        return twiml(`That code doesn't match a pending verification for your masjid. Please check and reply again, e.g. "YES ${pending[0].code}".`)
+      }
+    } else if (pending.length === 1) {
+      verification = pending[0]
+    } else {
+      // Multiple pending and no code given — don't guess which one this is for.
+      const namedList = await Promise.all(
+        pending.map(async (v) => {
+          const { data: p } = await supabase
+            .from(v.user_type)
+            .select('first_name, last_name')
+            .eq('id', v.user_id)
+            .maybeSingle()
+          const name = p ? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() : 'a member'
+          return `${name} (${v.code})`
+        })
+      )
+      return twiml(
+        `You have ${pending.length} pending verifications: ${namedList.join(', ')}. ` +
+        `Please reply YES or NO followed by the code, e.g. "YES ${pending[0].code}".`
+      )
     }
 
     const newStatus = isYes ? 'verified' : 'rejected'
@@ -90,12 +121,17 @@ serve(async (req) => {
       return twiml('Sorry, there was an error recording your response. Please try again.')
     }
 
-    // Fetch user push token
+    // Fetch user push token + name — name is echoed back in the reply too, as
+    // a final visible confirmation of who the code resolved to.
     const { data: profile } = await supabase
       .from(verification.user_type)
-      .select('push_token')
+      .select('push_token, first_name, last_name')
       .eq('id', verification.user_id)
       .maybeSingle()
+
+    const applicantName = profile
+      ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()
+      : 'the applicant'
 
     const pushTitle = isYes ? 'Masjid Affiliation Verified' : 'Masjid Affiliation Update'
     const pushBody = isYes
@@ -128,8 +164,8 @@ serve(async (req) => {
     })
 
     const reply = isYes
-      ? `JazakAllahu Khairan, ${imam.name}. We have recorded your confirmation.`
-      : `JazakAllahu Khairan, ${imam.name}. We have recorded your response.`
+      ? `JazakAllahu Khairan, ${imam.name}. We have recorded your confirmation for ${applicantName}.`
+      : `JazakAllahu Khairan, ${imam.name}. We have recorded your response for ${applicantName}.`
 
     return twiml(reply)
 

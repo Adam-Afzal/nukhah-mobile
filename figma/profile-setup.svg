@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <defs>
+    <linearGradient id="fadeUp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FDFDFD" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#FDFDFD" stop-opacity="1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="390" height="844" fill="#FDFDFD"/>
+
+  <!-- Status bar -->
+  <text x="24" y="22" font-size="12" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">9:41</text>
+  <text x="352" y="22" font-size="12" fill="#070A12" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">●●● ▲ 100%</text>
+
+  <!-- Header -->
+  <rect x="0" y="44" width="390" height="108" fill="#FFFFFF"/>
+  <text x="28" y="104" font-size="32" font-weight="700" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Create Your Profile</text>
+  <text x="28" y="130" font-size="14" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Sister Profile</text>
+  <line x1="0" y1="152" x2="390" y2="152" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Progress bar (renderProgressBar — linear bar + "Step X of 4", not the circular OnboardingProgress used elsewhere) -->
+  <rect x="0" y="152" width="390" height="68" fill="#FFFFFF"/>
+  <rect x="28" y="176" width="334" height="8" rx="4" fill="#E7EAF0"/>
+  <rect x="28" y="176" width="83" height="8" rx="4" fill="#F2CC66"/>
+  <text x="195" y="204" font-size="12" font-weight="600" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Step 1 of 4</text>
+  <line x1="0" y1="220" x2="390" y2="220" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Section: Your Identity (username step) -->
+  <text x="28" y="238" font-size="24" font-weight="700" fill="#070A12" font-family="Georgia, 'Times New Roman', serif">Your Identity</text>
+  <text x="28" y="260" font-size="14" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">Let's start with your basic information</text>
+
+  <!-- First Name -->
+  <text x="28" y="289" font-size="14" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">First Name *</text>
+  <rect x="28" y="295" width="334" height="44" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="44" y="323" font-size="15" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Amina</text>
+
+  <!-- Last Name -->
+  <text x="28" y="368" font-size="14" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Last Name *</text>
+  <rect x="28" y="374" width="334" height="44" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="44" y="402" font-size="15" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Hassan</text>
+
+  <!-- Date of Birth (disabled — prefilled from Sign Up, not editable here) -->
+  <text x="28" y="447" font-size="14" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Date of Birth *</text>
+  <rect x="28" y="453" width="334" height="44" rx="12" fill="#F0F0F0" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="44" y="481" font-size="15" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif">1998-04-12</text>
+
+  <!-- Location -->
+  <text x="28" y="526" font-size="14" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Location *</text>
+  <rect x="28" y="532" width="334" height="44" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+  <text x="44" y="560" font-size="15" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">🇬🇧 Birmingham, United Kingdom</text>
+  <text x="338" y="562" font-size="24" fill="#7B8799" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">›</text>
+
+  <!-- Username (available — green border + checkmark + success text) -->
+  <text x="28" y="605" font-size="14" font-weight="600" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">Username *</text>
+  <rect x="28" y="611" width="334" height="44" rx="12" fill="#FFFFFF" stroke="#17803A" stroke-width="1"/>
+  <text x="44" y="639" font-size="15" fill="#070A12" font-family="system-ui, -apple-system, sans-serif">amina_h98</text>
+  <text x="340" y="640" font-size="18" fill="#17803A" font-family="system-ui, -apple-system, sans-serif" text-anchor="end">✓</text>
+  <text x="28" y="671" font-size="12" fill="#17803A" font-family="system-ui, -apple-system, sans-serif">Username is available!</text>
+
+  <!-- Log Out (peeks under the scroll fade — hints there's more below) -->
+  <rect x="28" y="703" width="334" height="46" rx="12" fill="#FFFFFF" stroke="#E7EAF0" stroke-width="1"/>
+  <path d="M 178 718 L 172 718 A 4 4 0 0 0 168 722 L 168 734 A 4 4 0 0 0 172 738 L 178 738 M 190 722 L 200 726 L 190 730 M 200 726 L 174 726" stroke="#E03A3A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="208" y="731" font-size="15" font-weight="600" fill="#E03A3A" font-family="system-ui, -apple-system, sans-serif">Log Out</text>
+
+  <!-- Scroll fade -->
+  <rect x="0" y="720" width="390" height="28" fill="url(#fadeUp)"/>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="748" width="390" height="96" fill="#FFFFFF"/>
+  <line x1="0" y1="748" x2="390" y2="748" stroke="#E7EAF0" stroke-width="1"/>
+
+  <!-- Continue (full width — no Back button on the first step) -->
+  <rect x="28" y="764" width="334" height="52" rx="12" fill="#070A12"/>
+  <text x="195" y="795" font-size="16" font-weight="700" fill="#F2CC66" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">Continue →</text>
+
+  <!-- Home indicator -->
+  <rect x="155" y="830" width="80" height="4" rx="2" fill="#070A12" fill-opacity="0.15"/>
+</svg>

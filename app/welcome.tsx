@@ -59,15 +59,6 @@ export default function WelcomeScreen() {
             <Text style={styles.loginButtonText}>Login</Text>
           </AnimatedPressable>
         </View>
-
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>
-            Membership applications are carefully reviewed
-          </Text>
-          <Text style={styles.footerText}>
-            to maintain our community standards
-          </Text>
-        </View>
       </View>
     </View>
   );
@@ -151,17 +142,5 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: 'center',
     color: '#F2CC66',
-  },
-  footerContainer: {
-    position: 'absolute',
-    bottom: height * 0.134,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    lineHeight: 15,
-    textAlign: 'center',
-    color: '#F7E099',
   },
 });

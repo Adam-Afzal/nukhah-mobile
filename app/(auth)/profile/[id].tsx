@@ -98,7 +98,7 @@ export default function ProfileScreen() {
   const [canViewBrotherPhone, setCanViewBrotherPhone] = useState(false);
   const [profileMasjid, setProfileMasjid] = useState<MasjidInfo | null>(null);
   const [currentUserMasjid, setCurrentUserMasjid] = useState<MasjidInfo | null>(null);
-  const [masjidStatus, setMasjidStatus] = useState<'verified' | 'pending' | 'none'>('none');
+  const [masjidStatus, setMasjidStatus] = useState<'verified' | 'pending' | 'rejected' | 'none'>('none');
   const [referenceStatus, setReferenceStatus] = useState<'verified' | 'pending' | 'none'>('none');
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -191,7 +191,7 @@ export default function ProfileScreen() {
         setProfile(brotherData as ProfileData);
         setProfileType('brother');
         await Promise.all([
-          loadProfileMasjid(brotherData.imam_verified, brotherData.masjid_id, brotherData.is_masjid_affiliated),
+          loadProfileMasjid(brotherData.imam_verified, brotherData.masjid_id, brotherData.is_masjid_affiliated, id, 'brother'),
           loadReferenceVerification(id, 'brother'),
         ]);
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'brother');
@@ -208,7 +208,7 @@ export default function ProfileScreen() {
         setProfile(sisterData as ProfileData);
         setProfileType('sister');
         await Promise.all([
-          loadProfileMasjid(sisterData.imam_verified, sisterData.masjid_id, sisterData.is_masjid_affiliated),
+          loadProfileMasjid(sisterData.imam_verified, sisterData.masjid_id, sisterData.is_masjid_affiliated, id, 'sister'),
           loadReferenceVerification(id, 'sister'),
         ]);
         if (userId && acctType) await checkInterestStatusAndAccess(userId, acctType, id, 'sister');
@@ -273,7 +273,7 @@ export default function ProfileScreen() {
   const loadReferenceVerification = async (profileId: string, profileType: 'brother' | 'sister') => {
     try {
       const { data } = await supabase
-        .from('reference')
+        .from('reference_verification_status')
         .select('verification_status')
         .eq('user_id', profileId)
         .eq('user_type', profileType);
@@ -290,7 +290,9 @@ export default function ProfileScreen() {
   const loadProfileMasjid = async (
     imamVerified: boolean | null,
     masjidId: string | null,
-    isMasjidAffiliated: boolean | null
+    isMasjidAffiliated: boolean | null,
+    profileId: string,
+    pType: 'brother' | 'sister'
   ) => {
     try {
       if (!isMasjidAffiliated || !masjidId) {
@@ -298,7 +300,17 @@ export default function ProfileScreen() {
         return;
       }
 
-      setMasjidStatus(imamVerified ? 'verified' : 'pending');
+      if (imamVerified) {
+        setMasjidStatus('verified');
+      } else {
+        const { data: verification } = await supabase
+          .from('imam_verification_status')
+          .select('status')
+          .eq('user_id', profileId)
+          .eq('user_type', pType)
+          .maybeSingle();
+        setMasjidStatus(verification?.status === 'rejected' ? 'rejected' : 'pending');
+      }
 
       const { data: masjid } = await supabase
         .from('masjid')
@@ -556,6 +568,7 @@ export default function ProfileScreen() {
     if (!dateOfBirth) return null;
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
+    if (isNaN(birthDate.getTime())) return null;
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
 
@@ -700,6 +713,10 @@ export default function ProfileScreen() {
           ) : masjidStatus === 'pending' ? (
             <View style={styles.pendingBadge}>
               <Text style={styles.pendingBadgeText}>🕌 {profileMasjid?.name ? `${profileMasjid.name} (Pending)` : 'Affiliation Pending'}</Text>
+            </View>
+          ) : masjidStatus === 'rejected' ? (
+            <View style={styles.noneBadge}>
+              <Text style={styles.noneBadgeText}>🕌 {profileMasjid?.name ? `${profileMasjid.name} (Not Confirmed)` : 'Affiliation Not Confirmed'}</Text>
             </View>
           ) : (
             <View style={styles.noneBadge}>

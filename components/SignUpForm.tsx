@@ -76,13 +76,28 @@ export default function SignUpForm({ accountType }: SignUpFormProps) {
     if (!formData.date_of_birth.trim()) {
       newErrors.date_of_birth = 'Required';
     } else {
-      const dob = new Date(formData.date_of_birth);
-      const minAge = new Date();
-      minAge.setFullYear(minAge.getFullYear() - 18);
-      if (isNaN(dob.getTime())) {
-        newErrors.date_of_birth = 'Invalid date format';
-      } else if (dob > minAge) {
-        newErrors.date_of_birth = 'You must be at least 18 years old';
+      const match = formData.date_of_birth.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) {
+        // Non-ISO date strings parse inconsistently across JS engines (e.g.
+        // Hermes on the device vs. a browser rendering the same profile
+        // later) — one may accept "18-2-1990" while another can't, silently
+        // producing NaN wherever age gets computed. Requiring strict
+        // YYYY-MM-DD up front means every engine parses it the same way.
+        newErrors.date_of_birth = 'Use YYYY-MM-DD format (e.g. 1990-01-15)';
+      } else {
+        const [, y, m, d] = match;
+        const dob = new Date(`${y}-${m}-${d}T00:00:00`);
+        const roundTrips =
+          dob.getFullYear() === Number(y) &&
+          dob.getMonth() + 1 === Number(m) &&
+          dob.getDate() === Number(d);
+        const minAge = new Date();
+        minAge.setFullYear(minAge.getFullYear() - 18);
+        if (isNaN(dob.getTime()) || !roundTrips) {
+          newErrors.date_of_birth = 'Not a real date';
+        } else if (dob > minAge) {
+          newErrors.date_of_birth = 'You must be at least 18 years old';
+        }
       }
     }
     if (!formData.password.trim()) {

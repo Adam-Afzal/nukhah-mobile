@@ -127,7 +127,7 @@ export default function ReferencesScreen() {
     }
   };
   
-  const sendReferenceSMS = async (phone: string): Promise<boolean> => {
+  const sendReferenceSMS = async (phone: string, referenceId: string): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
@@ -143,7 +143,7 @@ export default function ReferencesScreen() {
         : 'A Mithaq user';
 
       const { error } = await supabase.functions.invoke('send-sms', {
-        body: { to: phone, userName },
+        body: { to: phone, userName, reference_id: referenceId },
       });
 
       if (error) {
@@ -208,7 +208,7 @@ export default function ReferencesScreen() {
 
     setIsSubmitting(true);
     try {
-      const { error: referenceError } = await supabase
+      const { data: referenceRow, error: referenceError } = await supabase
         .from('reference')
         .insert({
           user_id: userId,
@@ -218,7 +218,9 @@ export default function ReferencesScreen() {
           reference_phone: reference.phone.trim(),
           reference_email: reference.email.trim() || null,
           verification_status: 'pending',
-        });
+        })
+        .select('id')
+        .single();
 
       if (referenceError) throw referenceError;
 
@@ -228,7 +230,7 @@ export default function ReferencesScreen() {
       );
 
       // Fire-and-forget — SMS failure does not block onboarding
-      sendReferenceSMS(reference.phone.trim()).catch(err =>
+      sendReferenceSMS(reference.phone.trim(), referenceRow.id).catch(err =>
         console.error('Reference SMS failed:', err)
       );
 

@@ -1,0 +1,11 @@
+# Enforce the membership (paywall) gate at the database level, not just client-side
+
+The paywall is moving off onboarding — profile setup, masjid affiliation, and references will no longer check payment status at all — and onto `expressInterest`, `acceptInterest`, and `rejectInterest` (not `withdrawInterest`, which stays free). Mobile (`lib/interestService.ts`) and the web app (inline Supabase calls in `ProfileDetail.tsx`/`Interests.tsx`) each implement these independently, with no shared backend layer — the same structural fact that led to [[nukhah-mobile docs/adr/0001]] enforcing the Wali Gate in Postgres rather than trusting either client.
+
+A client-side-only version of this check already exists today (three duplicated `userStatus?.testingMode || userStatus?.paid` checks in mobile's `app/(auth)/profile/[id].tsx`, mirrored by three `toast()` checks in web's `ProfileDetail.tsx`), but it protects revenue, not just a trust/safety flag — a client bug, a patched build, or a direct API call bypasses it with no backstop.
+
+**Decision**: enforce the membership gate as a Postgres-level check (RLS policy or trigger) on the `interests` table, rejecting inserts/status-updates that would express, accept, or reject an interest from a user without an active `subscribers` row — but only for those three actions, not `withdrawInterest`. Client-side checks are kept in both apps for a fast, friendly error message before the round-trip; the database remains the source of truth.
+
+**Considered Options**
+- Client-side only, centralized into one function per app instead of duplicated per call site — less work, but still bypassable by a client bug, a patched build, or a future caller (e.g. admin tooling) writing to `interests` directly. Rejected for the same reason ADR 0001 rejected it for the Wali Gate, with a higher-stakes failure mode since this one gates revenue.
+- Database-level (chosen) — one migration to write and test, applies uniformly to mobile and web without either needing to stay in sync, and can't be bypassed by a client bug or a new caller.

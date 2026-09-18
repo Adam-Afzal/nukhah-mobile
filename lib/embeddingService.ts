@@ -18,6 +18,7 @@ interface ProfileData {
   date_of_birth?: string;
   build?: string;
   prayer_consistency?: string;
+  aqeedah?: string;
   beard_commitment?: string;
   hijab_commitment?: string;
   open_to_polygyny?: boolean;
@@ -59,6 +60,7 @@ export function generateWhoIAmText(profile: ProfileData): string {
   if (profile.marital_status) parts.push(`Marital status: ${profile.marital_status}`);
   if (profile.children !== undefined) parts.push(`Has children: ${profile.children ? 'yes' : 'no'}`);
   if (profile.prayer_consistency) parts.push(`Prayer consistency: ${profile.prayer_consistency}`);
+  if (profile.aqeedah) parts.push(`Aqeedah: ${profile.aqeedah}`);
   if (profile.open_to_hijrah !== undefined) parts.push(`Open to hijrah: ${profile.open_to_hijrah ? 'yes' : 'no'}`);
   if (profile.willing_to_relocate !== undefined) parts.push(`Willing to relocate: ${profile.willing_to_relocate ? 'yes' : 'no'}`);
   if (profile.beard_commitment) parts.push(`Beard: ${profile.beard_commitment}`);

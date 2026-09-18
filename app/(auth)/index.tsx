@@ -25,6 +25,12 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 type Tab = 'local' | 'discover';
 
+// Anyone at or above this compatibility_score gets pulled into the "Top
+// Matches" section instead of the regular sorted list, capped at the top N
+// by score (ties broken by the unrounded score itself, not display order).
+const TOP_MATCH_THRESHOLD = 0.7;
+const MAX_TOP_MATCHES = 10;
+
 interface Profile {
   id: string;
   username: string;
@@ -1021,16 +1027,23 @@ export default function SearchScreen() {
 
   const renderProfileCard = ({ item }: { item: Profile }) => {
     const age = calculateAge(item.date_of_birth);
+    const isTopMatch = (item.compatibility_score ?? 0) >= TOP_MATCH_THRESHOLD;
 
     return (
       <TouchableOpacity
-        style={styles.profileCard}
+        key={item.id}
+        style={[styles.profileCard, isTopMatch && styles.topMatchCard]}
         onPress={() => router.push({
           pathname: `/profile/${item.id}`,
           params: { from: 'search' }
         })}
       >
         <View style={styles.profileHeader}>
+          {isTopMatch && (
+            <View style={styles.topMatchBadge}>
+              <Text style={styles.topMatchBadgeText}>⭐ Top Match</Text>
+            </View>
+          )}
           {item.open_to_polygyny && (
             <View style={styles.polygynyBadge}>
               <Text style={styles.polygynyText}>Polygyny-Open</Text>
@@ -1181,6 +1194,12 @@ export default function SearchScreen() {
     );
   }
 
+  const topMatches = filteredProfiles
+    .filter(p => (p.compatibility_score ?? 0) >= TOP_MATCH_THRESHOLD)
+    .slice(0, MAX_TOP_MATCHES);
+  const topMatchIds = new Set(topMatches.map(p => p.id));
+  const regularProfiles = filteredProfiles.filter(p => !topMatchIds.has(p.id));
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -1223,12 +1242,18 @@ export default function SearchScreen() {
       </View>
 
       <FlatList
-        data={filteredProfiles}
+        data={regularProfiles}
         renderItem={renderProfileCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         ListHeaderComponent={
           <>
+            {topMatches.length > 0 && (
+              <View style={styles.topMatchesSection}>
+                <Text style={styles.topMatchesSectionTitle}>⭐ Top Matches</Text>
+                {topMatches.map((item) => renderProfileCard({ item }))}
+              </View>
+            )}
             {activeTab === 'local' && currentUserMasjidId ? (
               <View style={styles.localBanner}>
                 <Text style={styles.localBannerText}>
@@ -1370,6 +1395,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#070A12',
   },
+  topMatchesSection: {
+    marginBottom: 8,
+  },
+  topMatchesSectionTitle: {
+    fontFamily: 'PlayfairDisplay_700Bold_Italic',
+    fontSize: 18,
+    color: '#070A12',
+    marginBottom: 12,
+  },
   profileCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -1378,9 +1412,27 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
+  topMatchCard: {
+    borderWidth: 2,
+    borderColor: '#F2CC66',
+  },
   profileHeader: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+  },
+  topMatchBadge: {
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#F2CC66',
+  },
+  topMatchBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    lineHeight: 12,
+    color: '#070A12',
   },
   polygynyBadge: {
     backgroundColor: '#F8F1DA',

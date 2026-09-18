@@ -119,9 +119,28 @@ export default function VerificationStatusScreen() {
       .eq('id', profile.masjid_id)
       .single();
 
+    // imam_verified only distinguishes verified from not-yet-verified — a decline
+    // leaves it false just like a still-pending request (see CONTEXT.md "Imam
+    // Verification"). Check the real status so a rejected request doesn't show
+    // as "Pending" forever. This is the user's own row, so owner RLS on
+    // imam_verification covers it directly (no need for the public
+    // imam_verification_status view profile/[id].tsx uses for other users).
+    let status: 'pending' | 'verified' | 'rejected' = 'pending';
+    if (profile.imam_verified) {
+      status = 'verified';
+    } else {
+      const { data: verification } = await supabase
+        .from('imam_verification')
+        .select('status')
+        .eq('user_id', profileId)
+        .eq('user_type', type)
+        .maybeSingle();
+      status = verification?.status === 'rejected' ? 'rejected' : 'pending';
+    }
+
     setImamVerification({
       id: profile.masjid_id,
-      status: profile.imam_verified ? 'verified' : 'pending',
+      status,
       masjid_id: profile.masjid_id,
       masjid: masjid ? { name: masjid.name } : null,
     });
@@ -543,6 +562,13 @@ export default function VerificationStatusScreen() {
               ))}
 
               {/* Add reference form */}
+              <View style={styles.warningBanner}>
+                <Text style={styles.warningBannerIcon}>⚠️</Text>
+                <Text style={styles.warningBannerText}>
+                  Please do not add an imam as a character reference
+                </Text>
+              </View>
+
               <Text style={styles.pickLabel}>Add a reference</Text>
 
               <View style={styles.inputGroup}>
@@ -702,6 +728,19 @@ const styles = StyleSheet.create({
   checkboxChecked: { backgroundColor: '#F2CC66', borderColor: '#F2CC66' },
   checkboxTick: { fontSize: 11, color: '#070A12', fontFamily: 'Inter_700Bold' },
   checkboxLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19, color: '#070A12' },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F2CC66',
+    marginBottom: 16,
+  },
+  warningBannerIcon: { fontSize: 16, lineHeight: 19 },
+  warningBannerText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 13, lineHeight: 18, color: '#070A12' },
   saveButton: {
     backgroundColor: '#070A12',
     borderRadius: 8,

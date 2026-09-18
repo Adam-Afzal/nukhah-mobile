@@ -18,7 +18,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import Svg, { Path } from 'react-native-svg';
 
 type AccountType = 'brother' | 'sister';
@@ -49,6 +49,7 @@ interface ProfileData {
 
   // Deen
   prayer_consistency: string;
+  aqeedah: string;
 
   // Preferences
   open_to_hijrah: boolean;
@@ -154,6 +155,7 @@ export default function ProfileSetup() {
     hobbies_and_interests: '',
     personality: '',
     prayer_consistency: '',
+    aqeedah: '',
     open_to_hijrah: false,
     willing_to_relocate: false,
     living_arrangements: '',
@@ -355,6 +357,10 @@ export default function ProfileSetup() {
           Alert.alert('Missing Information', 'Please select your prayer consistency');
           return false;
         }
+        if (!profileData.aqeedah) {
+          Alert.alert('Missing Information', 'Please select your aqeedah');
+          return false;
+        }
         if (accountType === 'brother' && !profileData.beard_commitment) {
           Alert.alert('Missing Information', 'Please select your beard commitment');
           return false;
@@ -408,6 +414,7 @@ export default function ProfileSetup() {
         hobbies_and_interests: profileData.hobbies_and_interests,
         personality: profileData.personality,
         prayer_consistency: profileData.prayer_consistency,
+        aqeedah: profileData.aqeedah,
         open_to_hijrah: profileData.open_to_hijrah,
         willing_to_relocate: profileData.willing_to_relocate,
         living_arrangements: profileData.living_arrangements,
@@ -433,6 +440,7 @@ export default function ProfileSetup() {
         date_of_birth: profileData.date_of_birth,
         build: profileData.build,
         prayer_consistency: profileData.prayer_consistency,
+        aqeedah: profileData.aqeedah,
       };
 
       if (accountType === 'brother') {
@@ -541,6 +549,7 @@ export default function ProfileSetup() {
           onChangeText={(text) => updateField('first_name', text)}
           placeholder="Enter your first name"
           placeholderTextColor="#7B8799"
+          spellCheck={true}
         />
       </View>
 
@@ -552,6 +561,7 @@ export default function ProfileSetup() {
           onChangeText={(text) => updateField('last_name', text)}
           placeholder="Enter your last name"
           placeholderTextColor="#7B8799"
+          spellCheck={true}
         />
       </View>
 
@@ -698,6 +708,7 @@ export default function ProfileSetup() {
             onChangeText={(text) => updateField('occupation', text)}
             placeholder="e.g., Software Engineer, Student, Unemployed"
             placeholderTextColor="#7B8799"
+            spellCheck={true}
           />
         </View>
 
@@ -751,6 +762,21 @@ export default function ProfileSetup() {
           </View>
         </View>
 
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Aqeedah *</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={profileData.aqeedah}
+              onValueChange={(value) => updateField('aqeedah', value)}
+              itemStyle={styles.pickerItem}
+            >
+              <Picker.Item label="Select aqeedah" value="" />
+              <Picker.Item label="Salafi/Ahlul Hadith" value="salafi_ahlul_hadith" />
+              <Picker.Item label="Other" value="other" />
+            </Picker>
+          </View>
+        </View>
+
         {accountType === 'sister' && (
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Hijab Commitment *</Text>
@@ -798,6 +824,7 @@ export default function ProfileSetup() {
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={3}
+          spellCheck={true}
         />
       </View>
 
@@ -811,6 +838,7 @@ export default function ProfileSetup() {
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={3}
+          spellCheck={true}
         />
       </View>
 
@@ -824,6 +852,7 @@ export default function ProfileSetup() {
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={4}
+          spellCheck={true}
         />
       </View>
 
@@ -855,6 +884,7 @@ export default function ProfileSetup() {
               onChangeText={(text) => updateField('wali_name', text)}
               placeholder="Full name of your wali"
               placeholderTextColor="#7B8799"
+              spellCheck={true}
             />
           </View>
 
@@ -866,6 +896,7 @@ export default function ProfileSetup() {
               onChangeText={(text) => updateField('wali_relationship', text)}
               placeholder="e.g. Father, Brother, Uncle"
               placeholderTextColor="#7B8799"
+              spellCheck={true}
             />
           </View>
 
@@ -1045,6 +1076,7 @@ export default function ProfileSetup() {
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={4}
+          spellCheck={true}
         />
       </View>
 
@@ -1058,6 +1090,7 @@ export default function ProfileSetup() {
           placeholderTextColor="#7B8799"
           multiline
           numberOfLines={4}
+          spellCheck={true}
         />
       </View>
     </View>
@@ -1077,8 +1110,7 @@ export default function ProfileSetup() {
       <KeyboardAwareScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
-        enableOnAndroid={true}
-        extraScrollHeight={20}
+        bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>

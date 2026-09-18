@@ -1,4 +1,5 @@
 // app/(imam)/login.tsx
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -67,6 +68,11 @@ export default function ImamLoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
+        {/* Back Button */}
+        <AnimatedPressable style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </AnimatedPressable>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>🕌</Text>
@@ -137,6 +143,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingVertical: 60,
     justifyContent: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    left: 28,
+  },
+  backButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#070A12',
   },
   header: {
     alignItems: 'center',

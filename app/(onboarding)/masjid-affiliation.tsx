@@ -285,7 +285,7 @@ const loadMasajid = async (location?: string) => {
 
   return (
     <View style={styles.container}>
-      <OnboardingProgress currentStep={3} />
+      <OnboardingProgress currentStep={2} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

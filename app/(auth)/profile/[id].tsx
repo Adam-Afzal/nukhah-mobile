@@ -39,6 +39,7 @@ interface ProfileData {
   children?: boolean;
   disabilities?: string;
   prayer_consistency?: string;
+  aqeedah?: string;
   beard_commitment?: string;
   hijab_commitment?: string;
   open_to_polygyny?: boolean;
@@ -174,8 +175,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const BROTHER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, beard_commitment, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified, hidden';
-  const SISTER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, hijab_commitment, open_to_polygyny, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, applied_by_wali, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified, hidden';
+  const BROTHER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, aqeedah, beard_commitment, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified, hidden';
+  const SISTER_FIELDS = 'id, username, date_of_birth, location_country, location_city, ethnicity, marital_status, build, occupation, prayer_consistency, aqeedah, hijab_commitment, open_to_polygyny, children, open_to_hijrah, disabilities, personality, hobbies_and_interests, living_arrangements, other_spouse_criteria, dealbreakers, preferred_ethnicity, applied_by_wali, is_masjid_affiliated, imam_verified, masjid_id, revert, willing_to_relocate, references_verified, hidden';
 
   const loadProfile = async (userId: string | null, acctType: 'brother' | 'sister' | null) => {
     if (!id) return;
@@ -374,12 +375,18 @@ export default function ProfileScreen() {
 
     const canAct = userStatus?.testingMode || userStatus?.paid;
     if (!canAct) {
+      const recipientType = profileType || (accountType === 'brother' ? 'sister' : 'brother');
       Alert.alert(
         'Membership Required',
         'You need an active membership to express interest. Join now for £19.99/month.',
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
+          {
+            text: 'Get Membership', onPress: () => router.push({
+              pathname: '/(auth)/payment',
+              params: { action: 'express', profileId: id, currentUserId, accountType, recipientType },
+            })
+          },
         ]
       );
       return;
@@ -440,7 +447,12 @@ export default function ProfileScreen() {
         'You need an active membership to accept interest. Join now for £19.99/month.',
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
+          {
+            text: 'Get Membership', onPress: () => router.push({
+              pathname: '/(auth)/payment',
+              params: { action: 'accept', profileId: id, receivedInterestId },
+            })
+          },
         ]
       );
       return;
@@ -495,7 +507,12 @@ export default function ProfileScreen() {
         'You need an active membership to manage interests. Join now for £19.99/month.',
         [
           { text: 'Not Now', style: 'cancel' },
-          { text: 'Get Membership', onPress: () => router.push('/(onboarding)/payment') },
+          {
+            text: 'Get Membership', onPress: () => router.push({
+              pathname: '/(auth)/payment',
+              params: { action: 'reject', profileId: id, receivedInterestId },
+            })
+          },
         ]
       );
       return;
@@ -598,6 +615,7 @@ export default function ProfileScreen() {
       heavyset: 'Heavyset',
       average: 'Average',
       curvaceous: 'Curvaceous',
+      curvy_athletic: 'Curvy Athletic',
       hourglass: 'Hourglass',
     };
     return labels[build] || build;
@@ -607,15 +625,20 @@ export default function ProfileScreen() {
     if (type === 'hijab') {
       const labels: Record<string, string> = {
         niqab: 'Niqab',
+        hijab: 'Hijab',
+        open_hair: 'Open Hair',
+        // Legacy values from before the picker was simplified — kept so old
+        // profiles with these still saved don't show a raw DB value.
         hijab_abaya: 'Hijab + Abaya',
         hijab_western_clothing: 'Hijab + Western',
-        open_hair: 'Open Hair',
       };
       return labels[covering] || covering;
     } else {
       const labels: Record<string, string> = {
+        full_beard: 'Full Beard',
         full_sunnah_beard: 'Full Sunnah Beard',
         trimmed_beard: 'Trimmed Beard',
+        mustache_only: 'Mustache Only',
         clean_shaven: 'Clean Shaven',
       };
       return labels[covering] || covering;
@@ -779,13 +802,27 @@ export default function ProfileScreen() {
                 <Text style={styles.infoLabel}>Prayer</Text>
                 <Text style={styles.infoValue}>
                   {({
+                    '5x_daily': '5x daily',
+                    as_much_as_possible: 'As much as possible',
+                    never: 'Never',
+                    // Legacy values from before the picker was simplified.
                     always_on_time: 'Always on time',
                     usually_on_time: 'Usually on time',
                     sometimes_miss: 'Sometimes misses',
                     struggling: 'Working on it',
-                    '5x_daily': '5x daily',
-                    as_much_as_possible: 'As much as possible',
                   } as Record<string, string>)[profile.prayer_consistency] ?? profile.prayer_consistency}
+                </Text>
+              </View>
+            )}
+
+            {profile.aqeedah && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Aqeedah</Text>
+                <Text style={styles.infoValue}>
+                  {({
+                    salafi_ahlul_hadith: 'Salafi/Ahlul Hadith',
+                    other: 'Other',
+                  } as Record<string, string>)[profile.aqeedah] ?? profile.aqeedah}
                 </Text>
               </View>
             )}
@@ -849,12 +886,13 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>Living Arrangements</Text>
             <Text style={styles.longText}>
               {({
-                with_family: 'With family',
+                own_property_no_mortgage: 'Own property (no mortgage)',
+                own_property_with_mortgage: 'Own property (with mortgage)',
                 renting: 'Renting',
-                own_property: 'Own property',
-                'Own Property (No Mortgage)': 'Own property (no mortgage)',
-                'Own Property (With Mortgage)': 'Own property (with mortgage)',
+                with_family: 'With family',
                 flexible: 'Flexible',
+                // Legacy values from before the mortgage split was added.
+                own_property: 'Own property',
                 student_accommodation: 'Student accommodation',
               } as Record<string, string>)[profile.living_arrangements] ?? profile.living_arrangements}
             </Text>

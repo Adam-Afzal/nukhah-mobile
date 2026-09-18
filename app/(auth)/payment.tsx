@@ -1,12 +1,14 @@
 // app/(auth)/payment.tsx
+import { acceptInterest, expressInterest, rejectInterest } from '@/lib/interestService';
 import {
   getOfferings,
   purchaseMonthly,
   restorePurchases,
 } from '@/lib/paymentService';
 import { queryClient } from '@/lib/queryClient';
+import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,12 +20,59 @@ import {
   View,
 } from 'react-native';
 
+// Pending action this screen was launched to unblock — set by the "Get
+// Membership" prompts in profile/[id].tsx when the interest-action gate
+// stops a user with no active subscription. Absent when this screen is
+// reached some other way (e.g. a future Settings "Upgrade" entry point).
+type PendingAction =
+  | { action: 'express'; profileId: string; currentUserId: string; accountType: 'brother' | 'sister'; recipientType: 'brother' | 'sister' }
+  | { action: 'accept'; profileId: string; receivedInterestId: string }
+  | { action: 'reject'; profileId: string; receivedInterestId: string };
+
+// subscribers.subscribed is only updated once the RevenueCat webhook lands
+// (supabase/functions/revenuecat-webhook), which happens asynchronously
+// after purchaseMonthly() already resolved — poll briefly rather than
+// immediately retrying the gated action against a stale row.
+async function waitForSubscribed(maxAttempts = 5, delayMs = 1500): Promise<boolean> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const { data } = await supabase
+      .from('subscribers')
+      .select('subscribed')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (data?.subscribed === true) return true;
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+
+  return false;
+}
+
 export default function PaymentScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    action?: 'express' | 'accept' | 'reject';
+    profileId?: string;
+    currentUserId?: string;
+    accountType?: 'brother' | 'sister';
+    recipientType?: 'brother' | 'sister';
+    receivedInterestId?: string;
+  }>();
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   const [priceString, setPriceString] = useState('£19.99/month');
+
+  const pendingAction: PendingAction | null =
+    params.action === 'express' && params.profileId && params.currentUserId && params.accountType && params.recipientType
+      ? { action: 'express', profileId: params.profileId, currentUserId: params.currentUserId, accountType: params.accountType, recipientType: params.recipientType }
+      : (params.action === 'accept' || params.action === 'reject') && params.profileId && params.receivedInterestId
+      ? { action: params.action, profileId: params.profileId, receivedInterestId: params.receivedInterestId }
+      : null;
 
   useEffect(() => {
     loadOfferings();
@@ -44,15 +93,56 @@ export default function PaymentScreen() {
     }
   };
 
+  // Returns to the profile screen the gate interrupted (if any), and
+  // re-attempts the action that got blocked now that the purchase is
+  // confirmed. Falls through to a plain "try again" message if the
+  // subscribers row still hasn't synced within the poll window.
+  const finalizeAndResume = async () => {
+    queryClient.setQueryData(['userStatus'], (old: any) =>
+      old ? { ...old, paid: true } : old
+    );
+
+    if (!pendingAction) {
+      router.replace('/(auth)');
+      return;
+    }
+
+    setFinalizing(true);
+    const confirmed = await waitForSubscribed();
+    queryClient.invalidateQueries({ queryKey: ['userStatus'] });
+    setFinalizing(false);
+
+    if (!confirmed) {
+      Alert.alert(
+        'Almost there',
+        "Your payment was successful, but it's still finalizing. Please try again in a moment.",
+        [{ text: 'OK', onPress: () => router.replace({ pathname: '/(auth)/profile/[id]', params: { id: pendingAction.profileId } }) }]
+      );
+      return;
+    }
+
+    let result: { success: boolean; error?: string };
+    if (pendingAction.action === 'express') {
+      result = await expressInterest(pendingAction.currentUserId, pendingAction.accountType, pendingAction.profileId, pendingAction.recipientType);
+    } else if (pendingAction.action === 'accept') {
+      result = await acceptInterest(pendingAction.receivedInterestId);
+    } else {
+      result = await rejectInterest(pendingAction.receivedInterestId);
+    }
+
+    if (!result.success) {
+      Alert.alert('Membership Active', result.error || "You're subscribed, but that action couldn't be completed automatically — please try again.");
+    }
+
+    router.replace({ pathname: '/(auth)/profile/[id]', params: { id: pendingAction.profileId } });
+  };
+
   const handleSubscribe = async () => {
     setPurchasing(true);
     try {
       const success = await purchaseMonthly();
       if (success) {
-        queryClient.setQueryData(['userStatus'], (old: any) =>
-          old ? { ...old, paid: true } : old
-        );
-        router.replace('/(onboarding)/profile-setup');
+        await finalizeAndResume();
       }
     } catch (error: any) {
       // Don't alert on user cancellation
@@ -69,12 +159,7 @@ export default function PaymentScreen() {
     try {
       const success = await restorePurchases();
       if (success) {
-        queryClient.setQueryData(['userStatus'], (old: any) =>
-          old ? { ...old, paid: true } : old
-        );
-        Alert.alert('Restored', 'Your subscription has been restored.', [
-          { text: 'OK', onPress: () => router.replace('/(onboarding)/profile-setup') },
-        ]);
+        await finalizeAndResume();
       } else {
         Alert.alert('No Subscription Found', 'No active subscription was found to restore.');
       }
@@ -85,6 +170,15 @@ export default function PaymentScreen() {
       setRestoring(false);
     }
   };
+
+  if (finalizing) {
+    return (
+      <View style={[styles.container, styles.finalizingContainer]}>
+        <ActivityIndicator size="large" color="#F2CC66" />
+        <Text style={styles.finalizingText}>Finalizing your membership...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -189,6 +283,16 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+  },
+  finalizingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  finalizingText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
+    color: '#7B8799',
   },
   topGradient: {
     height: 320,

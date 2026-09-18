@@ -27,7 +27,7 @@ export default function ProfileIntroScreen() {
 
   return (
     <View style={styles.container}>
-      <OnboardingProgress currentStep={2} />
+      <OnboardingProgress currentStep={1} />
 
       <View style={styles.content}>
         <View style={styles.header}>

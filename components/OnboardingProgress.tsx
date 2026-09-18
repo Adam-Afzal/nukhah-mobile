@@ -1,9 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-const STEPS = ['Payment', 'Profile', 'Masjid', 'Reference'];
+const STEPS = ['Profile', 'Masjid', 'Reference'];
 
 interface Props {
-  currentStep: 1 | 2 | 3 | 4;
+  currentStep: 1 | 2 | 3;
 }
 
 export default function OnboardingProgress({ currentStep }: Props) {

@@ -257,12 +257,20 @@ export default function ReferencesScreen() {
 
   return (
     <View style={styles.container}>
-      <OnboardingProgress currentStep={4} />
+      <OnboardingProgress currentStep={3} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Warning Banner */}
+        <View style={styles.warningBanner}>
+          <Text style={styles.warningBannerIcon}>⚠️</Text>
+          <Text style={styles.warningBannerText}>
+            Please do not add an imam as a character reference
+          </Text>
+        </View>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Character Reference</Text>
@@ -406,6 +414,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingTop: 16,
     paddingBottom: 120,
+  },
+  warningBanner: {
+    backgroundColor: '#FFF9E6',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#F2CC66',
+  },
+  warningBannerIcon: {
+    fontSize: 18,
+    lineHeight: 21,
+  },
+  warningBannerText: {
+    flex: 1,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#070A12',
   },
   header: {
     marginBottom: 32,

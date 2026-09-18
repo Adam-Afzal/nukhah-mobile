@@ -40,17 +40,11 @@ export default function AuthLayout() {
       setTimeout(() => { isNavigatingRef.current = false; }, 100);
     };
 
-    // Step 1: Payment — only gate users who haven't completed onboarding yet.
-    // Existing users (profile complete) are let through; interest actions gate them instead.
-    if (!userStatus.paid && !userStatus.testingMode && !userStatus.onboardingCompleted) {
-      if (onboardingPage !== 'payment') {
-        console.log('Not paid, no testing mode → payment');
-        navigate('/(onboarding)/payment');
-      }
-      return;
-    }
+    // Payment is not an onboarding step. Membership is enforced only at
+    // interest-action time (see docs/adr/0003) — profile setup, masjid
+    // affiliation, and references are free for everyone.
 
-    // Step 2: Profile setup (profile-intro leads directly into profile-setup)
+    // Step 1: Profile setup (profile-intro leads directly into profile-setup)
     if (!userStatus.hasProfile) {
       const profilePages = ['profile-intro', 'profile-setup'];
       if (!profilePages.includes(onboardingPage || '')) {
@@ -60,7 +54,7 @@ export default function AuthLayout() {
       return;
     }
 
-    // Step 3: Masjid affiliation
+    // Step 2: Masjid affiliation
     if (!userStatus.hasMasjidAffiliation) {
       if (onboardingPage !== 'masjid-affiliation') {
         console.log('No masjid affiliation → masjid-affiliation');
@@ -69,7 +63,7 @@ export default function AuthLayout() {
       return;
     }
 
-    // Step 4: Reference (required before accessing main app)
+    // Step 3: Reference (required before accessing main app)
     if (!userStatus.hasReferences) {
       if (onboardingPage !== 'references') {
         console.log('No references → references');

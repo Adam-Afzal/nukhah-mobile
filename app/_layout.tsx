@@ -13,6 +13,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import 'react-native-reanimated';
 
 // Configure how notifications are presented while the app is in foreground
@@ -206,81 +207,83 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'fade',
-            contentStyle: { backgroundColor: '#070A12' },
-          }}
-        >
-          <Stack.Screen 
-            name="index" 
-            options={{ 
-              headerShown: false,
-              animation: 'none',
-            }} 
-          />
-          <Stack.Screen 
-            name="splash" 
-            options={{ 
-              headerShown: false,
-              animation: 'none',
-            }} 
-          />
-          <Stack.Screen 
-            name="welcome" 
-            options={{ 
+    <KeyboardProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack
+            screenOptions={{
               headerShown: false,
               animation: 'fade',
-            }} 
-          />
-          <Stack.Screen 
-            name="login" 
-            options={{ 
-              headerShown: false,
-              animation: 'slide_from_right',
-            }} 
-          />
-          <Stack.Screen
-            name="(sign-up)"
-            options={{
-              headerShown: false,
-              animation: 'slide_from_right',
-            }} 
-          />
-          <Stack.Screen 
-            name="(auth)" 
-            options={{ 
-              headerShown: false,
-              animation: 'fade',
-            }} 
-          />
-          <Stack.Screen
-            name="(imam)"
-            options={{
-              headerShown: false,
-              animation: 'fade',
+              contentStyle: { backgroundColor: '#070A12' },
             }}
-          />
-          <Stack.Screen
-            name="(onboarding)"
-            options={{
-              headerShown: false,
-              animation: 'slide_from_right',
-            }}
-          />
-          <Stack.Screen 
-            name="modal" 
-            options={{ 
-              presentation: 'modal', 
-              title: 'Modal',
-            }} 
-          />
-        </Stack>
-        <StatusBar style="light" />
-      </ThemeProvider>
-    </QueryClientProvider>
+          >
+            <Stack.Screen
+              name="index"
+              options={{
+                headerShown: false,
+                animation: 'none',
+              }}
+            />
+            <Stack.Screen
+              name="splash"
+              options={{
+                headerShown: false,
+                animation: 'none',
+              }}
+            />
+            <Stack.Screen
+              name="welcome"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen
+              name="login"
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="(sign-up)"
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="(auth)"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen
+              name="(imam)"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen
+              name="(onboarding)"
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
+              }}
+            />
+            <Stack.Screen
+              name="modal"
+              options={{
+                presentation: 'modal',
+                title: 'Modal',
+              }}
+            />
+          </Stack>
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </KeyboardProvider>
   );
 }

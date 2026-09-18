@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     if (profile.marital_status) whoIAmParts.push(`Marital status: ${profile.marital_status}`)
     if (profile.children !== undefined) whoIAmParts.push(`Has children: ${profile.children ? 'yes' : 'no'}`)
     if (profile.prayer_consistency) whoIAmParts.push(`Prayer consistency: ${profile.prayer_consistency}`)
+    if (profile.aqeedah) whoIAmParts.push(`Aqeedah: ${profile.aqeedah}`)
     if (profile.open_to_hijrah !== undefined) whoIAmParts.push(`Open to hijrah: ${profile.open_to_hijrah ? 'yes' : 'no'}`)
     if (profile.beard_commitment) whoIAmParts.push(`Beard: ${profile.beard_commitment}`)
     if (profile.hijab_commitment) whoIAmParts.push(`Hijab: ${profile.hijab_commitment}`)

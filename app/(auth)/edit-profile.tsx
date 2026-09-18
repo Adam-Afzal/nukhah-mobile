@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 type AccountType = 'brother' | 'sister';
 
@@ -37,6 +37,7 @@ interface ProfileData {
   other_spouse_criteria: string;
   dealbreakers: string;
   prayer_consistency: string;
+  aqeedah: string;
   // Brother-specific
   beard_commitment?: string;
   // Sister-specific
@@ -114,6 +115,7 @@ export default function EditProfileScreen() {
     other_spouse_criteria: '',
     dealbreakers: '',
     prayer_consistency: '',
+    aqeedah: '',
     beard_commitment: '',
     open_to_polygyny: false,
   });
@@ -160,6 +162,7 @@ export default function EditProfileScreen() {
           other_spouse_criteria: brotherData.other_spouse_criteria || '',
           dealbreakers: brotherData.dealbreakers || '',
           prayer_consistency: brotherData.prayer_consistency || '',
+          aqeedah: brotherData.aqeedah || '',
           beard_commitment: brotherData.beard_commitment || '',
         });
         setIsLoading(false);
@@ -194,6 +197,7 @@ export default function EditProfileScreen() {
           other_spouse_criteria: sisterData.other_spouse_criteria || '',
           dealbreakers: sisterData.dealbreakers || '',
           prayer_consistency: sisterData.prayer_consistency || '',
+          aqeedah: sisterData.aqeedah || '',
           open_to_polygyny: sisterData.open_to_polygyny || false,
           applied_by_wali: sisterData.applied_by_wali || false,
           wali_name: sisterData.wali_name || '',
@@ -282,6 +286,11 @@ export default function EditProfileScreen() {
       return;
     }
 
+    if (!formData.aqeedah) {
+      Alert.alert('Validation Error', 'Aqeedah is required');
+      return;
+    }
+
     if (!formData.personality.trim()) {
       Alert.alert('Validation Error', 'Personality is required');
       return;
@@ -312,6 +321,7 @@ export default function EditProfileScreen() {
         other_spouse_criteria: formData.other_spouse_criteria.trim(),
         dealbreakers: formData.dealbreakers.trim(),
         prayer_consistency: formData.prayer_consistency,
+        aqeedah: formData.aqeedah,
       };
 
       if (accountType === 'brother') {
@@ -377,8 +387,7 @@ export default function EditProfileScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        enableOnAndroid={true}
-        extraScrollHeight={20}
+        bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
         {/* Back Button */}
@@ -509,6 +518,21 @@ export default function EditProfileScreen() {
                 <Picker.Item label="5x a Day" value="5x_daily" />
                 <Picker.Item label="As Much as Possible" value="as_much_as_possible" />
                 <Picker.Item label="Never" value="never" />
+              </Picker>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Aqeedah *</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={formData.aqeedah}
+                onValueChange={(value) => setFormData({ ...formData, aqeedah: value })}
+                itemStyle={styles.pickerItem}
+              >
+                <Picker.Item label="Select aqeedah" value="" />
+                <Picker.Item label="Salafi/Ahlul Hadith" value="salafi_ahlul_hadith" />
+                <Picker.Item label="Other" value="other" />
               </Picker>
             </View>
           </View>

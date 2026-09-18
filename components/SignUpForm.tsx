@@ -4,7 +4,7 @@ import { COUNTRIES } from '@/lib/locationData';
 import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import {
   StyleSheet,
   Text,
@@ -128,9 +128,7 @@ export default function SignUpForm({ accountType }: SignUpFormProps) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        enableOnAndroid={true}
-        enableAutomaticScroll={true}
-        extraScrollHeight={20}
+        bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
           {/* Header */}
@@ -210,6 +208,8 @@ export default function SignUpForm({ accountType }: SignUpFormProps) {
                 onChangeText={(text) => updateField('email', text)}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoComplete="username"
+                textContentType="username"
               />
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
@@ -252,6 +252,8 @@ export default function SignUpForm({ accountType }: SignUpFormProps) {
                 onChangeText={(text) => updateField('password', text)}
                 secureTextEntry
                 autoCapitalize="none"
+                autoComplete="password"
+                textContentType="password"
               />
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>

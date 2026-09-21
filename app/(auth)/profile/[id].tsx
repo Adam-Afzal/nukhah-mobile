@@ -378,7 +378,7 @@ export default function ProfileScreen() {
       const recipientType = profileType || (accountType === 'brother' ? 'sister' : 'brother');
       Alert.alert(
         'Membership Required',
-        'You need an active membership to express interest. Join now for £19.99/month.',
+        'You need an active membership to express interest.',
         [
           { text: 'Not Now', style: 'cancel' },
           {
@@ -444,7 +444,7 @@ export default function ProfileScreen() {
     if (!canAct) {
       Alert.alert(
         'Membership Required',
-        'You need an active membership to accept interest. Join now for £19.99/month.',
+        'You need an active membership to accept interest.',
         [
           { text: 'Not Now', style: 'cancel' },
           {
@@ -504,7 +504,7 @@ export default function ProfileScreen() {
     if (!canAct) {
       Alert.alert(
         'Membership Required',
-        'You need an active membership to manage interests. Join now for £19.99/month.',
+        'You need an active membership to manage interests.',
         [
           { text: 'Not Now', style: 'cancel' },
           {

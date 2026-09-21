@@ -1,4 +1,5 @@
 // app/(auth)/payment.tsx
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 import { acceptInterest, expressInterest, rejectInterest } from '@/lib/interestService';
 import {
   getOfferings,
@@ -65,7 +66,7 @@ export default function PaymentScreen() {
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [priceString, setPriceString] = useState('£19.99/month');
+  const [priceString, setPriceString] = useState('£14.99/month');
 
   const pendingAction: PendingAction | null =
     params.action === 'express' && params.profileId && params.currentUserId && params.accountType && params.recipientType
@@ -180,6 +181,14 @@ export default function PaymentScreen() {
     );
   }
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(auth)');
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       {/* Top gradient section */}
@@ -189,6 +198,10 @@ export default function PaymentScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.topGradient}
       >
+        <AnimatedPressable style={styles.backButton} onPress={handleBack}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </AnimatedPressable>
+
         {/* Icon */}
         <View style={styles.iconContainer}>
           <View style={styles.memberCircle}>
@@ -232,7 +245,7 @@ export default function PaymentScreen() {
               </View>
               <View style={styles.benefitRow}>
                 <Text style={styles.benefitCheck}>&#10003;</Text>
-                <Text style={styles.benefitText}>Imam-verified community members</Text>
+                <Text style={styles.benefitText}>Masjid-verified community members</Text>
               </View>
             </View>
 
@@ -299,6 +312,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 1,
+  },
+  backButtonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#F2CC66',
   },
   iconContainer: {
     marginBottom: 24,

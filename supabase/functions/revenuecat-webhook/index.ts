@@ -30,6 +30,12 @@ serve(async (req) => {
       return new Response('No event', { status: 400 })
     }
 
+    // Temporary diagnostic logging — see Supabase Edge Function logs for
+    // this function to inspect the exact payload RevenueCat sends. Remove
+    // once the expires_at/product_id anomaly (see nukhah-mobile session
+    // notes, 2026-09-19) is understood.
+    console.log('RevenueCat webhook event:', JSON.stringify(event))
+
     const eventType: string = event.type
     const appUserId: string = event.app_user_id // This is the Supabase user_id (we logIn with it)
     const expirationMs: number | null = event.expiration_at_ms ?? null
@@ -44,7 +50,7 @@ serve(async (req) => {
 
     if (ACTIVE_EVENTS.has(eventType)) {
       // Subscription active — ensure subscribed = true and update expiry
-      await supabase.from('subscribers').upsert({
+      const { error: upsertError } = await supabase.from('subscribers').upsert({
         user_id: appUserId,
         subscribed: true,
         provider: 'revenuecat',
@@ -54,24 +60,27 @@ serve(async (req) => {
         expires_at: expiresAt,
         cancelled_at: null,
       }, { onConflict: 'user_id' })
+      if (upsertError) console.error('subscribers upsert failed:', JSON.stringify(upsertError))
 
     } else if (EXPIRED_EVENTS.has(eventType)) {
       // Subscription fully expired — revoke access
-      await supabase.from('subscribers')
+      const { error: expireError } = await supabase.from('subscribers')
         .update({
           subscribed: false,
           expires_at: expiresAt,
         })
         .eq('user_id', appUserId)
+      if (expireError) console.error('subscribers expire-update failed:', JSON.stringify(expireError))
 
     } else if (CANCELLED_EVENTS.has(eventType)) {
       // Cancelled but still active until expiry — record cancellation, keep access
-      await supabase.from('subscribers')
+      const { error: cancelError } = await supabase.from('subscribers')
         .update({
           cancelled_at: new Date().toISOString(),
           expires_at: expiresAt,
         })
         .eq('user_id', appUserId)
+      if (cancelError) console.error('subscribers cancel-update failed:', JSON.stringify(cancelError))
 
     } else if (BILLING_ISSUE_EVENTS.has(eventType)) {
       // Payment failed — RevenueCat will retry; we log but don't revoke yet
